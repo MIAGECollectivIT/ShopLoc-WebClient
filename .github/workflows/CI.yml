@@ -3,7 +3,36 @@ name: CI
 on:
   pull_request:
     branches: [ "main", "dev" ]
-    # Globally ignore files that have no impact on the build execution
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
+  push:
+    branches: [ "main", "dev" ]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+
+jobs:
+  frontend-ci:
+    name: Frontend Quality & Build (ShopLoc)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./shoploc
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type check (Astro & TypeScript)
+        run: npm run check
+
+      - name: Build frontend
+        run: npm run build

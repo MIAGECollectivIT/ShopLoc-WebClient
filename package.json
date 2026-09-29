@@ -1,6 +1,13 @@
 {
   "name": "miage-collectivit",
   "version": "1.0.0",
+  "scripts": {
+    "prepare": "husky",
+    "dev": "npm --prefix shoploc run dev",
+    "build": "npm --prefix shoploc run build",
+    "preview": "npm --prefix shoploc run preview",
+    "check": "npm --prefix shoploc run check"
+  },
   "dependencies": {
     "husky": "^9.1.7"
   }

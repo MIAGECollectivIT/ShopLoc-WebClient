@@ -1,29 +1,22 @@
 #!/bin/sh
 
 echo "=== [STRATEGY] Commencing pre-commit auto-formatting & checks ==="
+
 # --- FRONTEND ---
-# lint-staged formats and lints staged files automatically
-# npx lint-staged || {
-#  echo "❌ [FRONTEND ERROR] Linting failed. Fix your logic. Commit aborted."
-#  exit 1
-#}
-echo "[FRONTEND] Linter not defined yet."
+if [ -d "shoploc" ]; then
+  echo "   -> Checking Frontend (Astro & TypeScript verification)..."
+  npm --prefix shoploc run check || {
+    echo "❌ [FRONTEND ERROR] Frontend type check failed. Fix your logic. Commit aborted."
+    exit 1
+  }
+  echo "   -> Building Frontend to ensure build integrity..."
+  npm --prefix shoploc run build || {
+    echo "❌ [FRONTEND ERROR] Frontend build failed. Fix your code. Commit aborted."
+    exit 1
+  }
+else
+  echo "[FRONTEND] shoploc folder not found, skipping."
+fi
 
-# --- BACKEND ---
-#./mvnw spotless:apply || {
-#  echo "❌ [BACKEND ERROR] Spotless failed to format. Commit aborted."
-#  exit 1
-#}
-echo "[BACKEND] Linter not defined yet."
-
-
-#cd project/back || exit 1
-#echo "   -> Compiling tests (Syntax check)..."
-#./mvnw clean test-compile || {
-#  echo "❌ [BACKEND ERROR] Compilation failed. Commit aborted."
-#  exit 1
-#}
-
-echo "[Testing] Testing folders not defined yet."
 
 echo "✅ [STRATEGY] Code automatically formatted and verified. Commit authorized."
