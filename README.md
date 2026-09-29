@@ -1,6 +1,6 @@
-# ShopLoc - Web App
+# ShopLoc - WebClient
 
-Web application for the **ShopLoc** platform.
+WebClient application (`shoploc-webclient`) for the **ShopLoc** platform.
 
 
 ## Table of Contents
