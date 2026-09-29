@@ -6,7 +6,11 @@
     "dev": "npm --prefix shoploc run dev",
     "build": "npm --prefix shoploc run build",
     "preview": "npm --prefix shoploc run preview",
-    "check": "npm --prefix shoploc run check"
+    "check": "npm --prefix shoploc run check",
+    "lint": "npm --prefix shoploc run lint",
+    "lint:fix": "npm --prefix shoploc run lint:fix",
+    "format": "npm --prefix shoploc run format",
+    "format:check": "npm --prefix shoploc run format:check"
   },
   "dependencies": {
     "husky": "^9.1.7"

@@ -36,6 +36,10 @@ The frontend application is located in the [`shoploc/`](./shoploc) directory and
 - **Tailwind CSS** (v4 with `@tailwindcss/vite`): Modern utility-first responsive styling
 - **Lucide React**: Clean, customizable icon set
 - **TypeScript**: Strict static type checking
+- **ESLint** & **eslint-plugin-astro**: Static code analysis and linting (with `typescript-eslint`)
+- **Prettier** & **prettier-plugin-astro**: Automated code formatting across Astro, TypeScript, and CSS
+- **lint-staged**: Runs linters and formatters only against Git-staged files
+
 
 ## 2. Installation & Setup
 
@@ -59,6 +63,7 @@ cd shoploc
 npm install
 ```
 
+
 ## 3. Launch & Test
 
 ### 3.1. Local Development (Node.js)
@@ -69,6 +74,10 @@ Convenience scripts are available directly from the project root:
 | :--- | :--- | :--- |
 | `npm run dev` | `npm run dev` | Starts the local dev server (`http://localhost:4321`) |
 | `npm run check` | `npm run check` | Verifies TypeScript types and Astro file diagnostics |
+| `npm run lint` | `npm run lint` | Lints code using ESLint |
+| `npm run lint:fix` | `npm run lint:fix` | Fixes autofixable ESLint errors |
+| `npm run format` | `npm run format` | Formats all code with Prettier |
+| `npm run format:check` | `npm run format:check` | Checks code formatting without modifying files |
 | `npm run build` | `npm run build` | Builds the production bundle (`shoploc/dist/`) |
 | `npm run preview` | `npm run preview` | Previews the production build locally |
 
@@ -96,11 +105,11 @@ The application will be accessible at `http://localhost:3000`.
 ```text
 ├── .github/
 │   ├── workflows/
-│   │   ├── CI.yml               # Continuous Integration (Type check & Build)
+│   │   ├── CI.yml               # Continuous Integration (Format, Lint, Check & Build)
 │   │   └── CD.yml               # Continuous Deployment & Semantic Release
 │   └── pull_request_template.md # Pull Request template
 ├── .husky/
-│   └── pre-commit               # Git pre-commit hook script
+│   └── pre-commit               # Git pre-commit hook (lint-staged, check, build)
 ├── shoploc/                     # Frontend Application (Astro + React)
 │   ├── public/                  # Static assets (favicons, logos, images)
 │   ├── src/
@@ -110,9 +119,12 @@ The application will be accessible at `http://localhost:3000`.
 │   │   │   └── index.astro      # Home page
 │   │   └── styles/
 │   │       └── global.css       # Global Tailwind CSS stylesheet
+│   ├── .prettierrc.mjs          # Prettier configuration (prettier-plugin-astro)
+│   ├── .prettierignore          # Files and folders excluded from Prettier
+│   ├── eslint.config.mjs        # ESLint flat configuration (Astro & TypeScript)
 │   ├── astro.config.mjs         # Astro integrations & Node SSR adapter config
 │   ├── tsconfig.json            # TypeScript configuration (react-jsx)
-│   └── package.json             # ShopLoc dependencies and npm scripts
+│   └── package.json             # ShopLoc dependencies, scripts & lint-staged config
 ├── .dockerignore                # Excludes host artifacts from Docker build
 ├── docker-compose.yml           # Docker Compose definition (frontend service)
 ├── Dockerfile                   # Multi-stage Docker build for Astro SSR
@@ -134,11 +146,14 @@ This repository adheres to the **Conventional Commits** standard to automate ver
 
 #### 5.2.1 (Husky) Pre-commit
 A pre-commit hook runs automatically on every Git commit to:
-1. Validate TypeScript typings and Astro syntax (`npm --prefix shoploc run check`).
-2. Verify production build integrity (`npm --prefix shoploc run build`).
+1. **Run `lint-staged`**: Automatically format modified files with **Prettier** and fix lint issues with **ESLint**.
+2. **Type Check**: Validate TypeScript typings and Astro syntax (`npm run check`).
+3. **Build Verification**: Ensure production build integrity (`npm run build`).
 
 If the hook aborts your commit, run manually to diagnose:
 ```bash
+npm run format:check
+npm run lint
 npm run check
 # and/or
 npm run build
@@ -147,7 +162,7 @@ npm run build
 #### 5.2.2 GitHub Actions (CI / CD)
 - **CI (`CI.yml`)**:
   - Automatically triggered on **Pull Request** and **Push** targeting `main` and `dev` branches.
-  - Runs fresh dependencies installation, type checking (`npm run check`), and production build (`npm run build`).
+  - Runs fresh dependencies installation (`npm ci`), Prettier formatting check (`npm run format:check`), ESLint linting (`npm run lint`), TypeScript check (`npm run check`), and production build (`npm run build`).
 - **CD (`CD.yml`)**:
   - Triggered on **Push** to the `main` branch.
   - Automatically handles semantic version calculation, Git tagging, and GitHub release creation via Semantic Release.

@@ -40,7 +40,9 @@ export const ShopLocHero: React.FC = () => {
           Vos commerçants locaux à portée de clic
         </h1>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-          Projet initialisé avec <strong>Astro</strong>, <strong>React</strong>, <strong>Tailwind CSS</strong>, <strong>Lucide React</strong> et <strong>TypeScript</strong>.
+          Projet initialisé avec <strong>Astro</strong>, <strong>React</strong>,{' '}
+          <strong>Tailwind CSS</strong>, <strong>Lucide React</strong> et{' '}
+          <strong>TypeScript</strong>.
         </p>
       </header>
 

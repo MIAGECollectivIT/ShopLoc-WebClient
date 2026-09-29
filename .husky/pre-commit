@@ -2,13 +2,19 @@
 
 echo "=== [STRATEGY] Commencing pre-commit auto-formatting & checks ==="
 
-# --- FRONTEND ---
 if [ -d "shoploc" ]; then
+  echo "   -> Running lint-staged (ESLint & Prettier on staged files)..."
+  (cd shoploc && npx lint-staged) || {
+    echo "❌ [FRONTEND ERROR] Linting or formatting failed. Fix your code. Commit aborted."
+    exit 1
+  }
+
   echo "   -> Checking Frontend (Astro & TypeScript verification)..."
   npm --prefix shoploc run check || {
     echo "❌ [FRONTEND ERROR] Frontend type check failed. Fix your logic. Commit aborted."
     exit 1
   }
+
   echo "   -> Building Frontend to ensure build integrity..."
   npm --prefix shoploc run build || {
     echo "❌ [FRONTEND ERROR] Frontend build failed. Fix your code. Commit aborted."
@@ -17,6 +23,5 @@ if [ -d "shoploc" ]; then
 else
   echo "[FRONTEND] shoploc folder not found, skipping."
 fi
-
 
 echo "✅ [STRATEGY] Code automatically formatted and verified. Commit authorized."
