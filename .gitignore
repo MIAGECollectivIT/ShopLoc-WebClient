@@ -3,6 +3,7 @@
 
 ## Additionnals ingores
 package-lock.json
+!shoploc/package-lock.json
 
 
 

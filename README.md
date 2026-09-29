@@ -10,6 +10,8 @@ Web application for the **ShopLoc** platform.
   - [2.1. Root Initialization & Husky](#21-root-initialization--husky)
   - [2.2. Frontend Dependencies (ShopLoc)](#22-frontend-dependencies-shoploc)
 - [3. Launch & Test](#3-launch--test)
+  - [3.1. Local Development (Node.js)](#31-local-development-nodejs)
+  - [3.2. Running with Docker](#32-running-with-docker)
 - [4. Project Structure](#4-project-structure)
 - [5. Workflow](#5-workflow)
   - [5.1 Semantic Versioning](#51-semantic-versioning)
@@ -22,6 +24,7 @@ Web application for the **ShopLoc** platform.
 
 - **Node.js**: `>= 22.12.0` (v24 recommended)
 - **npm**: `>= 10.0.0`
+- **Docker & Docker Compose** (for containerized execution)
 - **Git**
 
 
@@ -58,6 +61,8 @@ npm install
 
 ## 3. Launch & Test
 
+### 3.1. Local Development (Node.js)
+
 Convenience scripts are available directly from the project root:
 
 | Command (Root) | Command (inside `shoploc/`) | Description |
@@ -66,6 +71,23 @@ Convenience scripts are available directly from the project root:
 | `npm run check` | `npm run check` | Verifies TypeScript types and Astro file diagnostics |
 | `npm run build` | `npm run build` | Builds the production bundle (`shoploc/dist/`) |
 | `npm run preview` | `npm run preview` | Previews the production build locally |
+
+### 3.2. Running with Docker
+
+Run the Astro SSR application using Docker Compose:
+
+```bash
+# Build and run container in background
+docker compose up --build -d
+
+# View container logs
+docker compose logs -f frontend
+
+# Stop containers
+docker compose down
+```
+
+The application will be accessible at `http://localhost:3000`.
 
 ---
 
@@ -88,9 +110,12 @@ Convenience scripts are available directly from the project root:
 │   │   │   └── index.astro      # Home page
 │   │   └── styles/
 │   │       └── global.css       # Global Tailwind CSS stylesheet
-│   ├── astro.config.mjs         # Astro integrations configuration (React & Tailwind)
+│   ├── astro.config.mjs         # Astro integrations & Node SSR adapter config
 │   ├── tsconfig.json            # TypeScript configuration (react-jsx)
 │   └── package.json             # ShopLoc dependencies and npm scripts
+├── .dockerignore                # Excludes host artifacts from Docker build
+├── docker-compose.yml           # Docker Compose definition (frontend service)
+├── Dockerfile                   # Multi-stage Docker build for Astro SSR
 ├── package.json                 # Root dependencies (Husky) and shortcut scripts
 └── README.md
 ```

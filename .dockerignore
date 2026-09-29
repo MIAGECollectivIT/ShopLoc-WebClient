@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+shoploc/node_modules
+shoploc/dist
+shoploc/.astro
+.git
+.github
+.husky
+.idea
+.vscode
+dist
