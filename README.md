@@ -106,7 +106,8 @@ The application will be accessible at `http://localhost:3000`.
 ├── .github/
 │   ├── workflows/
 │   │   ├── CI.yml               # Continuous Integration (Format, Lint, Check & Build)
-│   │   └── CD.yml               # Continuous Deployment & Semantic Release
+│   │   ├── cd-dev.yml           # Continuous Deployment to Dev (Build Docker & deploy to K3s)
+│   │   └── cd-prod.yml          # Continuous Deployment to Prod (Semantic Release, Docker & K3s)
 │   └── pull_request_template.md # Pull Request template
 ├── .husky/
 │   └── pre-commit               # Git pre-commit hook (lint-staged, check, build)
@@ -160,9 +161,22 @@ npm run build
 ```
 
 #### 5.2.2 GitHub Actions (CI / CD)
+
 - **CI (`CI.yml`)**:
-  - Automatically triggered on **Pull Request** and **Push** targeting `main` and `dev` branches.
-  - Runs fresh dependencies installation (`npm ci`), Prettier formatting check (`npm run format:check`), ESLint linting (`npm run lint`), TypeScript check (`npm run check`), and production build (`npm run build`).
-- **CD (`CD.yml`)**:
-  - Triggered on **Push** to the `main` branch.
-  - Automatically handles semantic version calculation, Git tagging, and GitHub release creation via Semantic Release.
+  - **Trigger**: Pull Requests and Pushes targeting `main` and `dev` branches.
+  - **Steps**: Fresh dependency installation (`npm ci`), Prettier format check (`npm run format:check`), ESLint linting (`npm run lint`), TypeScript check (`npm run check`), and production build verification (`npm run build`).
+
+- **CD Dev (`cd-dev.yml`)**:
+  - **Trigger**: Push to the `dev` branch or manual trigger (`workflow_dispatch`).
+  - **Jobs**:
+    1. **Frontend Quality & Build**: Runs full frontend validation (`format:check`, `lint`, `check`, `build`).
+    2. **Build & Push Docker**: Builds the frontend Docker image and pushes it to GitHub Container Registry tagged with `ghcr.io/<repo>:dev`.
+    3. **Deploy to K3s Dev**: Updates the Kubernetes deployment in the development namespace (`kubectl set image`) and triggers a rollout restart.
+
+- **CD Prod (`cd-prod.yml`)**:
+  - **Trigger**: Push to the `main` branch or manual trigger (`workflow_dispatch`).
+  - **Jobs**:
+    1. **Frontend Quality & Build**: Runs full frontend validation (`format:check`, `lint`, `check`, `build`).
+    2. **Semantic Release**: Calculates the next version tag from Conventional Commits, creates a GitHub Release and Git tag (e.g. `v1.2.0`).
+    3. **Build & Push Docker**: Builds the production Docker image and publishes it to GHCR with the new version tag (`:vX.Y.Z`) and `:latest`.
+    4. **Deploy to K3s Prod**: Deploys the tagged release image to the production namespace on the K3s cluster.
