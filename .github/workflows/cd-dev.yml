@@ -12,24 +12,37 @@ concurrency:
 
 jobs:
   # ==========================================
-  # JOB 1: TESTS & MAVEN COMPILATION
+  # JOB 1: FRONTEND QUALITY & BUILD
   # ==========================================
   test:
-    name: Maven Test & Verify
+    name: Frontend Quality & Build
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./shoploc
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          distribution: 'temurin'
-          java-version: ${{ vars.JAVA_VERSION }}
-          cache: 'maven'
+          node-version: 22
 
-      - name: Run Maven Tests and Verification
-        run: mvn clean verify
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Code formatting check (Prettier)
+        run: npm run format:check
+
+      - name: Code linting (ESLint)
+        run: npm run lint
+
+      - name: Type check (Astro & TypeScript)
+        run: npm run check
+
+      - name: Build frontend
+        run: npm run build
 
   # ==========================================
   # JOB 2: BUILD & PUSH DOCKER IMAGE (ARM64)
@@ -58,13 +71,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Lowercase Repository Name
+        run: |
+          echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
       - name: Build and Push
         uses: docker/build-push-action@v5
         with:
           context: .
           platforms: linux/arm64
           push: true
-          tags: ghcr.io/${{ github.repository }}:dev
+          tags: ghcr.io/${{ env.REPO_LOWER }}:dev
 
   # ==========================================
   # JOB 3: DEPLOY TO K3S (DEV)
