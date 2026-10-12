@@ -26,28 +26,28 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #231f20;
+  --foreground: #000;
   --card: #ffffff;
-  --card-foreground: #231f20;
-  --primary: #231f20;
+  --card-foreground: #000;
+  --primary: #000;
   --primary-foreground: #ffffff;
   --secondary: #f5f5f5;
-  --secondary-foreground: #231f20;
+  --secondary-foreground: #000;
   --muted: #f5f5f5;
   --muted-foreground: #666666;
   --border: #e5e5e5;
   --destructive: #b91c1c;
-  --ring: #231f20;
+  --ring: #000;
   --radius: 0.25rem;
 }
 
 .dark {
-  --background: #231f20;
+  --background: #000;
   --foreground: #ffffff;
-  --card: #231f20;
+  --card: #000;
   --card-foreground: #ffffff;
   --primary: #ffffff;
-  --primary-foreground: #231f20;
+  --primary-foreground: #000;
   --secondary: #171717;
   --secondary-foreground: #ffffff;
   --muted: #171717;
