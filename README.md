@@ -30,9 +30,9 @@ WebClient application (`shoploc-webclient`) for the **ShopLoc** platform.
 
 ## 1. Tech Stack
 
-The frontend application is located in the [`shoploc/`](./shoploc) directory and is built with:
 - **Astro**: Content-driven, performance-focused web framework using island architecture
 - **React** (v19): Component library for interactive client-side islands
+- **shadcn/ui** (base-nova style with `@base-ui/react`): Accessible, customizable UI component system
 - **Tailwind CSS** (v4 with `@tailwindcss/vite`): Modern utility-first responsive styling
 - **Lucide React**: Clean, customizable icon set
 - **TypeScript**: Strict static type checking
@@ -114,12 +114,30 @@ The application will be accessible at `http://localhost:3000`.
 ├── shoploc/                     # Frontend Application (Astro + React)
 │   ├── public/                  # Static assets (favicons, logos, images)
 │   ├── src/
-│   │   ├── components/          # React and Astro components (.tsx, .astro)
-│   │   │   └── ShopLocHero.tsx  # Example React component with Lucide & Tailwind
-│   │   ├── pages/               # Astro routes and pages
-│   │   │   └── index.astro      # Home page
-│   │   └── styles/
-│   │       └── global.css       # Global Tailwind CSS stylesheet
+│   │   ├── components/          # React & Astro components
+│   │   │   ├── ui/              # shadcn/ui primitives (sidebar, avatar, dialog, switch, etc.)
+│   │   │   ├── AppShell.tsx     # Root React shell with SidebarProvider & SidebarInset
+│   │   │   ├── AppSidebar.tsx   # Interactive sidebar (Profile, Wallet, Settings & Help)
+│   │   │   ├── Header.tsx       # Top app bar with SidebarTrigger, Nav & ModeToggle
+│   │   │   ├── MainNav.tsx      # Navigation link menu
+│   │   │   ├── ModeToggle.tsx   # Light / Dark / System theme switcher
+│   │   │   ├── PageContainer.astro # Standardized page container with title and icon
+│   │   │   ├── ShopCard.tsx     # Reusable shop card component
+│   │   │   ├── BaseHead.astro   # HTML head, SEO tags & theme script (FOUC prevention)
+│   │   │   └── Footer.astro     # Responsive site footer
+│   │   ├── config/              # Centralized route definitions (routes.ts)
+│   │   ├── hooks/               # Custom hooks (e.g., useIsMobile)
+│   │   ├── layouts/             # Astro layouts (Layout.astro)
+│   │   ├── lib/                 # Utility helpers (utils.ts, api.ts)
+│   │   ├── pages/               # Astro routes & SSR pages
+│   │   │   ├── shops/           # Shop list & dynamic detail routes ([id].astro)
+│   │   │   ├── cart.astro       # Shopping cart page
+│   │   │   ├── catalog.astro    # Product catalog page
+│   │   │   └── index.astro      # Home landing page
+│   │   ├── styles/
+│   │   │   └── global.css       # Global stylesheet (Tailwind v4 theme variables)
+│   │   └── types/               # TypeScript interfaces & types (e.g. shop.ts)
+│   ├── components.json          # shadcn/ui CLI configuration
 │   ├── .prettierrc.mjs          # Prettier configuration (prettier-plugin-astro)
 │   ├── .prettierignore          # Files and folders excluded from Prettier
 │   ├── eslint.config.mjs        # ESLint flat configuration (Astro & TypeScript)
