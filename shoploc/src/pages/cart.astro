@@ -1,0 +1,43 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PageContainer from '../components/PageContainer.astro';
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from '../components/ui/empty';
+import { buttonVariants } from '../components/ui/button';
+import { ROUTES } from '../config/routes';
+import { ShoppingBag } from 'lucide-react';
+---
+
+<Layout
+  title="Mon Panier — ShopLoc"
+  description="Retrouvez les articles ajoutés lors de vos commandes locales."
+>
+  <PageContainer
+    title="Mon Panier"
+    description="Retrouvez les articles ajoutés lors de vos commandes locales."
+    icon={ROUTES.cart.icon}
+  >
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <ShoppingBag />
+        </EmptyMedia>
+        <EmptyTitle>Votre panier est vide</EmptyTitle>
+        <EmptyDescription>
+          Explorez les commerçants de votre ville pour ajouter vos premiers produits.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <a href={ROUTES.catalog.path} class={buttonVariants({ variant: 'default', size: 'sm' })}>
+          Explorer le catalogue
+        </a>
+      </EmptyContent>
+    </Empty>
+  </PageContainer>
+</Layout>

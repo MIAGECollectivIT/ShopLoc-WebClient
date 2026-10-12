@@ -1,0 +1,44 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PageContainer from '../components/PageContainer.astro';
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from '../components/ui/empty';
+import { buttonVariants } from '../components/ui/button';
+import { ROUTES } from '../config/routes';
+import { PackageOpen } from 'lucide-react';
+---
+
+<Layout
+  title="Catalogue — ShopLoc"
+  description="Consultez l'ensemble des offres et produits des commerçants partenaires."
+>
+  <PageContainer
+    title="Catalogue des produits"
+    description="Consultez l'ensemble des offres et produits des commerçants partenaires."
+    icon={ROUTES.catalog.icon}
+  >
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <PackageOpen />
+        </EmptyMedia>
+        <EmptyTitle>Catalogue en cours d'alimentation</EmptyTitle>
+        <EmptyDescription>
+          Les commerçants partenaires préparent actuellement leurs offres et produits. Revenez
+          bientôt !
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <a href={ROUTES.shops.path} class={buttonVariants({ variant: 'default', size: 'sm' })}>
+          Découvrir les boutiques
+        </a>
+      </EmptyContent>
+    </Empty>
+  </PageContainer>
+</Layout>
