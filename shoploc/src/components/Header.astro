@@ -1,0 +1,28 @@
+---
+import { Store } from 'lucide-react';
+import { MainNav } from './MainNav';
+import { ModeToggle } from './ModeToggle';
+
+interface Props {
+  currentPath: string;
+}
+
+const { currentPath } = Astro.props;
+---
+
+<header class="border-b">
+  <div class="max-w-5xl mx-auto flex h-14 items-center justify-between gap-4 px-4 sm:px-6">
+    <div class="flex items-center gap-6">
+      <a href="/" class="flex items-center gap-2 font-semibold">
+        <span>ShopLoc</span>
+        <span class="text-xs text-muted-foreground font-normal border-l pl-2 hidden sm:inline">
+          Collectiv'IT
+        </span>
+      </a>
+
+      <MainNav client:load currentPath={currentPath} />
+    </div>
+
+    <ModeToggle client:load />
+  </div>
+</header>

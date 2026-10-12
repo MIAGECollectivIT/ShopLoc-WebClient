@@ -1,22 +1,42 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { ShoppingCart } from 'lucide-react';
+import PageContainer from '../components/PageContainer.astro';
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from '../components/ui/empty';
+import { buttonVariants } from '../components/ui/button';
+import { ShoppingCart, ShoppingBag } from 'lucide-react';
 ---
 
-<Layout title="Mon Panier — ShopLoc">
-  <main class="max-w-5xl mx-auto p-4 sm:p-6 space-y-4">
-    <div class="flex items-center gap-3 border-b pb-4">
-      <ShoppingCart className="size-6 text-primary" />
-      <div>
-        <h1 class="text-xl font-bold tracking-tight">Mon Panier</h1>
-        <p class="text-xs text-muted-foreground">
-          Retrouvez les articles ajoutés lors de vos commandes locales.
-        </p>
-      </div>
-    </div>
-
-    <div class="rounded-lg border border-dashed p-8 text-center text-muted-foreground">
-      <p class="text-sm">Votre panier est actuellement vide.</p>
-    </div>
-  </main>
+<Layout
+  title="Mon Panier — ShopLoc"
+  description="Retrouvez les articles ajoutés lors de vos commandes locales."
+>
+  <PageContainer
+    title="Mon Panier"
+    description="Retrouvez les articles ajoutés lors de vos commandes locales."
+    icon={ShoppingCart}
+  >
+    <Empty>
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <ShoppingBag />
+        </EmptyMedia>
+        <EmptyTitle>Votre panier est vide</EmptyTitle>
+        <EmptyDescription>
+          Explorez les commerçants de votre ville pour ajouter vos premiers produits.
+        </EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <a href="/catalogue" class={buttonVariants({ variant: 'default', size: 'sm' })}>
+          Explorer le catalogue
+        </a>
+      </EmptyContent>
+    </Empty>
+  </PageContainer>
 </Layout>
