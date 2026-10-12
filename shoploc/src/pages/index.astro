@@ -1,20 +1,36 @@
 ---
-import '../styles/global.css';
-import { ShopLocHero } from '../components/ShopLocHero';
+import Layout from '../layouts/Layout.astro';
+import { ShopCard } from '../components/ShopCard';
+import { getShops } from '../lib/api';
+import { AlertCircle } from 'lucide-react';
+import type { Shop } from '../types/shop';
+
+let shops: Shop[] = [];
+let error: string | null = null;
+
+try {
+  shops = await getShops();
+} catch (err: unknown) {
+  console.error('Erreur lors de la récupération des boutiques:', err);
+  error = 'Impossible de récupérer les données des boutiques.';
+}
 ---
 
-<html lang="fr">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="generator" content={Astro.generator} />
-    <title>ShopLoc - Application Web</title>
-  </head>
-  <body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
-    <main>
-      <ShopLocHero client:load />
-    </main>
-  </body>
-</html>
+<Layout title="Boutiques — ShopLoc">
+  <main class="max-w-5xl mx-auto p-4 sm:p-6">
+    {error && (
+      <div class="border border-destructive p-4 text-destructive flex items-center gap-2">
+        <AlertCircle className="size-4 shrink-0" />
+        <p class="text-sm">{error}</p>
+      </div>
+    )}
+
+    {!error && shops.length > 0 && (
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        {shops.map((shop) => (
+          <ShopCard shop={shop} />
+        ))}
+      </div>
+    )}
+  </main>
+</Layout>

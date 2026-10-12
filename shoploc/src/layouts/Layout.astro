@@ -1,0 +1,48 @@
+---
+import '../styles/global.css';
+import { Store } from 'lucide-react';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = "ShopLoc — Collectiv'IT",
+  description = "Application de fidélité pour l'ensemble des commerçants d'une municipalité",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="fr" class="h-full antialiased">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+  </head>
+  <body class="min-h-full flex flex-col bg-background text-foreground">
+    <header class="border-b">
+      <div class="max-w-5xl mx-auto flex h-12 items-center justify-between px-4 sm:px-6">
+        <a href="/" class="flex items-center gap-2 font-semibold">
+          <Store className="size-4" />
+          <span>ShopLoc</span>
+          <span class="text-xs text-muted-foreground font-normal border-l pl-2">Collectiv'IT</span>
+        </a>
+      </div>
+    </header>
+
+    <div class="flex-1">
+      <slot />
+    </div>
+
+    <footer class="border-t py-4 text-center text-xs text-muted-foreground">
+      <div class="max-w-5xl mx-auto px-4 flex items-center justify-between">
+        <p>© ShopLoc</p>
+        <p>Éco-conception</p>
+      </div>
+    </footer>
+  </body>
+</html>
