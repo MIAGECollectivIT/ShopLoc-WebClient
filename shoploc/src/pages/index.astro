@@ -1,65 +1,104 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import PageContainer from '../components/PageContainer.astro';
-import { ShopCard } from '../components/ShopCard';
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-} from '../components/ui/empty';
-import { getShops } from '../lib/api';
-import { AlertCircle, Store } from 'lucide-react';
-import type { Shop } from '../types/shop';
-
-let shops: Shop[] = [];
-let error: string | null = null;
-
-try {
-  shops = await getShops();
-} catch (err: unknown) {
-  console.error('Erreur lors de la récupération des boutiques:', err);
-  error = 'Impossible de récupérer les données des boutiques.';
-}
+import { buttonVariants } from '../components/ui/button';
+import { Card, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { ROUTES } from '../config/routes';
+import { Store, BookOpen, ShoppingBag, Award, ArrowRight } from 'lucide-react';
 ---
 
 <Layout
-  title="Boutiques — ShopLoc"
-  description="Découvrez l'ensemble des commerçants partenaires de votre municipalité."
+  title="Accueil — ShopLoc"
+  description="L'application de fidélité pour dynamiser le commerce local de votre ville."
 >
-  <PageContainer
-    title="Commerçants partenaires"
-    description="Découvrez l'ensemble des commerçants de votre municipalité et cumulez vos points fidélité."
-    icon={Store}
-  >
-    {error && (
-      <div class="border border-destructive p-4 text-destructive flex items-center gap-2">
-        <AlertCircle className="size-4 shrink-0" />
-        <p class="text-sm">{error}</p>
-      </div>
-    )}
+  <div class="max-w-5xl mx-auto p-4 sm:p-6 space-y-10">
+    <!-- Hero Section -->
+    <section class="flex flex-col items-center text-center py-10 sm:py-16 space-y-4 rounded-2xl bg-gradient-to-b from-muted/50 to-transparent border px-4">
+      <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight max-w-2xl leading-tight">
+        Soutenez vos commerçants locaux avec{' '}
+        <span class="text-primary underline decoration-primary/30">ShopLoc</span>
+      </h1>
 
-    {!error && shops.length > 0 && (
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {shops.map((shop) => (
-          <ShopCard shop={shop} />
-        ))}
-      </div>
-    )}
+      <p class="text-sm sm:text-base text-muted-foreground max-w-xl">
+        Découvrez les commerces de votre municipalité, cumulez des avantages fidélité et commandez
+        vos produits en circuit court.
+      </p>
 
-    {!error && shops.length === 0 && (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <Store />
-          </EmptyMedia>
-          <EmptyTitle>Aucune boutique trouvée</EmptyTitle>
-          <EmptyDescription>
-            Il n'y a pour le moment aucun commerçant enregistré dans votre zone.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    )}
-  </PageContainer>
+      <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+        <a href={ROUTES.shops.path} class={buttonVariants({ variant: 'default', size: 'default' })}>
+          <Store className="size-4 mr-1.5" />
+          Découvrir les boutiques
+        </a>
+        <a
+          href={ROUTES.catalog.path}
+          class={buttonVariants({ variant: 'outline', size: 'default' })}
+        >
+          <BookOpen className="size-4 mr-1.5" />
+          Parcourir le catalogue
+        </a>
+      </div>
+    </section>
+
+    <!-- Key Features Section -->
+    <section class="space-y-4">
+      <div class="border-b pb-2">
+        <h2 class="text-lg font-semibold tracking-tight">Pourquoi choisir ShopLoc ?</h2>
+        <p class="text-xs text-muted-foreground">
+          Une expérience pensée pour les citoyens et les artisans locaux.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader>
+            <div class="size-9 rounded-lg bg-muted flex items-center justify-center text-primary mb-2">
+              <Store className="size-5" />
+            </div>
+            <CardTitle>Commerces de proximité</CardTitle>
+            <CardDescription>
+              Localisez vos boulangeries, épiceries et artisans préférés au cœur de votre ville.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div class="size-9 rounded-lg bg-muted flex items-center justify-center text-primary mb-2">
+              <Award className="size-5" />
+            </div>
+            <CardTitle>Programme de fidélité unifié</CardTitle>
+            <CardDescription>
+              Cumulez des points et récompenses partagés pour soutenir l’économie de votre commune.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div class="size-9 rounded-lg bg-muted flex items-center justify-center text-primary mb-2">
+              <ShoppingBag className="size-5" />
+            </div>
+            <CardTitle>Commandes & Click and Collect</CardTitle>
+            <CardDescription>
+              Préparez votre panier en ligne et récupérez vos achats directement chez vos
+              commerçants.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    </section>
+
+    <!-- Quick Actions Banner -->
+    <section class="rounded-xl border bg-card p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>
+        <h3 class="text-base font-semibold">Prêt à explorer les commerçants ?</h3>
+        <p class="text-xs text-muted-foreground">
+          Consultez la liste des boutiques partenaires prêtes à vous accueillir.
+        </p>
+      </div>
+      <a href={ROUTES.shops.path} class={buttonVariants({ variant: 'default', size: 'sm' })}>
+        Voir toutes les boutiques
+        <ArrowRight className="size-4 ml-1.5" />
+      </a>
+    </section>
+  </div>
 </Layout>

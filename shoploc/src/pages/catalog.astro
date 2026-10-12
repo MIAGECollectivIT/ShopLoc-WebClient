@@ -10,7 +10,8 @@ import {
   EmptyContent,
 } from '../components/ui/empty';
 import { buttonVariants } from '../components/ui/button';
-import { BookOpen, PackageOpen } from 'lucide-react';
+import { ROUTES } from '../config/routes';
+import { PackageOpen } from 'lucide-react';
 ---
 
 <Layout
@@ -20,7 +21,7 @@ import { BookOpen, PackageOpen } from 'lucide-react';
   <PageContainer
     title="Catalogue des produits"
     description="Consultez l'ensemble des offres et produits des commerçants partenaires."
-    icon={BookOpen}
+    icon={ROUTES.catalog.icon}
   >
     <Empty>
       <EmptyHeader>
@@ -34,7 +35,7 @@ import { BookOpen, PackageOpen } from 'lucide-react';
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <a href="/" class={buttonVariants({ variant: 'default', size: 'sm' })}>
+        <a href={ROUTES.shops.path} class={buttonVariants({ variant: 'default', size: 'sm' })}>
           Découvrir les boutiques
         </a>
       </EmptyContent>

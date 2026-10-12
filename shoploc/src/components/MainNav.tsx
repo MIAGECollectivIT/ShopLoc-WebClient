@@ -5,43 +5,25 @@ import {
   NavigationMenuList,
   navigationMenuTriggerStyle,
 } from '@/components/ui/navigation-menu';
-import { Store, BookOpen, ShoppingCart } from 'lucide-react';
+import { NAV_ROUTES } from '@/config/routes';
 
 interface NavMenuProps {
   currentPath?: string;
 }
 
 export function MainNav({ currentPath = '/' }: NavMenuProps) {
-  const navItems = [
-    {
-      title: 'Magasins',
-      href: '/',
-      icon: Store,
-    },
-    {
-      title: 'Catalogue',
-      href: '/catalogue',
-      icon: BookOpen,
-    },
-    {
-      title: 'Panier',
-      href: '/panier',
-      icon: ShoppingCart,
-    },
-  ];
-
   return (
     <NavigationMenu>
       <NavigationMenuList className="gap-1">
-        {navItems.map((item) => {
+        {NAV_ROUTES.map((item) => {
           const Icon = item.icon;
           const isActive =
-            currentPath === item.href || (item.href !== '/' && currentPath.startsWith(item.href));
+            item.path === '/' ? currentPath === '/' : currentPath.startsWith(item.path);
 
           return (
-            <NavigationMenuItem key={item.href}>
+            <NavigationMenuItem key={item.path}>
               <NavigationMenuLink
-                href={item.href}
+                href={item.path}
                 className={navigationMenuTriggerStyle({
                   className: `gap-1.5 cursor-pointer text-xs sm:text-sm font-medium ${
                     isActive
@@ -51,7 +33,7 @@ export function MainNav({ currentPath = '/' }: NavMenuProps) {
                 })}
               >
                 <Icon className="size-4 shrink-0" />
-                <span>{item.title}</span>
+                <span>{item.label}</span>
               </NavigationMenuLink>
             </NavigationMenuItem>
           );

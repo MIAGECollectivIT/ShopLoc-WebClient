@@ -10,7 +10,8 @@ import {
   EmptyContent,
 } from '../components/ui/empty';
 import { buttonVariants } from '../components/ui/button';
-import { ShoppingCart, ShoppingBag } from 'lucide-react';
+import { ROUTES } from '../config/routes';
+import { ShoppingBag } from 'lucide-react';
 ---
 
 <Layout
@@ -20,7 +21,7 @@ import { ShoppingCart, ShoppingBag } from 'lucide-react';
   <PageContainer
     title="Mon Panier"
     description="Retrouvez les articles ajoutés lors de vos commandes locales."
-    icon={ShoppingCart}
+    icon={ROUTES.cart.icon}
   >
     <Empty>
       <EmptyHeader>
@@ -33,7 +34,7 @@ import { ShoppingCart, ShoppingBag } from 'lucide-react';
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <a href="/catalogue" class={buttonVariants({ variant: 'default', size: 'sm' })}>
+        <a href={ROUTES.catalog.path} class={buttonVariants({ variant: 'default', size: 'sm' })}>
           Explorer le catalogue
         </a>
       </EmptyContent>

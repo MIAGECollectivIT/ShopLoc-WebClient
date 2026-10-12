@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ROUTES } from '@/config/routes';
 
 interface ShopCardProps {
   shop: Shop;
@@ -43,7 +44,7 @@ export function ShopCard({ shop }: ShopCardProps) {
       <CardFooter className="justify-between">
         <Badge variant="secondary">Partenaire</Badge>
         {shop.id && (
-          <Button variant="outline" size="sm" render={<a href={`/shops/${shop.id}`} />}>
+          <Button variant="outline" size="sm" render={<a href={ROUTES.shopDetail(shop.id)} />}>
             Détails
           </Button>
         )}
