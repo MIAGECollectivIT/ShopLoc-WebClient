@@ -3,18 +3,10 @@ import Layout from '../../layouts/Layout.astro';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardAction } from '../../components/ui/card';
 import { buttonVariants } from '../../components/ui/button';
-import { getStores, getStoreById } from '../../lib/api';
+import { getStoreById } from '../../lib/api';
 import { ROUTES } from '../../config/routes';
 import { ArrowLeft, MapPin, Store as StoreIcon } from 'lucide-react';
 import type { Store } from '../../types/store';
-
-export async function getStaticPaths() {
-  const stores = await getStores().catch(() => []);
-  return stores.map((store) => ({
-    params: { id: String(store.id) },
-    props: { store },
-  }));
-}
 
 const { id } = Astro.params;
 const { store: initialStore } = Astro.props as { store?: Store };
