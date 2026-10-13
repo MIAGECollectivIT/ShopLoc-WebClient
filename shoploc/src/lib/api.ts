@@ -13,13 +13,15 @@ export function normalizeStore(store: Store): Store {
 
 export function getApiEndpoint(path: string): string {
   const base =
-    (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) || 'http://localhost:8080';
+    (typeof process !== 'undefined' &&
+      (process.env?.STORE_SERVICE_URL || process.env?.INTERNAL_API_URL)) ||
+    'http://localhost:8080';
 
   return `${base.replace(/\/$/, '')}${path}`;
 }
 
 export async function getStores(): Promise<Store[]> {
-  const res = await fetch(getApiEndpoint('/api/v1/stores'));
+  const res = await fetch(getApiEndpoint('/v1/stores'));
   if (!res.ok) {
     throw new Error(`HTTP Error: ${res.status}`);
   }
@@ -28,7 +30,7 @@ export async function getStores(): Promise<Store[]> {
 }
 
 export async function getStoreById(id: string | number): Promise<Store> {
-  const res = await fetch(getApiEndpoint(`/api/v1/stores/${id}`));
+  const res = await fetch(getApiEndpoint(`/v1/stores/${id}`));
   if (!res.ok) {
     throw new Error(`Store not found (${res.status})`);
   }
