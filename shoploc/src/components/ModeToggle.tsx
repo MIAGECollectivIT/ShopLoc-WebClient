@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 export function ModeToggle() {
-  const [theme, setThemeState] = React.useState<'theme-light' | 'dark' | 'system'>('system');
+  const [_theme, setThemeState] = React.useState<'theme-light' | 'dark' | 'system'>('system');
 
   React.useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
