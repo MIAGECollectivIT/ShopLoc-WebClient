@@ -11,11 +11,15 @@ export function normalizeShop(shop: Shop): Shop {
   return shop;
 }
 
-const API_BASE_URL =
-  import.meta.env.PUBLIC_API_URL || process.env.PUBLIC_API_URL || 'http://localhost:8080/api/shops';
+const STORE_SERVICE_URL =
+  import.meta.env.PUBLIC_STORE_SERVICE_URL ||
+  process.env.PUBLIC_STORE_SERVICE_URL ||
+  import.meta.env.PUBLIC_API_URL ||
+  process.env.PUBLIC_API_URL ||
+  'http://localhost:8080/api/shops';
 
 export async function getShops(): Promise<Shop[]> {
-  const res = await fetch(API_BASE_URL);
+  const res = await fetch(STORE_SERVICE_URL);
   if (!res.ok) {
     throw new Error(`Erreur HTTP: ${res.status}`);
   }
@@ -24,7 +28,7 @@ export async function getShops(): Promise<Shop[]> {
 }
 
 export async function getShopById(id: string | number): Promise<Shop> {
-  const res = await fetch(`${API_BASE_URL}/${id}`);
+  const res = await fetch(`${STORE_SERVICE_URL}/${id}`);
   if (!res.ok) {
     throw new Error(`Boutique introuvable (${res.status})`);
   }
