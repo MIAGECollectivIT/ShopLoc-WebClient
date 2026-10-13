@@ -1,7 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
-import { ShopCard } from '../../components/ShopCard';
+import { StoreCard } from '../../components/StoreCard';
 import {
   Empty,
   EmptyHeader,
@@ -9,15 +9,15 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from '../../components/ui/empty';
-import { getShops } from '../../lib/api';
+import { getStores } from '../../lib/api';
 import { AlertCircle, Store } from 'lucide-react';
-import type { Shop } from '../../types/shop';
+import type { Store as StoreType } from '../../types/store';
 
-let shops: Shop[] = [];
+let stores: StoreType[] = [];
 let error: string | null = null;
 
 try {
-  shops = await getShops();
+  stores = await getStores();
 } catch (err: unknown) {
   console.error('Erreur lors de la récupération des boutiques:', err);
   error = 'Impossible de récupérer les données des boutiques.';
@@ -40,15 +40,15 @@ try {
       </div>
     )}
 
-    {!error && shops.length > 0 && (
+    {!error && stores.length > 0 && (
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {shops.map((shop) => (
-          <ShopCard shop={shop} />
+        {stores.map((store) => (
+          <StoreCard store={store} />
         ))}
       </div>
     )}
 
-    {!error && shops.length === 0 && (
+    {!error && stores.length === 0 && (
       <Empty>
         <EmptyHeader>
           <EmptyMedia variant="icon">

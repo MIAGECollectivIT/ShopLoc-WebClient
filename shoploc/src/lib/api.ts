@@ -1,14 +1,14 @@
-import type { Shop } from '@/types/shop';
+import type { Store } from '@/types/store';
 import 'dotenv/config';
 
-export function normalizeShop(shop: Shop): Shop {
-  if (shop.url && shop.url.includes('wikipedia.org/wiki/Fichier:Burger_King_logo')) {
+export function normalizeStore(store: Store): Store {
+  if (store.url && store.url.includes('wikipedia.org/wiki/Fichier:Burger_King_logo')) {
     return {
-      ...shop,
+      ...store,
       url: 'https://upload.wikimedia.org/wikipedia/commons/4/4b/Burger_King_logo_%281999%E2%80%932020%29.svg',
     };
   }
-  return shop;
+  return store;
 }
 
 function getApiEndpoint(path: string): string {
@@ -18,20 +18,20 @@ function getApiEndpoint(path: string): string {
   return `${base.replace(/\/$/, '')}${path}`;
 }
 
-export async function getShops(): Promise<Shop[]> {
+export async function getStores(): Promise<Store[]> {
   const res = await fetch(getApiEndpoint('/api/v1/stores'));
   if (!res.ok) {
     throw new Error(`HTTP Error: ${res.status}`);
   }
-  const data: Shop[] = await res.json();
-  return data.map(normalizeShop);
+  const data: Store[] = await res.json();
+  return data.map(normalizeStore);
 }
 
-export async function getShopById(id: string | number): Promise<Shop> {
+export async function getStoreById(id: string | number): Promise<Store> {
   const res = await fetch(getApiEndpoint(`/api/v1/stores/${id}`));
   if (!res.ok) {
-    throw new Error(`Shop not found (${res.status})`);
+    throw new Error(`Store not found (${res.status})`);
   }
-  const data: Shop = await res.json();
-  return normalizeShop(data);
+  const data: Store = await res.json();
+  return normalizeStore(data);
 }
