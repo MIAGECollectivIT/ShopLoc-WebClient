@@ -1,7 +1,6 @@
 # Stage 1: Build the Astro application
 FROM node:22-alpine AS builder
 WORKDIR /app
-ENV ASTRO_TELEMETRY_DISABLED=1
 
 # Install dependencies with Docker layer cache
 COPY shoploc/package*.json ./

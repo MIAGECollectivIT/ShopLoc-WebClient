@@ -9,18 +9,24 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from '../../components/ui/empty';
-import { getStores } from '../../lib/api';
+import { getStores, getApiEndpoint } from '../../lib/api';
 import { AlertCircle, Store } from 'lucide-react';
 import type { Store as StoreType } from '../../types/store';
 
 let stores: StoreType[] = [];
 let error: string | null = null;
+let debugInfo: string | null = null;
+const targetRoute = getApiEndpoint('/api/v1/stores');
 
 try {
+  console.log(`[PAGE /stores] Début de la récupération des boutiques via la route: ${targetRoute}`);
   stores = await getStores();
+  console.log(`[PAGE /stores] Récupération réussie: ${stores.length} boutique(s) trouvée(s).`);
 } catch (err: unknown) {
-  console.error('Erreur lors de la récupération des boutiques:', err);
+  const errorMessage = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  console.error(`[PAGE /stores] Erreur lors de l'appel à [${targetRoute}]:`, err);
   error = 'Impossible de récupérer les données des boutiques.';
+  debugInfo = `Route appelée: ${targetRoute}\nErreur: ${errorMessage}\nINTERNAL_API_URL: ${process.env.INTERNAL_API_URL ?? '<non définie, fallback sur http://localhost:8080>'}`;
 }
 ---
 
@@ -34,9 +40,12 @@ try {
     icon={Store}
   >
     {error && (
-      <div class="border border-destructive p-4 text-destructive flex items-center gap-2">
-        <AlertCircle className="size-4 shrink-0" />
-        <p class="text-sm">{error}</p>
+      <div class="border border-destructive/50 bg-destructive/10 p-4 text-destructive space-y-1 rounded-lg">
+        <div class="flex items-center gap-2 font-medium">
+          <AlertCircle className="size-4 shrink-0" />
+          <p class="text-sm">{error}</p>
+        </div>
+        {debugInfo && <pre class="text-xs opacity-80 font-mono mt-1 whitespace-pre-wrap break-all">{debugInfo}</pre>}
       </div>
     )}
 

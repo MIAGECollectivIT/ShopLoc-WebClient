@@ -11,7 +11,7 @@ export function normalizeStore(store: Store): Store {
   return store;
 }
 
-function getApiEndpoint(path: string): string {
+export function getApiEndpoint(path: string): string {
   const base =
     (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) || 'http://localhost:8080';
 
