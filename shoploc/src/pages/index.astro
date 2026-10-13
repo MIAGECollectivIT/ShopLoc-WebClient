@@ -24,7 +24,10 @@ import { Store, BookOpen, ShoppingBag, Award, ArrowRight } from 'lucide-react';
       </p>
 
       <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
-        <a href={ROUTES.shops.path} class={buttonVariants({ variant: 'default', size: 'default' })}>
+        <a
+          href={ROUTES.stores.path}
+          class={buttonVariants({ variant: 'default', size: 'default' })}
+        >
           <Store className="size-4 mr-1.5" />
           Découvrir les boutiques
         </a>
@@ -95,7 +98,7 @@ import { Store, BookOpen, ShoppingBag, Award, ArrowRight } from 'lucide-react';
           Consultez la liste des boutiques partenaires prêtes à vous accueillir.
         </p>
       </div>
-      <a href={ROUTES.shops.path} class={buttonVariants({ variant: 'default', size: 'sm' })}>
+      <a href={ROUTES.stores.path} class={buttonVariants({ variant: 'default', size: 'sm' })}>
         Voir toutes les boutiques
         <ArrowRight className="size-4 ml-1.5" />
       </a>

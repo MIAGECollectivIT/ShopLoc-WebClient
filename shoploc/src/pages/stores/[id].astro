@@ -3,56 +3,56 @@ import Layout from '../../layouts/Layout.astro';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardAction } from '../../components/ui/card';
 import { buttonVariants } from '../../components/ui/button';
-import { getShops, getShopById } from '../../lib/api';
+import { getStores, getStoreById } from '../../lib/api';
 import { ROUTES } from '../../config/routes';
-import { ArrowLeft, MapPin, Store } from 'lucide-react';
-import type { Shop } from '../../types/shop';
+import { ArrowLeft, MapPin, Store as StoreIcon } from 'lucide-react';
+import type { Store } from '../../types/store';
 
 export async function getStaticPaths() {
-  const shops = await getShops().catch(() => []);
-  return shops.map((shop) => ({
-    params: { id: String(shop.id) },
-    props: { shop },
+  const stores = await getStores().catch(() => []);
+  return stores.map((store) => ({
+    params: { id: String(store.id) },
+    props: { store },
   }));
 }
 
 const { id } = Astro.params;
-const { shop: initialShop } = Astro.props as { shop?: Shop };
-const shop = initialShop ?? (id ? await getShopById(id).catch(() => null) : null);
+const { store: initialStore } = Astro.props as { store?: Store };
+const store = initialStore ?? (id ? await getStoreById(id).catch(() => null) : null);
 ---
 
-<Layout title={shop?.name || 'Détail boutique'}>
+<Layout title={store?.name || 'Détail boutique'}>
   <main class="max-w-2xl mx-auto p-4 space-y-4">
-    <a href={ROUTES.shops.path} class={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+    <a href={ROUTES.stores.path} class={buttonVariants({ variant: 'ghost', size: 'sm' })}>
       <ArrowLeft className="size-4 mr-1" /> Retour aux boutiques
     </a>
 
-    {shop && (
+    {store && (
       <Card>
-        {shop.url ? (
-          <img src={shop.url} alt={shop.name} class="h-64 w-full object-cover" />
+        {store.url ? (
+          <img src={store.url} alt={store.name} class="h-64 w-full object-cover" />
         ) : (
           <div class="h-48 bg-muted flex flex-col items-center justify-center text-muted-foreground">
-            <Store className="size-8" />
+            <StoreIcon className="size-8" />
             <span class="text-xs">Pas d'image</span>
           </div>
         )}
 
         <CardHeader>
-          <CardTitle className="text-xl">{shop.name}</CardTitle>
+          <CardTitle className="text-xl">{store.name}</CardTitle>
           <CardDescription className="flex items-center gap-1">
             <MapPin className="size-3.5" />
-            <span>{shop.address}</span>
+            <span>{store.address}</span>
           </CardDescription>
-          {shop.id && (
+          {store.id && (
             <CardAction>
-              <Badge variant="outline">#{shop.id}</Badge>
+              <Badge variant="outline">#{store.id}</Badge>
             </CardAction>
           )}
         </CardHeader>
       </Card>
     )}
 
-    {!shop && <p class="text-sm p-4 text-center">Boutique introuvable.</p>}
+    {!store && <p class="text-sm p-4 text-center">Boutique introuvable.</p>}
   </main>
 </Layout>

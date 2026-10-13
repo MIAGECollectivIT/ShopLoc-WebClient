@@ -1,5 +1,5 @@
-import { MapPin, Store } from 'lucide-react';
-import type { Shop } from '@/types/shop';
+import { MapPin, Store as StoreIcon } from 'lucide-react';
+import type { Store } from '@/types/store';
 import {
   Card,
   CardHeader,
@@ -12,39 +12,39 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ROUTES } from '@/config/routes';
 
-interface ShopCardProps {
-  shop: Shop;
+interface StoreCardProps {
+  store: Store;
 }
 
-export function ShopCard({ shop }: ShopCardProps) {
+export function StoreCard({ store }: StoreCardProps) {
   return (
     <Card>
-      {shop.url ? (
-        <img src={shop.url} alt={shop.name} className="h-40 w-full object-cover" loading="lazy" />
+      {store.url ? (
+        <img src={store.url} alt={store.name} className="h-40 w-full object-cover" loading="lazy" />
       ) : (
         <div className="h-40 bg-muted flex flex-col items-center justify-center text-muted-foreground">
-          <Store className="size-8" />
+          <StoreIcon className="size-8" />
           <span className="text-xs">Pas d'image</span>
         </div>
       )}
 
       <CardHeader>
-        <CardTitle>{shop.name}</CardTitle>
+        <CardTitle>{store.name}</CardTitle>
         <CardDescription className="flex items-center gap-1">
           <MapPin className="size-3.5" />
-          <span className="truncate">{shop.address}</span>
+          <span className="truncate">{store.address}</span>
         </CardDescription>
-        {shop.id && (
+        {store.id && (
           <CardAction>
-            <Badge variant="outline">#{shop.id}</Badge>
+            <Badge variant="outline">#{store.id}</Badge>
           </CardAction>
         )}
       </CardHeader>
 
       <CardFooter className="justify-between">
         <Badge variant="secondary">Partenaire</Badge>
-        {shop.id && (
-          <Button variant="outline" size="sm" render={<a href={ROUTES.shopDetail(shop.id)} />}>
+        {store.id && (
+          <Button variant="outline" size="sm" render={<a href={ROUTES.storeDetail(store.id)} />}>
             Détails
           </Button>
         )}
