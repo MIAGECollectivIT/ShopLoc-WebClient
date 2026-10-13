@@ -1,16 +1,16 @@
-# Stage 1 : Build de l'application Astro
+# Stage 1: Build the Astro application
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-# Dépendances avec cache Docker
+# Install dependencies with Docker layer cache
 COPY shoploc/package*.json ./
 RUN npm ci
 
-# Copie du code source et compilation Astro SSR
+# Copy source code and build Astro SSR bundle
 COPY shoploc/ ./
 RUN npm run build
 
-# Stage 2 : Image d'exécution légère Node.js
+# Stage 2: Lightweight runtime image
 FROM node:22-alpine AS runner
 WORKDIR /app
 

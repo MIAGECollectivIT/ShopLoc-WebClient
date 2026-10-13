@@ -11,4 +11,4 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       - NODE_ENV=production
-      - API_URL=http://host.docker.internal:8080/api/shops
+      - PUBLIC_STORE_SERVICE_URL=http://host.docker.internal:8080/api/shops
