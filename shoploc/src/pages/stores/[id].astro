@@ -1,0 +1,52 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import { Badge } from '../../components/ui/badge';
+import { Card, CardHeader, CardTitle, CardDescription, CardAction } from '../../components/ui/card';
+import { buttonVariants } from '../../components/ui/button';
+import { getStoreById } from '../../lib/api';
+import { ROUTES } from '../../config/routes';
+import { ArrowLeft, MapPin, Store as StoreIcon } from 'lucide-react';
+import type { Store } from '../../types/store';
+
+const { id } = Astro.params;
+const { store: initialStore } = Astro.props as { store?: Store };
+const store = initialStore ?? (id ? await getStoreById(id).catch(() => null) : null);
+---
+
+<Layout title={store?.name || 'Détail boutique'}>
+  <main class="max-w-2xl mx-auto p-4 space-y-4">
+    <a href={ROUTES.stores.path} class={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+      <ArrowLeft className="size-4 mr-1" /> Retour aux boutiques
+    </a>
+
+    {store && (
+      <Card>
+        {store.url ? (
+          <img src={store.url} alt={store.name} class="h-64 w-full object-cover" />
+        ) : (
+          <div class="h-48 bg-muted flex flex-col items-center justify-center text-muted-foreground">
+            <StoreIcon className="size-8" />
+            <span class="text-xs">Pas d'image</span>
+          </div>
+        )}
+
+        <CardHeader>
+          <CardTitle className="text-xl">{store.name}</CardTitle>
+          <CardDescription className="flex items-center gap-1">
+            <MapPin className="size-3.5" />
+            <span>{store.address}</span>
+          </CardDescription>
+          {store.id && (
+            <CardAction>
+              <Badge variant="outline">#{store.id}</Badge>
+            </CardAction>
+          )}
+        </CardHeader>
+      </Card>
+    )}
+
+    {!store && <p class="text-sm p-4 text-center">Boutique introuvable.</p>}
+  </main>
+</Layout>

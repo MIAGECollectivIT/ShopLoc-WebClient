@@ -238,7 +238,7 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<a href="/shops" />}>
+                  <SidebarMenuButton render={<a href="/stores" />}>
                     <HelpCircle className="size-4 text-muted-foreground" />
                     <span>Centre d'aide & FAQ</span>
                   </SidebarMenuButton>

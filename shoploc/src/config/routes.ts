@@ -14,12 +14,12 @@ export const ROUTES = {
     label: 'Accueil',
     icon: Home,
   },
-  shops: {
-    path: '/shops',
+  stores: {
+    path: '/stores',
     label: 'Magasins',
     icon: Store,
   },
-  shopDetail: (id: string | number) => `/shops/${id}`,
+  storeDetail: (id: string | number) => `/stores/${id}`,
   catalog: {
     path: '/catalog',
     label: 'Catalogue',
@@ -32,4 +32,4 @@ export const ROUTES = {
   },
 } as const;
 
-export const NAV_ROUTES: RouteConfig[] = [ROUTES.home, ROUTES.shops, ROUTES.catalog, ROUTES.cart];
+export const NAV_ROUTES: RouteConfig[] = [ROUTES.home, ROUTES.stores, ROUTES.catalog, ROUTES.cart];
