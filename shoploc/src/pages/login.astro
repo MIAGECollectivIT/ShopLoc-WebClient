@@ -1,0 +1,21 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PageContainer from '../components/PageContainer.astro';
+import { LoginForm } from '../components/LoginForm';
+import { ROUTES } from '../config/routes';
+---
+
+<Layout
+  title="Connexion — ShopLoc"
+  description="Connectez-vous à votre compte citoyen ShopLoc pour retrouver votre carte de fidélité et vos commerces."
+>
+  <PageContainer
+    title="Connexion"
+    description="Accédez à votre espace citoyen pour profiter des commerces partenaires et de votre fidélité locale."
+    icon={ROUTES.login.icon}
+  >
+    <div class="max-w-md mx-auto py-4">
+      <LoginForm client:load />
+    </div>
+  </PageContainer>
+</Layout>

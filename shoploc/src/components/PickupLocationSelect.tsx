@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/select';
 import { getStores } from '@/lib/api';
 import type { Store } from '@/types/store';
-import { Building2, Store as StoreIcon, Loader2, AlertCircle } from 'lucide-react';
+import { Building2, Store as StoreIcon, Loader2, AlertCircle, RotateCw } from 'lucide-react';
 
 export const DEFAULT_MUNICIPALITY_LOCATION = "Mairie — Hôtel de Ville (Point d'accueil principal)";
 
@@ -34,6 +34,19 @@ export function PickupLocationSelect({
   const [isLoading, setIsLoading] = React.useState<boolean>(initialStores.length === 0);
   const [hasError, setHasError] = React.useState<boolean>(false);
 
+  const fetchStores = React.useCallback(async () => {
+    setIsLoading(true);
+    setHasError(false);
+    try {
+      const data = await getStores();
+      setStores(data);
+    } catch {
+      setHasError(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   React.useEffect(() => {
     // If stores are already populated (e.g. from SSR), avoid redundant client-side fetching
     if (initialStores.length > 0) {
@@ -42,28 +55,8 @@ export function PickupLocationSelect({
       return;
     }
 
-    let isMounted = true;
-    setIsLoading(true);
-    setHasError(false);
-
-    getStores()
-      .then((data) => {
-        if (isMounted) {
-          setStores(data);
-          setIsLoading(false);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setHasError(true);
-          setIsLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [initialStores]);
+    fetchStores();
+  }, [initialStores, fetchStores]);
 
   return (
     <Select
@@ -107,9 +100,23 @@ export function PickupLocationSelect({
           )}
 
           {hasError && !isLoading && stores.length === 0 && (
-            <div className="flex items-center gap-2 px-2.5 py-2 text-xs text-muted-foreground">
-              <AlertCircle className="size-3.5 shrink-0 text-amber-500" />
-              <span>Commerces temporairement indisponibles</span>
+            <div className="flex items-center justify-between gap-2 px-2.5 py-2 text-xs text-muted-foreground bg-muted/40 rounded-md my-1">
+              <div className="flex items-center gap-1.5">
+                <AlertCircle className="size-3.5 shrink-0 text-amber-500" />
+                <span>Commerces indisponibles</span>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  fetchStores();
+                }}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline p-1 rounded hover:bg-muted cursor-pointer"
+              >
+                <RotateCw className="size-3" />
+                <span>Réessayer</span>
+              </button>
             </div>
           )}
 

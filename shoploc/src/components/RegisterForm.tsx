@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { PickupLocationSelect, DEFAULT_MUNICIPALITY_LOCATION } from './PickupLocationSelect';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import { PasswordInput } from './PasswordInput';
 import {
   registerValidationSchema,
   calculateAge,
@@ -32,6 +33,7 @@ import {
   Store as StoreIcon,
   ShieldCheck,
   IdCard,
+  LogIn,
 } from 'lucide-react';
 
 interface RegisterFormProps {
@@ -192,9 +194,19 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
       <form onSubmit={formik.handleSubmit} noValidate>
         <CardContent className="space-y-6">
           {errorMessage && (
-            <div className="flex items-center gap-2.5 p-3 rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-sm">
-              <AlertCircle className="size-4 shrink-0" />
-              <span>{errorMessage}</span>
+            <div className="flex items-center justify-between gap-2.5 p-3 rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-sm">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="size-4 shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+              {errorMessage.includes('déjà associée') && (
+                <a
+                  href={ROUTES.login.path}
+                  className="font-semibold underline hover:opacity-80 shrink-0 text-xs sm:text-sm"
+                >
+                  Se connecter
+                </a>
+              )}
             </div>
           )}
 
@@ -308,17 +320,16 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="password">Mot de passe</Label>
-                <Input
+                <PasswordInput
                   id="password"
                   name="password"
-                  type="password"
                   placeholder="••••••••"
                   autoComplete="new-password"
                   value={formik.values.password}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
                   disabled={formik.isSubmitting}
-                  aria-invalid={Boolean(formik.touched.password && formik.errors.password)}
+                  error={Boolean(formik.touched.password && formik.errors.password)}
                 />
                 {formik.touched.password && formik.errors.password && (
                   <p className="text-[12px] text-destructive flex items-center gap-1 mt-1">
@@ -332,19 +343,16 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
 
               <div className="space-y-1.5">
                 <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
-                <Input
+                <PasswordInput
                   id="confirmPassword"
                   name="confirmPassword"
-                  type="password"
                   placeholder="••••••••"
                   autoComplete="new-password"
                   value={formik.values.confirmPassword}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
                   disabled={formik.isSubmitting}
-                  aria-invalid={Boolean(
-                    formik.touched.confirmPassword && formik.errors.confirmPassword
-                  )}
+                  error={Boolean(formik.touched.confirmPassword && formik.errors.confirmPassword)}
                 />
                 {formik.touched.confirmPassword && formik.errors.confirmPassword && (
                   <p className="text-[12px] text-destructive flex items-center gap-1 mt-1">
@@ -386,21 +394,34 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
           </div>
         </CardContent>
 
-        <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t pt-4">
-          <p className="text-xs text-muted-foreground">
-            En validant, votre compte est activé sans délai.
-          </p>
+        <CardFooter className="flex flex-col gap-4 border-t pt-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
+            <p className="text-xs text-muted-foreground">
+              En validant, votre compte est activé sans délai.
+            </p>
 
-          <Button type="submit" disabled={formik.isSubmitting} className="w-full sm:w-auto">
-            {formik.isSubmitting ? (
-              <>
-                <Loader2 className="size-4 mr-2 animate-spin" />
-                Création en cours...
-              </>
-            ) : (
-              'Créer mon compte'
-            )}
-          </Button>
+            <Button type="submit" disabled={formik.isSubmitting} className="w-full sm:w-auto">
+              {formik.isSubmitting ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  Création en cours...
+                </>
+              ) : (
+                'Créer mon compte'
+              )}
+            </Button>
+          </div>
+
+          <div className="text-center text-xs text-muted-foreground pt-1">
+            <span>Vous avez déjà un compte ? </span>
+            <a
+              href={ROUTES.login.path}
+              className="text-primary font-medium hover:underline inline-flex items-center gap-1"
+            >
+              <LogIn className="size-3" />
+              Se connecter
+            </a>
+          </div>
         </CardFooter>
       </form>
     </Card>

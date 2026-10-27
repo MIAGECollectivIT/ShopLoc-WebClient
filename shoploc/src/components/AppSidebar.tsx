@@ -43,6 +43,7 @@ import {
   CreditCard,
   ArrowUpRight,
   UserPlus,
+  LogIn,
 } from 'lucide-react';
 
 interface AppSidebarProps {
@@ -146,6 +147,13 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                   <SidebarMenuButton render={<a href="/register" />}>
                     <UserPlus className="size-4 text-muted-foreground" />
                     <span>Créer un compte</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
+                <SidebarMenuItem>
+                  <SidebarMenuButton render={<a href="/login" />}>
+                    <LogIn className="size-4 text-muted-foreground" />
+                    <span>Se connecter</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 

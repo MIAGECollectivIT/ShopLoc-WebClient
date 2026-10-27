@@ -3,7 +3,7 @@ import { ModeToggle } from './ModeToggle';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { buttonVariants } from '@/components/ui/button';
 import { ROUTES } from '@/config/routes';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, LogIn } from 'lucide-react';
 
 interface HeaderProps {
   currentPath: string;
@@ -11,6 +11,7 @@ interface HeaderProps {
 
 export function Header({ currentPath }: HeaderProps) {
   const isRegister = currentPath === ROUTES.register.path;
+  const isLogin = currentPath === ROUTES.login.path;
 
   return (
     <header className="border-b">
@@ -30,6 +31,18 @@ export function Header({ currentPath }: HeaderProps) {
 
         <div className="flex items-center gap-2">
           <a
+            href={ROUTES.login.path}
+            className={buttonVariants({
+              variant: isLogin ? 'default' : 'ghost',
+              size: 'sm',
+              className: 'gap-1.5',
+            })}
+          >
+            <LogIn className="size-3.5" />
+            <span className="hidden sm:inline">{ROUTES.login.label}</span>
+          </a>
+
+          <a
             href={ROUTES.register.path}
             className={buttonVariants({
               variant: isRegister ? 'default' : 'outline',
@@ -40,6 +53,7 @@ export function Header({ currentPath }: HeaderProps) {
             <UserPlus className="size-3.5" />
             <span className="hidden sm:inline">{ROUTES.register.label}</span>
           </a>
+
           <ModeToggle />
         </div>
       </div>

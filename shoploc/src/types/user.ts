@@ -10,6 +10,11 @@ export interface UserRegistrationRequest {
   licensePlates?: string[];
 }
 
+export interface UserLoginRequest {
+  email: string;
+  password: string;
+}
+
 export interface UserResponse {
   id: string;
   email: string;

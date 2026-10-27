@@ -19,12 +19,13 @@ export type PasswordStrength = 'weak' | 'medium' | 'strong';
 
 export function calculateAge(birthDateString: string, referenceDate: Date = new Date()): number {
   if (!birthDateString) return 0;
-  const birth = new Date(birthDateString);
-  if (isNaN(birth.getTime())) return 0;
+  const parts = birthDateString.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) return 0;
+  const [year, month, day] = parts;
 
-  let age = referenceDate.getFullYear() - birth.getFullYear();
-  const monthDiff = referenceDate.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && referenceDate.getDate() < birth.getDate())) {
+  let age = referenceDate.getFullYear() - year;
+  const monthDiff = referenceDate.getMonth() + 1 - month;
+  if (monthDiff < 0 || (monthDiff === 0 && referenceDate.getDate() < day)) {
     age--;
   }
   return age;
