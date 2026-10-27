@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useFormik } from 'formik';
 import {
   Card,
   CardContent,
@@ -11,6 +12,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { PickupLocationSelect, DEFAULT_MUNICIPALITY_LOCATION } from './PickupLocationSelect';
+import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import {
+  registerValidationSchema,
+  calculateAge,
+  type RegisterFormData,
+} from '@/lib/validation/register';
 import { registerUser } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 import type { Store } from '@/types/store';
@@ -32,88 +39,52 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
-  const [formData, setFormData] = React.useState({
-    firstName: '',
-    lastName: '',
-    birthDate: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    pickupLocation: DEFAULT_MUNICIPALITY_LOCATION,
-  });
-
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [registeredUser, setRegisteredUser] = React.useState<UserResponse | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+  const formik = useFormik<RegisterFormData>({
+    initialValues: {
+      firstName: '',
+      lastName: '',
+      birthDate: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      pickupLocation: DEFAULT_MUNICIPALITY_LOCATION,
+    },
+    validationSchema: registerValidationSchema,
+    validateOnChange: true,
+    validateOnBlur: true,
+    onSubmit: async (values, { setSubmitting }) => {
+      setErrorMessage(null);
+      try {
+        const user = await registerUser({
+          firstName: values.firstName,
+          lastName: values.lastName,
+          birthDate: values.birthDate,
+          email: values.email,
+          password: values.password,
+          pickupLocation: values.pickupLocation,
+        });
 
-  const handleLocationChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, pickupLocation: value }));
-  };
-
-  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setErrorMessage(null);
-
-    // Initial client check for mandatory fields and matching passwords
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      setErrorMessage('Veuillez renseigner votre nom et prénom.');
-      return;
-    }
-
-    if (!formData.birthDate) {
-      setErrorMessage('Veuillez sélectionner votre date de naissance.');
-      return;
-    }
-
-    if (!formData.email.trim()) {
-      setErrorMessage('Veuillez saisir une adresse email.');
-      return;
-    }
-
-    if (!formData.password) {
-      setErrorMessage('Veuillez saisir un mot de passe.');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setErrorMessage('Les mots de passe saisis ne correspondent pas.');
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const user = await registerUser({
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        birthDate: formData.birthDate,
-        email: formData.email,
-        password: formData.password,
-        pickupLocation: formData.pickupLocation,
-      });
-
-      setRegisteredUser(user);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.message.includes('Email already in use')) {
-        setErrorMessage(
-          'Cette adresse email est déjà associée à un compte. Veuillez vous connecter ou utiliser un autre email.'
-        );
-      } else {
-        setErrorMessage(
-          err instanceof Error
-            ? err.message
-            : 'Une erreur inattendue est survenue lors de votre inscription.'
-        );
+        setRegisteredUser(user);
+      } catch (err: unknown) {
+        if (err instanceof Error && err.message.includes('Email already in use')) {
+          setErrorMessage(
+            'Cette adresse email est déjà associée à un compte. Veuillez vous connecter ou utiliser un autre email.'
+          );
+        } else {
+          setErrorMessage(
+            err instanceof Error
+              ? err.message
+              : 'Une erreur inattendue est survenue lors de votre inscription.'
+          );
+        }
+      } finally {
+        setSubmitting(false);
       }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    },
+  });
 
   if (registeredUser) {
     return (
@@ -218,7 +189,7 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
         </CardDescription>
       </CardHeader>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={formik.handleSubmit} noValidate>
         <CardContent className="space-y-6">
           {errorMessage && (
             <div className="flex items-center gap-2.5 p-3 rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-sm">
@@ -242,11 +213,18 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
                   name="firstName"
                   type="text"
                   placeholder="ex. Camille"
-                  required
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  disabled={isSubmitting}
+                  value={formik.values.firstName}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  disabled={formik.isSubmitting}
+                  aria-invalid={Boolean(formik.touched.firstName && formik.errors.firstName)}
                 />
+                {formik.touched.firstName && formik.errors.firstName && (
+                  <p className="text-[12px] text-destructive flex items-center gap-1 mt-1">
+                    <AlertCircle className="size-3.5 shrink-0" />
+                    <span>{formik.errors.firstName}</span>
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -256,11 +234,18 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
                   name="lastName"
                   type="text"
                   placeholder="ex. Martin"
-                  required
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  disabled={isSubmitting}
+                  value={formik.values.lastName}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  disabled={formik.isSubmitting}
+                  aria-invalid={Boolean(formik.touched.lastName && formik.errors.lastName)}
                 />
+                {formik.touched.lastName && formik.errors.lastName && (
+                  <p className="text-[12px] text-destructive flex items-center gap-1 mt-1">
+                    <AlertCircle className="size-3.5 shrink-0" />
+                    <span>{formik.errors.lastName}</span>
+                  </p>
+                )}
               </div>
             </div>
 
@@ -270,11 +255,24 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
                 id="birthDate"
                 name="birthDate"
                 type="date"
-                required
-                value={formData.birthDate}
-                onChange={handleChange}
-                disabled={isSubmitting}
+                value={formik.values.birthDate}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                disabled={formik.isSubmitting}
+                aria-invalid={Boolean(formik.touched.birthDate && formik.errors.birthDate)}
               />
+              {formik.touched.birthDate && formik.errors.birthDate && (
+                <p className="text-[12px] text-destructive flex items-center gap-1 mt-1">
+                  <AlertCircle className="size-3.5 shrink-0" />
+                  <span>{formik.errors.birthDate}</span>
+                </p>
+              )}
+              {!formik.errors.birthDate && formik.values.birthDate && (
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-1">
+                  <CheckCircle2 className="size-3 text-emerald-600 dark:text-emerald-400" />
+                  <span>Âge calculé : {calculateAge(formik.values.birthDate)} ans (éligible)</span>
+                </p>
+              )}
             </div>
           </div>
 
@@ -293,11 +291,18 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
                 type="email"
                 placeholder="camille.martin@example.fr"
                 autoComplete="email"
-                required
-                value={formData.email}
-                onChange={handleChange}
-                disabled={isSubmitting}
+                value={formik.values.email}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                disabled={formik.isSubmitting}
+                aria-invalid={Boolean(formik.touched.email && formik.errors.email)}
               />
+              {formik.touched.email && formik.errors.email && (
+                <p className="text-[12px] text-destructive flex items-center gap-1 mt-1">
+                  <AlertCircle className="size-3.5 shrink-0" />
+                  <span>{formik.errors.email}</span>
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -309,11 +314,20 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
                   type="password"
                   placeholder="••••••••"
                   autoComplete="new-password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
-                  disabled={isSubmitting}
+                  value={formik.values.password}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  disabled={formik.isSubmitting}
+                  aria-invalid={Boolean(formik.touched.password && formik.errors.password)}
                 />
+                {formik.touched.password && formik.errors.password && (
+                  <p className="text-[12px] text-destructive flex items-center gap-1 mt-1">
+                    <AlertCircle className="size-3.5 shrink-0" />
+                    <span>{formik.errors.password}</span>
+                  </p>
+                )}
+                {/* Real-time Password Strength Meter */}
+                <PasswordStrengthMeter password={formik.values.password} />
               </div>
 
               <div className="space-y-1.5">
@@ -324,11 +338,20 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
                   type="password"
                   placeholder="••••••••"
                   autoComplete="new-password"
-                  required
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  disabled={isSubmitting}
+                  value={formik.values.confirmPassword}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  disabled={formik.isSubmitting}
+                  aria-invalid={Boolean(
+                    formik.touched.confirmPassword && formik.errors.confirmPassword
+                  )}
                 />
+                {formik.touched.confirmPassword && formik.errors.confirmPassword && (
+                  <p className="text-[12px] text-destructive flex items-center gap-1 mt-1">
+                    <AlertCircle className="size-3.5 shrink-0" />
+                    <span>{formik.errors.confirmPassword}</span>
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -344,11 +367,17 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
               <Label htmlFor="pickupLocation">Lieu de retrait souhaité</Label>
               <PickupLocationSelect
                 id="pickupLocation"
-                value={formData.pickupLocation}
-                onValueChange={handleLocationChange}
+                value={formik.values.pickupLocation}
+                onValueChange={(val) => formik.setFieldValue('pickupLocation', val)}
                 stores={initialStores}
-                disabled={isSubmitting}
+                disabled={formik.isSubmitting}
               />
+              {formik.touched.pickupLocation && formik.errors.pickupLocation && (
+                <p className="text-[12px] text-destructive flex items-center gap-1 mt-1">
+                  <AlertCircle className="size-3.5 shrink-0" />
+                  <span>{formik.errors.pickupLocation}</span>
+                </p>
+              )}
               <p className="text-[11px] text-muted-foreground">
                 Choisissez entre l'accueil de la mairie ou l'un des commerces partenaires de votre
                 ville.
@@ -362,8 +391,8 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
             En validant, votre compte est activé sans délai.
           </p>
 
-          <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
-            {isSubmitting ? (
+          <Button type="submit" disabled={formik.isSubmitting} className="w-full sm:w-auto">
+            {formik.isSubmitting ? (
               <>
                 <Loader2 className="size-4 mr-2 animate-spin" />
                 Création en cours...
