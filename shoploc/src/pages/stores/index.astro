@@ -15,7 +15,6 @@ import type { Store as StoreType } from '../../types/store';
 
 let stores: StoreType[] = [];
 let error: string | null = null;
-let debugInfo: string | null = null;
 const targetRoute = getApiEndpoint('/v1/stores');
 
 try {
@@ -23,10 +22,9 @@ try {
   stores = await getStores();
   console.log(`[PAGE /stores] Récupération réussie: ${stores.length} boutique(s) trouvée(s).`);
 } catch (err: unknown) {
-  const errorMessage = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  // Log internal details to server logs only to avoid exposing topology to end-users
   console.error(`[PAGE /stores] Erreur lors de l'appel à [${targetRoute}]:`, err);
   error = 'Impossible de récupérer les données des boutiques.';
-  debugInfo = `Route appelée: ${targetRoute}\nErreur: ${errorMessage}\nSTORE_SERVICE_URL / INTERNAL_API_URL: ${process.env.STORE_SERVICE_URL ?? process.env.INTERNAL_API_URL ?? '<non définie, fallback sur http://localhost:8080>'}`;
 }
 ---
 
@@ -45,7 +43,6 @@ try {
           <AlertCircle className="size-4 shrink-0" />
           <p class="text-sm">{error}</p>
         </div>
-        {debugInfo && <pre class="text-xs opacity-80 font-mono mt-1 whitespace-pre-wrap break-all">{debugInfo}</pre>}
       </div>
     )}
 
