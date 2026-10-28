@@ -1,0 +1,31 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PageContainer from '../components/PageContainer.astro';
+import { RegisterForm } from '../components/RegisterForm';
+import { ROUTES } from '../config/routes';
+import { getStores } from '../lib/api';
+import type { Store } from '../types/store';
+
+let initialStores: Store[] = [];
+try {
+  initialStores = await getStores();
+} catch {
+  // Graceful fallback during SSR if the store service is not available
+  initialStores = [];
+}
+---
+
+<Layout
+  title="Inscription Client — ShopLoc"
+  description="Inscrivez-vous sur ShopLoc pour soutenir le commerce local et bénéficier de votre carte de fidélité."
+>
+  <PageContainer
+    title="Inscription Client"
+    description="Créez votre compte en quelques instants et choisissez le point de retrait de votre carte physique."
+    icon={ROUTES.register.icon}
+  >
+    <div class="max-w-2xl mx-auto py-2">
+      <RegisterForm client:load initialStores={initialStores} />
+    </div>
+  </PageContainer>
+</Layout>
