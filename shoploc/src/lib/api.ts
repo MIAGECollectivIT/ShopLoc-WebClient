@@ -79,6 +79,9 @@ export async function getStoreById(id: string | number): Promise<Store> {
 }
 
 export async function registerUser(request: UserRegistrationRequest): Promise<UserResponse> {
+  // Backend write operations are temporarily locked to prevent unintended database mutations.
+  // Uncomment the block below once backend security and integration testing are ready.
+  /*
   const useRealBackend =
     (typeof process !== 'undefined' && process.env?.USE_REAL_USERS_API === 'true') ||
     (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_USE_REAL_USERS_API === 'true');
@@ -101,6 +104,7 @@ export async function registerUser(request: UserRegistrationRequest): Promise<Us
 
     return (await res.json()) as UserResponse;
   }
+  */
 
   // Simulated latency for realistic user experience
   await new Promise((resolve) => setTimeout(resolve, 400));
@@ -135,6 +139,9 @@ export async function registerUser(request: UserRegistrationRequest): Promise<Us
 }
 
 export async function loginUser(credentials: UserLoginRequest): Promise<UserResponse> {
+  // Backend authentication endpoint is temporarily locked to avoid live network requests.
+  // Uncomment the block below once backend authentication and session management are ready.
+  /*
   const useRealBackend =
     (typeof process !== 'undefined' && process.env?.USE_REAL_USERS_API === 'true') ||
     (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_USE_REAL_USERS_API === 'true');
@@ -157,6 +164,7 @@ export async function loginUser(credentials: UserLoginRequest): Promise<UserResp
 
     return (await res.json()) as UserResponse;
   }
+  */
 
   // Simulated latency for realistic user experience
   await new Promise((resolve) => setTimeout(resolve, 400));
