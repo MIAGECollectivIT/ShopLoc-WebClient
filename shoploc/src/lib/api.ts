@@ -51,6 +51,47 @@ export function getUsersApiEndpoint(path: string): string {
   return `${base.replace(/\/$/, '')}${path}`;
 }
 
+export interface ServiceHealthResponse {
+  status: 'UP' | 'DOWN';
+  service: string;
+  statusCode?: number;
+  details?: unknown;
+  error?: string;
+  timestamp: string;
+}
+
+// Queries the backend Users Service status without mutating any state
+export async function checkUsersServiceStatus(): Promise<ServiceHealthResponse> {
+  const endpoint = getUsersApiEndpoint('/v1/users/status');
+  try {
+    const res = await fetchWithTimeout(endpoint, {}, 5000);
+    if (!res.ok) {
+      return {
+        status: 'DOWN',
+        service: 'users-service',
+        statusCode: res.status,
+        error: `Users service responded with HTTP status ${res.status}`,
+        timestamp: new Date().toISOString(),
+      };
+    }
+    const data = await res.json();
+    return {
+      status: 'UP',
+      service: 'users-service',
+      statusCode: res.status,
+      details: data,
+      timestamp: new Date().toISOString(),
+    };
+  } catch (err: unknown) {
+    return {
+      status: 'DOWN',
+      service: 'users-service',
+      error: err instanceof Error ? err.message : String(err),
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+
 export async function getStores(): Promise<Store[]> {
   try {
     const res = await fetchWithTimeout(getApiEndpoint('/v1/stores'));
