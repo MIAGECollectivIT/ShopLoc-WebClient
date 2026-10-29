@@ -27,3 +27,12 @@ export interface StoreResponse {
   rib: string;
   userId: number;
 }
+
+export interface PartnerAccount {
+  id: number;
+  name: string;
+  email: string;
+  companyName?: string;
+  role: 'MERCHANT' | 'PARTNER';
+  existingStoresCount: number;
+}

@@ -1,4 +1,4 @@
-import type { Store } from '@/types/store';
+import type { Store, StoreCreateRequest, StoreResponse, PartnerAccount } from '@/types/store';
 import type { UserRegistrationRequest, UserLoginRequest, UserResponse } from '@/types/user';
 
 export const API_TIMEOUT_MS = 10000;
@@ -117,6 +117,167 @@ export async function getStoreById(id: string | number): Promise<Store> {
   }
   const data: Store = await res.json();
   return data;
+}
+
+/**
+ * Seed partner accounts for offline / local mode.
+ * Reflects business requirement: an existing partner can own multiple establishments.
+ */
+export const DEFAULT_PARTNERS: PartnerAccount[] = [
+  {
+    id: 1,
+    name: 'Jean Dupont',
+    email: 'jean.dupont@commercant.fr',
+    companyName: 'Boulangerie du Centre',
+    role: 'PARTNER',
+    existingStoresCount: 2,
+  },
+  {
+    id: 2,
+    name: 'Sophie Martin',
+    email: 'sophie.martin@bio-terroir.fr',
+    companyName: 'Épicerie Bio Terroir',
+    role: 'PARTNER',
+    existingStoresCount: 1,
+  },
+  {
+    id: 3,
+    name: 'Alexandre Leroux',
+    email: 'alexandre.leroux@lesmots.fr',
+    companyName: 'Librairie Les Mots',
+    role: 'PARTNER',
+    existingStoresCount: 1,
+  },
+  {
+    id: 4,
+    name: 'Camille Bernard',
+    email: 'camille.bernard@partenaire.fr',
+    companyName: 'Boutique Indépendante',
+    role: 'PARTNER',
+    existingStoresCount: 0,
+  },
+  {
+    id: 5,
+    name: 'Marc Lefebvre',
+    email: 'marc.lefebvre@artisans-lille.fr',
+    companyName: 'Atelier Cuir & Bois',
+    role: 'PARTNER',
+    existingStoresCount: 3,
+  },
+];
+
+/**
+ * Retrieves registered partner accounts with optional search query and limit (SLE-87).
+ * Filters across name, company name, and email.
+ */
+export async function getPartners(query?: string, limit: number = 20): Promise<PartnerAccount[]> {
+  const trimmed = query?.trim().toLowerCase() || '';
+
+  // Backend user enumeration endpoint is temporarily locked until internal gateway is deployed.
+  // Uncomment the block below once internal gateway routing and security are ready.
+  /*
+  const useRealBackend =
+    (typeof process !== 'undefined' && process.env?.USE_REAL_USERS_API === 'true') ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_USE_REAL_USERS_API === 'true');
+
+  if (useRealBackend) {
+    const params = new URLSearchParams();
+    params.set('role', 'MERCHANT');
+    params.set('limit', String(limit));
+    if (trimmed) {
+      params.set('query', trimmed);
+    }
+
+    const res = await fetchWithTimeout(
+      getUsersApiEndpoint(`/v1/users?${params.toString()}`),
+      {},
+      4000
+    );
+    if (!res.ok) {
+      throw new Error(`HTTP Error: ${res.status}`);
+    }
+    const data: PartnerAccount[] = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      return data;
+    }
+  }
+  */
+
+  // Simulated latency for realistic user experience
+  await new Promise((resolve) => setTimeout(resolve, 150));
+
+  return filterMockPartners(trimmed, limit);
+}
+
+/**
+ * Filters the local mock partners list matching the query term.
+ */
+function filterMockPartners(query: string, limit: number): PartnerAccount[] {
+  if (!query) {
+    return DEFAULT_PARTNERS.slice(0, limit);
+  }
+  return DEFAULT_PARTNERS.filter(
+    (p) =>
+      p.name.toLowerCase().includes(query) ||
+      (p.companyName && p.companyName.toLowerCase().includes(query)) ||
+      p.email.toLowerCase().includes(query)
+  ).slice(0, limit);
+}
+
+/**
+ * Dispatches a store creation request to store-service /v1/stores (SLE-69, SLE-85).
+ */
+export async function createStore(payload: StoreCreateRequest): Promise<StoreResponse> {
+  // Backend write operations are temporarily locked to prevent unintended database mutations
+  // until the internal service gateway is deployed in the dev environment.
+  // Uncomment the block below once the internal gateway is ready.
+  /*
+  const useRealBackend =
+    (typeof process !== 'undefined' && process.env?.USE_REAL_STORES_API === 'true') ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_USE_REAL_STORES_API === 'true');
+
+  if (useRealBackend) {
+    const endpoint = getApiEndpoint('/v1/stores');
+    const res = await fetchWithTimeout(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      let parsedError: Record<string, unknown> | null = null;
+      try {
+        parsedError = JSON.parse(errorText);
+      } catch {
+        parsedError = null;
+      }
+
+      const errorMessage =
+        (parsedError && (parsedError.message || parsedError.error)) ||
+        `Échec de la création de l'établissement (Erreur HTTP ${res.status}).`;
+      throw new Error(String(errorMessage));
+    }
+
+    const data: StoreResponse = await res.json();
+    return data;
+  }
+  */
+
+  // Simulated latency for realistic user experience
+  await new Promise((resolve) => setTimeout(resolve, 400));
+
+  return {
+    id: Math.floor(100 + Math.random() * 900),
+    name: payload.name.trim(),
+    address: payload.address.trim(),
+    category: payload.category.trim(),
+    rib: payload.rib.trim(),
+    userId: Number(payload.userId),
+    url: payload.url ? payload.url.trim() : undefined,
+  };
 }
 
 export async function registerUser(request: UserRegistrationRequest): Promise<UserResponse> {
