@@ -20,6 +20,11 @@ export const ROUTES = {
     icon: Store,
   },
   storeDetail: (id: string | number) => `/stores/${id}`,
+  createStore: {
+    path: '/stores/new',
+    label: 'Ajouter un établissement',
+    icon: Store,
+  },
   catalog: {
     path: '/catalog',
     label: 'Catalogue',

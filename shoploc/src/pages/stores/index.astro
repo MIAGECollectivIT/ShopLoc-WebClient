@@ -10,7 +10,8 @@ import {
   EmptyDescription,
 } from '../../components/ui/empty';
 import { getStores, getApiEndpoint } from '../../lib/api';
-import { AlertCircle, Store } from 'lucide-react';
+import { AlertCircle, Store, Plus } from 'lucide-react';
+import { ROUTES } from '../../config/routes';
 import type { Store as StoreType } from '../../types/store';
 
 let stores: StoreType[] = [];
@@ -29,7 +30,7 @@ try {
 ---
 
 <Layout
-  title="Boutiques — ShopLoc"
+  title="Boutiques - ShopLoc"
   description="Découvrez l'ensemble des commerçants partenaires de votre municipalité."
 >
   <PageContainer
@@ -37,6 +38,20 @@ try {
     description="Découvrez l'ensemble des commerçants de votre municipalité et cumulez vos points fidélité."
     icon={Store}
   >
+    <div class="flex items-center justify-between pb-2">
+      <p class="text-xs text-muted-foreground">
+        {stores.length} boutique{stores.length > 1 ? 's' : ''} disponible
+        {stores.length > 1 ? 's' : ''}
+      </p>
+      <a
+        href={ROUTES.createStore.path}
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors shadow-xs"
+      >
+        <Plus className="size-3.5" />
+        <span>Ajouter un établissement</span>
+      </a>
+    </div>
+
     {error && (
       <div class="border border-destructive/50 bg-destructive/10 p-4 text-destructive space-y-1 rounded-lg">
         <div class="flex items-center gap-2 font-medium">
