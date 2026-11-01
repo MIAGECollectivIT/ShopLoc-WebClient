@@ -1,0 +1,32 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import PageContainer from '../../components/PageContainer.astro';
+import { CreateStoreForm } from '../../components/CreateStoreForm';
+import { Store, ArrowLeft } from 'lucide-react';
+import { ROUTES } from '../../config/routes';
+---
+
+<Layout
+  title="Nouvel Établissement - Administration ShopLoc"
+  description="Enregistrez un nouveau commerce partenaire et associez-le à son compte gestionnaire."
+>
+  <PageContainer
+    title="Ajouter un établissement"
+    description="Formulaire d'intégration d'un nouveau point de vente pour un partenaire commerçant ShopLoc."
+    icon={Store}
+  >
+    <div class="max-w-2xl mx-auto space-y-4 py-2">
+      <div class="flex items-center justify-between">
+        <a
+          href={ROUTES.stores.path}
+          class="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="size-3.5" />
+          <span>Retour à la liste des boutiques</span>
+        </a>
+      </div>
+
+      <CreateStoreForm client:load />
+    </div>
+  </PageContainer>
+</Layout>
