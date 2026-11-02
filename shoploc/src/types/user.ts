@@ -28,3 +28,30 @@ export interface UserResponse {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface AuthResponse {
+  token: string;
+  tokenType: string;
+  expiresIn: number;
+  userId: string;
+  email: string;
+  role: UserRole;
+  firstName?: string;
+  lastName?: string;
+  clientCode?: string;
+  birthDate?: string;
+  pickupLocation?: string;
+  licensePlates?: string[];
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  role: UserRole;
+  firstName?: string;
+  lastName?: string;
+  clientCode?: string;
+  birthDate?: string;
+  pickupLocation?: string;
+  licensePlates?: string[];
+}
