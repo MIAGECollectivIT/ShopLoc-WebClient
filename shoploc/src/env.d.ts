@@ -6,6 +6,7 @@ declare global {
     interface Locals {
       user: AuthUser | null;
       token: string | null;
+      authUnavailable?: boolean;
     }
   }
 }

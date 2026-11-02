@@ -53,23 +53,25 @@ export async function fetchWithTimeout(
 
 export function getApiEndpoint(path: string, serviceUrlEnv?: string): string {
   const base =
-    (typeof process !== 'undefined' &&
+    (typeof window === 'undefined' &&
+      typeof process !== 'undefined' &&
       (serviceUrlEnv || process.env?.STORE_SERVICE_URL || process.env?.INTERNAL_API_URL)) ||
     (typeof import.meta !== 'undefined' &&
       (import.meta.env?.PUBLIC_STORE_API_URL || import.meta.env?.PUBLIC_API_URL)) ||
-    'http://localhost:8080';
+    (typeof window !== 'undefined' ? '' : 'http://localhost:8080');
 
   return `${base.replace(/\/$/, '')}${path}`;
 }
 
 export function getUsersApiEndpoint(path: string): string {
   const base =
-    (typeof process !== 'undefined' &&
+    (typeof window === 'undefined' &&
+      typeof process !== 'undefined' &&
       (process.env?.USERS_SERVICE_URL ||
         process.env?.STORE_SERVICE_URL ||
         process.env?.INTERNAL_API_URL)) ||
     (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_USERS_API_URL) ||
-    'http://localhost:8080';
+    (typeof window !== 'undefined' ? '' : 'http://localhost:8080');
 
   return `${base.replace(/\/$/, '')}${path}`;
 }
