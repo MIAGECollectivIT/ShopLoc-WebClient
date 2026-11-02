@@ -1,9 +1,16 @@
 import type { Store, StoreCreateRequest, StoreResponse, PartnerAccount } from '@/types/store';
-import type { UserRegistrationRequest, UserLoginRequest, UserResponse } from '@/types/user';
+import type {
+  UserRegistrationRequest,
+  UserLoginRequest,
+  UserResponse,
+  AuthResponse,
+  UserRole,
+} from '@/types/user';
+import { getAuthToken, getAuthUser, setAuthSession, clearAuthSession } from './auth';
 
 export const API_TIMEOUT_MS = 10000;
 
-// Fetch wrapper with AbortController timeout enforcement
+// Fetch wrapper with AbortController timeout enforcement and automatic Bearer JWT injection
 export async function fetchWithTimeout(
   input: string | URL | Request,
   init?: RequestInit,
@@ -14,11 +21,25 @@ export async function fetchWithTimeout(
     controller.abort();
   }, timeoutMs);
 
+  const headers = new Headers(init?.headers);
+  const token = getAuthToken();
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
   try {
     const response = await fetch(input, {
       ...init,
+      headers,
       signal: controller.signal,
     });
+    if (response.status === 401 && token && typeof window !== 'undefined') {
+      const urlStr =
+        typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (!urlStr.includes('/login')) {
+        clearAuthSession();
+      }
+    }
     return response;
   } catch (error: unknown) {
     if (error instanceof Error && error.name === 'AbortError') {
@@ -34,6 +55,8 @@ export function getApiEndpoint(path: string, serviceUrlEnv?: string): string {
   const base =
     (typeof process !== 'undefined' &&
       (serviceUrlEnv || process.env?.STORE_SERVICE_URL || process.env?.INTERNAL_API_URL)) ||
+    (typeof import.meta !== 'undefined' &&
+      (import.meta.env?.PUBLIC_STORE_API_URL || import.meta.env?.PUBLIC_API_URL)) ||
     'http://localhost:8080';
 
   return `${base.replace(/\/$/, '')}${path}`;
@@ -93,300 +116,303 @@ export async function checkUsersServiceStatus(): Promise<ServiceHealthResponse> 
 }
 
 export async function getStores(): Promise<Store[]> {
-  try {
-    const res = await fetchWithTimeout(getApiEndpoint('/v1/stores'));
-    if (!res.ok) {
-      throw new Error(`HTTP Error: ${res.status}`);
-    }
-    const data: Store[] = await res.json();
-    return data;
-  } catch {
-    // Fallback partner stores for local development when store-service is offline
-    return [
-      { id: 1, name: 'Boulangerie du Centre', address: '12 Rue de la République' },
-      { id: 2, name: 'Épicerie Bio Terroir', address: '5 Place du Marché' },
-      { id: 3, name: 'Librairie Les Mots', address: '8 Rue Victor Hugo' },
-    ];
+  const res = await fetchWithTimeout(getApiEndpoint('/v1/stores'));
+  if (!res.ok) {
+    throw new Error(`Erreur lors de la récupération des commerces (HTTP ${res.status})`);
   }
+  const data: Store[] = await res.json();
+  return data;
 }
 
 export async function getStoreById(id: string | number): Promise<Store> {
   const res = await fetchWithTimeout(getApiEndpoint(`/v1/stores/${id}`));
   if (!res.ok) {
-    throw new Error(`Store not found (${res.status})`);
+    throw new Error(`Commerce introuvable (HTTP ${res.status})`);
   }
   const data: Store = await res.json();
   return data;
 }
 
 /**
- * Seed partner accounts for offline / local mode.
- * Reflects business requirement: an existing partner can own multiple establishments.
- */
-export const DEFAULT_PARTNERS: PartnerAccount[] = [
-  {
-    id: 1,
-    name: 'Jean Dupont',
-    email: 'jean.dupont@commercant.fr',
-    companyName: 'Boulangerie du Centre',
-    role: 'PARTNER',
-    existingStoresCount: 2,
-  },
-  {
-    id: 2,
-    name: 'Sophie Martin',
-    email: 'sophie.martin@bio-terroir.fr',
-    companyName: 'Épicerie Bio Terroir',
-    role: 'PARTNER',
-    existingStoresCount: 1,
-  },
-  {
-    id: 3,
-    name: 'Alexandre Leroux',
-    email: 'alexandre.leroux@lesmots.fr',
-    companyName: 'Librairie Les Mots',
-    role: 'PARTNER',
-    existingStoresCount: 1,
-  },
-  {
-    id: 4,
-    name: 'Camille Bernard',
-    email: 'camille.bernard@partenaire.fr',
-    companyName: 'Boutique Indépendante',
-    role: 'PARTNER',
-    existingStoresCount: 0,
-  },
-  {
-    id: 5,
-    name: 'Marc Lefebvre',
-    email: 'marc.lefebvre@artisans-lille.fr',
-    companyName: 'Atelier Cuir & Bois',
-    role: 'PARTNER',
-    existingStoresCount: 3,
-  },
-];
-
-/**
- * Retrieves registered partner accounts with optional search query and limit (SLE-87).
+ * Retrieves registered partner accounts from users-service (SLE-87).
  * Filters across name, company name, and email.
  */
 export async function getPartners(query?: string, limit: number = 20): Promise<PartnerAccount[]> {
-  const trimmed = query?.trim().toLowerCase() || '';
-
-  // Backend user enumeration endpoint is temporarily locked until internal gateway is deployed.
-  // Uncomment the block below once internal gateway routing and security are ready.
-  /*
-  const useRealBackend =
-    (typeof process !== 'undefined' && process.env?.USE_REAL_USERS_API === 'true') ||
-    (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_USE_REAL_USERS_API === 'true');
-
-  if (useRealBackend) {
-    const params = new URLSearchParams();
-    params.set('role', 'MERCHANT');
-    params.set('limit', String(limit));
-    if (trimmed) {
-      params.set('query', trimmed);
-    }
-
-    const res = await fetchWithTimeout(
-      getUsersApiEndpoint(`/v1/users?${params.toString()}`),
-      {},
-      4000
-    );
-    if (!res.ok) {
-      throw new Error(`HTTP Error: ${res.status}`);
-    }
-    const data: PartnerAccount[] = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      return data;
-    }
+  const trimmed = query?.trim() || '';
+  const searchParams = new URLSearchParams();
+  if (trimmed) {
+    searchParams.set('query', trimmed);
   }
-  */
+  searchParams.set('limit', String(limit));
 
-  // Simulated latency for realistic user experience
-  await new Promise((resolve) => setTimeout(resolve, 150));
+  const endpoint = getUsersApiEndpoint(`/v1/users/partners?${searchParams.toString()}`);
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
 
-  return filterMockPartners(trimmed, limit);
-}
-
-/**
- * Filters the local mock partners list matching the query term.
- */
-function filterMockPartners(query: string, limit: number): PartnerAccount[] {
-  if (!query) {
-    return DEFAULT_PARTNERS.slice(0, limit);
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer la liste des partenaires (HTTP ${res.status})`);
   }
-  return DEFAULT_PARTNERS.filter(
-    (p) =>
-      p.name.toLowerCase().includes(query) ||
-      (p.companyName && p.companyName.toLowerCase().includes(query)) ||
-      p.email.toLowerCase().includes(query)
-  ).slice(0, limit);
+
+  const partners: PartnerAccount[] = await res.json();
+  return partners;
 }
 
 /**
  * Dispatches a store creation request to store-service /v1/stores (SLE-69, SLE-85).
  */
 export async function createStore(payload: StoreCreateRequest): Promise<StoreResponse> {
-  // Backend write operations are temporarily locked to prevent unintended database mutations
-  // until the internal service gateway is deployed in the dev environment.
-  // Uncomment the block below once the internal gateway is ready.
-  /*
-  const useRealBackend =
-    (typeof process !== 'undefined' && process.env?.USE_REAL_STORES_API === 'true') ||
-    (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_USE_REAL_STORES_API === 'true');
+  const endpoint = getApiEndpoint('/v1/stores');
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
 
-  if (useRealBackend) {
-    const endpoint = getApiEndpoint('/v1/stores');
-    const res = await fetchWithTimeout(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      let parsedError: Record<string, unknown> | null = null;
-      try {
-        parsedError = JSON.parse(errorText);
-      } catch {
-        parsedError = null;
-      }
-
-      const errorMessage =
-        (parsedError && (parsedError.message || parsedError.error)) ||
-        `Échec de la création de l'établissement (Erreur HTTP ${res.status}).`;
-      throw new Error(String(errorMessage));
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la création du commerce (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {
+      // Ignorer l'erreur de parsing JSON
     }
-
-    const data: StoreResponse = await res.json();
-    return data;
+    throw new Error(errorDetail);
   }
-  */
 
-  // Simulated latency for realistic user experience
-  await new Promise((resolve) => setTimeout(resolve, 400));
-
-  return {
-    id: Math.floor(100 + Math.random() * 900),
-    name: payload.name.trim(),
-    address: payload.address.trim(),
-    category: payload.category.trim(),
-    rib: payload.rib.trim(),
-    userId: Number(payload.userId),
-    url: payload.url ? payload.url.trim() : undefined,
-  };
+  const data: StoreResponse = await res.json();
+  return data;
 }
 
 export async function registerUser(request: UserRegistrationRequest): Promise<UserResponse> {
-  // Backend write operations are temporarily locked to prevent unintended database mutations.
-  // Uncomment the block below once backend security and integration testing are ready.
-  /*
-  const useRealBackend =
-    (typeof process !== 'undefined' && process.env?.USE_REAL_USERS_API === 'true') ||
-    (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_USE_REAL_USERS_API === 'true');
-
-  if (useRealBackend) {
-    const res = await fetchWithTimeout(getUsersApiEndpoint('/v1/users'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
-    });
-
-    if (res.status === 409) {
-      throw new Error('Email already in use');
-    }
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(errText || `Registration failed with status ${res.status}`);
-    }
-
-    return (await res.json()) as UserResponse;
-  }
-  */
-
-  // Simulated latency for realistic user experience
-  await new Promise((resolve) => setTimeout(resolve, 400));
-
-  // Simulated conflict for testing
   const normalizedEmail = request.email.trim().toLowerCase();
-  if (
-    normalizedEmail === 'existing@test.com' ||
-    normalizedEmail === 'camille.martin@collectivit.fr'
-  ) {
+
+  const res = await fetchWithTimeout(getUsersApiEndpoint('/v1/users'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...request, email: normalizedEmail }),
+  });
+
+  if (res.status === 409) {
     throw new Error('Email already in use');
   }
 
-  const generatedCode = `CL-${Math.floor(10000 + Math.random() * 90000)}`;
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de l'inscription (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.detail) errorDetail = errorJson.detail;
+    } catch {}
+    throw new Error(errorDetail);
+  }
 
-  return {
-    id:
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-    email: normalizedEmail,
-    role: 'CLIENT',
-    firstName: request.firstName.trim(),
-    lastName: request.lastName.trim(),
-    birthDate: request.birthDate,
-    clientCode: generatedCode,
-    pickupLocation: request.pickupLocation || 'Mairie',
-    licensePlates: request.licensePlates ?? [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+  return (await res.json()) as UserResponse;
+}
+
+interface LoginApiResponse {
+  token: string;
+  tokenType?: string;
+  expiresIn?: number;
+  userId?: string;
+  email?: string;
+  role?: string;
+  firstName?: string;
+  lastName?: string;
+  clientCode?: string;
+  user?: {
+    id?: string;
+    email?: string;
+    role?: string;
+    firstName?: string;
+    lastName?: string;
+    clientCode?: string;
+    birthDate?: string;
+    pickupLocation?: string;
+    licensePlates?: string[];
+    createdAt?: string;
+    updatedAt?: string;
   };
 }
 
 export async function loginUser(credentials: UserLoginRequest): Promise<UserResponse> {
-  // Backend authentication endpoint is temporarily locked to avoid live network requests.
-  // Uncomment the block below once backend authentication and session management are ready.
-  /*
-  const useRealBackend =
-    (typeof process !== 'undefined' && process.env?.USE_REAL_USERS_API === 'true') ||
-    (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_USE_REAL_USERS_API === 'true');
+  const normalizedEmail = credentials.email.trim().toLowerCase();
 
-  if (useRealBackend) {
-    const res = await fetchWithTimeout(getUsersApiEndpoint('/v1/users/login'), {
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(getUsersApiEndpoint('/v1/users/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(credentials),
+      body: JSON.stringify({ email: normalizedEmail, password: credentials.password }),
     });
-
-    if (res.status === 401 || res.status === 404) {
-      throw new Error('Identifiants incorrects (email ou mot de passe invalide).');
-    }
-
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(errText || `Login failed with status ${res.status}`);
-    }
-
-    return (await res.json()) as UserResponse;
+  } catch {
+    throw new Error(
+      "Impossible de joindre le serveur d'authentification. Veuillez vérifier que les services sont démarrés."
+    );
   }
-  */
 
-  // Simulated latency for realistic user experience
-  await new Promise((resolve) => setTimeout(resolve, 400));
-
-  const normalizedEmail = credentials.email.trim().toLowerCase();
-  if (normalizedEmail === 'error@test.com' || credentials.password === 'wrongpassword') {
+  if (res.status === 401 || res.status === 404) {
     throw new Error('Identifiants incorrects (email ou mot de passe invalide).');
   }
 
-  return {
-    id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-    email: normalizedEmail,
-    role: 'CLIENT',
-    firstName: 'Camille',
-    lastName: 'Martin',
-    birthDate: '1995-06-15',
-    clientCode: 'CL-34821',
-    pickupLocation: "Mairie — Hôtel de Ville (Point d'accueil principal)",
-    licensePlates: ['AA-123-BB'],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+  if (!res.ok) {
+    let errorDetail = `Erreur du serveur (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.detail) errorDetail = errorJson.detail;
+    } catch {
+      // Ignorer l'erreur de parsing JSON
+    }
+    throw new Error(errorDetail);
+  }
+
+  const authData = (await res.json()) as LoginApiResponse;
+  const userObj = authData.user || {};
+
+  const sessionData: AuthResponse = {
+    token: authData.token,
+    tokenType: authData.tokenType || 'Bearer',
+    expiresIn: authData.expiresIn || 7200000,
+    userId: userObj.id || authData.userId || '',
+    email: userObj.email || authData.email || normalizedEmail,
+    role: (userObj.role || authData.role || 'CLIENT') as UserRole,
+    firstName: userObj.firstName || authData.firstName || '',
+    lastName: userObj.lastName || authData.lastName || '',
+    clientCode: userObj.clientCode || authData.clientCode || '',
+    birthDate: userObj.birthDate,
+    pickupLocation: userObj.pickupLocation,
+    licensePlates: userObj.licensePlates,
   };
+
+  // 1. Définir le cookie HttpOnly côté SSR via l'endpoint dédié
+  if (typeof window !== 'undefined') {
+    try {
+      await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: sessionData.token, expiresIn: sessionData.expiresIn }),
+      });
+    } catch (sessionErr) {
+      console.warn('Impossible de définir le cookie de session sécurisé:', sessionErr);
+    }
+  }
+
+  // 2. Mettre à jour la session dans localStorage et notifier les composants
+  setAuthSession(sessionData);
+
+  return {
+    id: String(sessionData.userId),
+    email: sessionData.email,
+    role: sessionData.role,
+    firstName: sessionData.firstName || 'Utilisateur',
+    lastName: sessionData.lastName || '',
+    birthDate: userObj.birthDate || '1995-01-01',
+    clientCode: sessionData.clientCode || 'CL-00000',
+    pickupLocation: userObj.pickupLocation || "Mairie — Point d'accueil",
+    licensePlates: userObj.licensePlates || [],
+    createdAt: userObj.createdAt || new Date().toISOString(),
+    updatedAt: userObj.updatedAt || new Date().toISOString(),
+  };
+}
+
+export async function logoutUser(): Promise<void> {
+  const token = getAuthToken();
+  if (typeof window !== 'undefined') {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+    } catch (err) {
+      console.warn('Erreur lors de la déconnexion via endpoint SSR:', err);
+    }
+  }
+  clearAuthSession();
+}
+
+/**
+ * Retrieves the current authenticated user profile from users-service /v1/users/me.
+ */
+export async function getCurrentUserProfile(): Promise<UserResponse> {
+  const endpoint = getUsersApiEndpoint('/v1/users/me');
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer le profil utilisateur (${res.status})`);
+  }
+  return (await res.json()) as UserResponse;
+}
+
+/**
+ * Updates personal details for the specified user in users-service /v1/users/{userId}.
+ */
+export interface UserUpdateRequest {
+  firstName?: string;
+  lastName?: string;
+  birthDate?: string;
+  pickupLocation?: string;
+}
+
+export async function updateUserProfile(
+  userId: string,
+  data: UserUpdateRequest
+): Promise<UserResponse> {
+  const endpoint = getUsersApiEndpoint(`/v1/users/${userId}`);
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la mise à jour du profil (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  const updatedUser = (await res.json()) as UserResponse;
+
+  // Sync updated user data into auth session
+  const currentUser = getAuthUser();
+  if (currentUser && currentUser.id === userId) {
+    setAuthSession({
+      token: token || '',
+      tokenType: 'Bearer',
+      expiresIn: 7200000,
+      userId: updatedUser.id,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      clientCode: updatedUser.clientCode,
+      birthDate: updatedUser.birthDate,
+      pickupLocation: updatedUser.pickupLocation,
+      licensePlates: updatedUser.licensePlates,
+    });
+  }
+
+  return updatedUser;
 }
