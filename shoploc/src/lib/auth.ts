@@ -158,7 +158,12 @@ export function setAuthSession(auth: AuthResponse): void {
   localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
 
   if (typeof document !== 'undefined') {
-    const maxAgeSeconds = Math.max(60, Math.floor((auth.expiresIn || 7200000) / 1000));
+    let maxAgeSeconds = 7200;
+    if (typeof auth.expiresIn === 'number' && auth.expiresIn > 0) {
+      maxAgeSeconds = auth.expiresIn > 86400 ? Math.floor(auth.expiresIn / 1000) : auth.expiresIn;
+    }
+    maxAgeSeconds = Math.max(60, maxAgeSeconds);
+
     document.cookie = `${TOKEN_STORAGE_KEY}=${encodeURIComponent(
       auth.token
     )}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
@@ -210,12 +215,19 @@ export function useAuth() {
 
     // Verify SSR session consistency when running in browser
     if (currentToken && typeof window !== 'undefined') {
-      fetch('/api/auth/me')
+      fetch('/api/auth/me', {
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+        },
+        credentials: 'include',
+      })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data && data.isAuthenticated === false) {
-            // SSR session cookie was invalidated or revoked
+            // SSR session token was explicitly invalidated or revoked by the server
             clearAuthSession();
+          } else if (data && data.user) {
+            setUser(data.user);
           }
         })
         .catch(() => {});

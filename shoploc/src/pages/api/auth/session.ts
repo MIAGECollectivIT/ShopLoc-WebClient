@@ -3,7 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { TOKEN_STORAGE_KEY } from '@/lib/auth';
 
-export const POST: APIRoute = async ({ request, cookies }) => {
+export const POST: APIRoute = async ({ request, cookies, url }) => {
   try {
     const body = await request.json();
     const { token, expiresIn } = body;
@@ -15,14 +15,21 @@ export const POST: APIRoute = async ({ request, cookies }) => {
       });
     }
 
-    const maxAgeSeconds = Math.max(60, Math.floor((expiresIn || 7200000) / 1000));
+    let maxAgeSeconds = 7200;
+    if (typeof expiresIn === 'number' && expiresIn > 0) {
+      maxAgeSeconds = expiresIn > 86400 ? Math.floor(expiresIn / 1000) : expiresIn;
+    }
+    maxAgeSeconds = Math.max(60, maxAgeSeconds);
+
+    const isHttps =
+      url.protocol === 'https:' || request.headers.get('x-forwarded-proto') === 'https';
 
     cookies.set(TOKEN_STORAGE_KEY, token, {
       path: '/',
       httpOnly: true,
       sameSite: 'lax',
       maxAge: maxAgeSeconds,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
     });
 
     return new Response(JSON.stringify({ success: true }), {

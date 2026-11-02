@@ -106,14 +106,22 @@ function verifyAndDecodeToken(token: string, publicKeyPem: string): JwtTokenPayl
 }
 
 export const onRequest = defineMiddleware(async (context, next) => {
-  const tokenCookie = context.cookies.get(TOKEN_STORAGE_KEY)?.value;
+  const authHeader =
+    context.request.headers.get('Authorization') || context.request.headers.get('authorization');
+  let tokenFromHeader: string | null = null;
+  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+    tokenFromHeader = authHeader.substring(7).trim();
+  }
 
-  if (tokenCookie) {
+  const tokenCookie = context.cookies.get(TOKEN_STORAGE_KEY)?.value;
+  const token = tokenCookie || tokenFromHeader;
+
+  if (token) {
     const publicKeyPem = await getOrFetchPublicKey();
     let payload: JwtTokenPayload | null = null;
 
     if (publicKeyPem) {
-      payload = verifyAndDecodeToken(tokenCookie, publicKeyPem);
+      payload = verifyAndDecodeToken(token, publicKeyPem);
     } else {
       console.warn(
         '[Astro SSR] Clé publique JWT indisponible : rejet sécurisé (fail-closed) du jeton.'
@@ -124,7 +132,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (payload) {
       const revoked = await isTokenRevoked(payload.jti);
       if (!revoked) {
-        context.locals.token = tokenCookie;
+        context.locals.token = token;
         context.locals.user = {
           id: payload.userId || payload.sub || '',
           email: payload.email || '',
@@ -133,12 +141,32 @@ export const onRequest = defineMiddleware(async (context, next) => {
           lastName: payload.lastName || '',
           clientCode: payload.clientCode,
         };
+
+        if (!tokenCookie && token) {
+          const isHttps =
+            context.url.protocol === 'https:' ||
+            context.request.headers.get('x-forwarded-proto') === 'https';
+          const maxAgeSeconds = payload.exp
+            ? Math.max(60, Math.floor(payload.exp - Date.now() / 1000))
+            : 7200;
+
+          context.cookies.set(TOKEN_STORAGE_KEY, token, {
+            path: '/',
+            httpOnly: true,
+            sameSite: 'lax',
+            maxAge: maxAgeSeconds,
+            secure: isHttps,
+          });
+        }
+
         return next();
       }
     }
 
     // Jeton invalide, altéré, expiré ou révoqué : suppression du cookie corrompu
-    context.cookies.delete(TOKEN_STORAGE_KEY, { path: '/' });
+    if (tokenCookie) {
+      context.cookies.delete(TOKEN_STORAGE_KEY, { path: '/' });
+    }
   }
 
   context.locals.token = null;
