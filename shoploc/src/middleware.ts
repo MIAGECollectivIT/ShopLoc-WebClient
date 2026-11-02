@@ -4,10 +4,11 @@ import { TOKEN_STORAGE_KEY } from './lib/auth';
 import type { UserRole } from './types/user';
 
 function formatPublicKeyPem(rawKey: string): string {
-  if (rawKey.includes('-----BEGIN PUBLIC KEY-----')) {
-    return rawKey;
+  const unquoted = rawKey.replace(/^["']|["']$/g, '').trim();
+  if (unquoted.includes('-----BEGIN PUBLIC KEY-----')) {
+    return unquoted.replace(/\\n/g, '\n');
   }
-  const clean = rawKey.replace(/\s+/g, '');
+  const clean = unquoted.replace(/\\n/g, '').replace(/\s+/g, '');
   const lines = clean.match(/.{1,64}/g)?.join('\n') || clean;
   return `-----BEGIN PUBLIC KEY-----\n${lines}\n-----END PUBLIC KEY-----\n`;
 }
@@ -17,9 +18,13 @@ let cachedPublicKeyPem: string | null = null;
 async function getOrFetchPublicKey(): Promise<string | null> {
   if (cachedPublicKeyPem) return cachedPublicKeyPem;
   const envKey = process.env.JWT_PUBLIC_KEY || process.env.PUBLIC_JWT_PUBLIC_KEY;
-  if (envKey) {
-    cachedPublicKeyPem = formatPublicKeyPem(envKey);
-    return cachedPublicKeyPem;
+  if (envKey && envKey.trim().length > 0) {
+    try {
+      cachedPublicKeyPem = formatPublicKeyPem(envKey);
+      return cachedPublicKeyPem;
+    } catch (e) {
+      console.warn("[Astro SSR] Erreur lors du formatage de la clé JWT d'environnement:", e);
+    }
   }
   const usersUrl =
     process.env.INTERNAL_USERS_SERVICE_URL ||
@@ -27,16 +32,29 @@ async function getOrFetchPublicKey(): Promise<string | null> {
     'http://localhost:8080';
   try {
     const res = await fetch(`${usersUrl.replace(/\/+$/, '')}/v1/auth/public-key`, {
-      signal: AbortSignal.timeout(2000),
+      signal: AbortSignal.timeout(5000),
     });
     if (res.ok) {
       const data = await res.json();
-      if (data.publicKey) {
+      if (
+        data.publicKey &&
+        typeof data.publicKey === 'string' &&
+        data.publicKey.trim().length > 0
+      ) {
         cachedPublicKeyPem = formatPublicKeyPem(data.publicKey);
         return cachedPublicKeyPem;
       }
+    } else {
+      console.warn(
+        `[Astro SSR] Échec de récupération de la clé publique JWT (HTTP ${res.status}) depuis ${usersUrl}`
+      );
     }
-  } catch {}
+  } catch (err) {
+    console.warn(
+      `[Astro SSR] Impossible de joindre users-service sur ${usersUrl} pour récupérer la clé publique:`,
+      err
+    );
+  }
   return null;
 }
 
@@ -54,7 +72,7 @@ async function isTokenRevoked(jti?: string): Promise<boolean> {
       'http://localhost:8080';
     try {
       const res = await fetch(`${usersUrl.replace(/\/+$/, '')}/v1/auth/revoked-tokens`, {
-        signal: AbortSignal.timeout(2000),
+        signal: AbortSignal.timeout(3000),
       });
       if (res.ok) {
         const list = await res.json();
@@ -118,16 +136,17 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   if (token) {
     const publicKeyPem = await getOrFetchPublicKey();
-    let payload: JwtTokenPayload | null = null;
 
-    if (publicKeyPem) {
-      payload = verifyAndDecodeToken(token, publicKeyPem);
-    } else {
-      console.warn(
-        '[Astro SSR] Clé publique JWT indisponible : rejet sécurisé (fail-closed) du jeton.'
-      );
-      payload = null;
+    if (!publicKeyPem) {
+      // Clé publique temporairement indisponible : fail-closed pour cette requête,
+      // mais on préserve le cookie du client pour ne pas détruire sa session
+      context.locals.authUnavailable = true;
+      context.locals.token = null;
+      context.locals.user = null;
+      return next();
     }
+
+    const payload = verifyAndDecodeToken(token, publicKeyPem);
 
     if (payload) {
       const revoked = await isTokenRevoked(payload.jti);
@@ -163,7 +182,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
       }
     }
 
-    // Jeton invalide, altéré, expiré ou révoqué : suppression du cookie corrompu
+    // Le jeton a été vérifié avec une clé valide et est explicitement invalide, expiré ou révoqué
     if (tokenCookie) {
       context.cookies.delete(TOKEN_STORAGE_KEY, { path: '/' });
     }

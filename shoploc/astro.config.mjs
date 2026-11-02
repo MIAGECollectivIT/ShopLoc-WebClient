@@ -20,6 +20,10 @@ export default defineConfig({
           target: process.env.DEV_BACKEND_URL || 'http://localhost:8080',
           changeOrigin: true,
         },
+        '/v1': {
+          target: process.env.DEV_BACKEND_URL || 'http://localhost:8080',
+          changeOrigin: true,
+        },
       },
     },
   },
