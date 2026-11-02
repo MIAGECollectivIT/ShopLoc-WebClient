@@ -20,6 +20,7 @@ import {
   type RegisterFormData,
 } from '@/lib/validation/register';
 import { registerUser, loginUser } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { ROUTES } from '@/config/routes';
 import type { Store } from '@/types/store';
 import type { UserResponse } from '@/types/user';
@@ -41,6 +42,7 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
+  const { isAuthenticated, user: authUser } = useAuth();
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [registeredUser, setRegisteredUser] = React.useState<UserResponse | null>(null);
 
@@ -182,6 +184,52 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
             })}
           >
             Retour à l'accueil
+          </a>
+          <a
+            href={ROUTES.login.path}
+            className={buttonVariants({
+              variant: 'secondary',
+              size: 'default',
+              className: 'w-full sm:flex-1',
+            })}
+          >
+            <User className="size-4 mr-2" />
+            Mon profil
+          </a>
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  if (isAuthenticated && authUser) {
+    const displayName =
+      [authUser.firstName, authUser.lastName].filter(Boolean).join(' ') || authUser.email;
+
+    return (
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="text-center pb-3">
+          <div className="mx-auto size-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-2">
+            <CheckCircle2 className="size-6" />
+          </div>
+          <CardTitle className="text-xl sm:text-2xl text-foreground">
+            Vous êtes déjà connecté
+          </CardTitle>
+          <CardDescription className="text-sm">
+            Vous êtes connecté en tant que{' '}
+            <strong className="text-foreground">{displayName}</strong>.
+          </CardDescription>
+        </CardHeader>
+        <CardFooter className="flex flex-col sm:flex-row gap-3 pt-2">
+          <a
+            href={ROUTES.stores.path}
+            className={buttonVariants({
+              variant: 'default',
+              size: 'default',
+              className: 'w-full sm:flex-1',
+            })}
+          >
+            <StoreIcon className="size-4 mr-2" />
+            Découvrir les boutiques
           </a>
           <a
             href={ROUTES.login.path}
