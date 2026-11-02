@@ -19,7 +19,7 @@ import {
   calculateAge,
   type RegisterFormData,
 } from '@/lib/validation/register';
-import { registerUser } from '@/lib/api';
+import { registerUser, loginUser } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 import type { Store } from '@/types/store';
 import type { UserResponse } from '@/types/user';
@@ -69,6 +69,12 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
           pickupLocation: values.pickupLocation,
         });
 
+        // Connexion immédiate et automatique de l'utilisateur après inscription réussie
+        await loginUser({
+          email: values.email,
+          password: values.password,
+        });
+
         setRegisteredUser(user);
       } catch (err: unknown) {
         if (err instanceof Error && err.message.includes('Email already in use')) {
@@ -99,9 +105,9 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
             Bienvenue sur ShopLoc, {registeredUser.firstName} !
           </CardTitle>
           <CardDescription className="text-sm">
-            Votre compte citoyen a été créé avec succès et est{' '}
+            Votre compte citoyen a été créé avec succès et vous êtes{' '}
             <strong className="text-emerald-600 dark:text-emerald-400 font-semibold">
-              immédiatement actif
+              directement connecté
             </strong>
             .
           </CardDescription>
@@ -176,6 +182,17 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
             })}
           >
             Retour à l'accueil
+          </a>
+          <a
+            href={ROUTES.login.path}
+            className={buttonVariants({
+              variant: 'secondary',
+              size: 'default',
+              className: 'w-full sm:flex-1',
+            })}
+          >
+            <User className="size-4 mr-2" />
+            Mon profil
           </a>
         </CardFooter>
       </Card>

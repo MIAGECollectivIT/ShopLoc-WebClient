@@ -11,23 +11,34 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { PasswordInput } from './PasswordInput';
 import { loginValidationSchema, type LoginFormData } from '@/lib/validation/login';
 import { loginUser } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { ROUTES } from '@/config/routes';
 import type { UserResponse } from '@/types/user';
 import {
   LogIn,
+  LogOut,
   Loader2,
   AlertCircle,
   CheckCircle2,
   Store as StoreIcon,
   UserPlus,
+  IdCard,
+  MapPin,
+  ShieldCheck,
+  ShoppingBag,
+  PlusCircle,
 } from 'lucide-react';
 
 export function LoginForm() {
+  const { isAuthenticated, user: authUser, logout } = useAuth();
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [loggedInUser, setLoggedInUser] = React.useState<UserResponse | null>(null);
+
+  const currentUser = loggedInUser || (isAuthenticated && authUser ? authUser : null);
 
   const formik = useFormik<LoginFormData>({
     initialValues: {
@@ -57,49 +68,155 @@ export function LoginForm() {
     },
   });
 
-  if (loggedInUser) {
+  if (currentUser) {
+    const roleLabel =
+      currentUser.role === 'ADMIN'
+        ? 'Administrateur'
+        : currentUser.role === 'MERCHANT'
+          ? 'Commerçant'
+          : 'Citoyen';
+
+    const displayName =
+      [currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ') || currentUser.email;
+
     return (
-      <Card className="border-emerald-500/30 bg-emerald-500/5">
-        <CardHeader className="text-center pb-4">
+      <Card className="border-emerald-500/30 bg-emerald-500/5 shadow-md">
+        <CardHeader className="text-center pb-3">
           <div className="mx-auto size-12 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-2">
             <CheckCircle2 className="size-6" />
           </div>
           <CardTitle className="text-xl sm:text-2xl text-foreground">
-            Ravi de vous revoir, {loggedInUser.firstName} !
+            Ravi de vous revoir, {currentUser.firstName || displayName} !
           </CardTitle>
           <CardDescription className="text-sm">
-            Vous êtes connecté avec succès à votre compte citoyen ShopLoc.
+            Vous êtes connecté à votre profil citoyen ShopLoc.
           </CardDescription>
+          <div className="flex justify-center items-center gap-2 mt-2">
+            <Badge
+              variant={
+                currentUser.role === 'ADMIN'
+                  ? 'destructive'
+                  : currentUser.role === 'MERCHANT'
+                    ? 'secondary'
+                    : 'outline'
+              }
+              className="px-2.5 py-0.5 text-xs font-medium"
+            >
+              Rôle : {roleLabel}
+            </Badge>
+            <Badge
+              variant="outline"
+              className="px-2 py-0.5 text-[11px] font-normal border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
+            >
+              Session active
+            </Badge>
+          </div>
         </CardHeader>
 
-        <CardContent className="space-y-4 text-center">
-          <p className="text-xs text-muted-foreground">
-            Accédez à vos avantages commerçants et cumulez vos points fidélité.
-          </p>
+        <CardContent className="space-y-4">
+          <div className="rounded-xl border bg-background/80 p-4 space-y-3">
+            {currentUser.clientCode && (
+              <div className="flex items-center justify-between border-b pb-2.5">
+                <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <IdCard className="size-4 text-primary" />
+                  <span>Code Client</span>
+                </div>
+                <span className="font-mono text-sm font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded">
+                  {currentUser.clientCode}
+                </span>
+              </div>
+            )}
+
+            <div className="text-sm grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
+              <div>
+                <span className="text-xs text-muted-foreground block">Nom complet</span>
+                <span className="font-medium text-foreground">{displayName}</span>
+              </div>
+              <div>
+                <span className="text-xs text-muted-foreground block">Adresse email</span>
+                <span className="font-medium text-foreground">{currentUser.email}</span>
+              </div>
+            </div>
+
+            {currentUser.pickupLocation && (
+              <div className="pt-2 border-t text-sm">
+                <div className="flex items-start gap-2">
+                  <MapPin className="size-4 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-xs text-muted-foreground block">
+                      Point de retrait de votre carte
+                    </span>
+                    <span className="font-medium text-foreground">
+                      {currentUser.pickupLocation}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30 text-xs text-muted-foreground">
+            <ShieldCheck className="size-4 shrink-0 text-emerald-600" />
+            <span>
+              Votre session sécurisée est active. Vous pouvez naviguer sur la plateforme et accéder
+              à tous vos services locaux.
+            </span>
+          </div>
         </CardContent>
 
-        <CardFooter className="flex flex-col sm:flex-row gap-3 pt-2">
-          <a
-            href={ROUTES.stores.path}
-            className={buttonVariants({
-              variant: 'default',
-              size: 'default',
-              className: 'w-full sm:flex-1',
-            })}
+        <CardFooter className="flex flex-col gap-2.5 pt-2">
+          <div className="flex flex-col sm:flex-row gap-2.5 w-full">
+            <a
+              href={ROUTES.stores.path}
+              className={buttonVariants({
+                variant: 'default',
+                size: 'default',
+                className: 'flex-1',
+              })}
+            >
+              <StoreIcon className="size-4 mr-2" />
+              Explorer les commerces
+            </a>
+
+            <a
+              href={ROUTES.cart.path}
+              className={buttonVariants({
+                variant: 'outline',
+                size: 'default',
+                className: 'flex-1',
+              })}
+            >
+              <ShoppingBag className="size-4 mr-2" />
+              Mes commandes
+            </a>
+          </div>
+
+          {(currentUser.role === 'ADMIN' || currentUser.role === 'MERCHANT') && (
+            <a
+              href={ROUTES.createStore.path}
+              className={buttonVariants({
+                variant: 'secondary',
+                size: 'default',
+                className: 'w-full gap-2',
+              })}
+            >
+              <PlusCircle className="size-4 text-primary" />
+              <span>Ajouter un établissement</span>
+            </a>
+          )}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 mt-1"
+            onClick={() => {
+              logout();
+              setLoggedInUser(null);
+            }}
           >
-            <StoreIcon className="size-4 mr-2" />
-            Explorer les commerces
-          </a>
-          <a
-            href={ROUTES.home.path}
-            className={buttonVariants({
-              variant: 'outline',
-              size: 'default',
-              className: 'w-full sm:flex-1',
-            })}
-          >
-            Retour à l'accueil
-          </a>
+            <LogOut className="size-4 mr-2" />
+            Déconnexion
+          </Button>
         </CardFooter>
       </Card>
     );
