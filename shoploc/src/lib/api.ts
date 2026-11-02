@@ -300,6 +300,7 @@ export async function loginUser(credentials: UserLoginRequest): Promise<UserResp
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: sessionData.token, expiresIn: sessionData.expiresIn }),
+        credentials: 'include',
       });
     } catch (sessionErr) {
       console.warn('Impossible de définir le cookie de session sécurisé:', sessionErr);
@@ -333,6 +334,7 @@ export async function logoutUser(): Promise<void> {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        credentials: 'include',
       });
     } catch (err) {
       console.warn('Erreur lors de la déconnexion via endpoint SSR:', err);
