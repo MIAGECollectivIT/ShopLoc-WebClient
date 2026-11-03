@@ -62,7 +62,7 @@ export function Header({ currentPath }: HeaderProps) {
         <div className="flex items-center gap-2">
           {isAuthenticated && user ? (
             <>
-              {(role === 'ADMIN' || role === 'MERCHANT') && (
+              {role === 'ADMIN' && (
                 <a
                   href="/stores/new"
                   className={buttonVariants({

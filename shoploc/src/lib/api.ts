@@ -1,5 +1,11 @@
 import type { Store, StoreCreateRequest, StoreResponse, PartnerAccount } from '@/types/store';
 import type {
+  Product,
+  ProductCreateRequest,
+  ProductUpdateRequest,
+  StockUpdateRequest,
+} from '@/types/product';
+import type {
   UserRegistrationRequest,
   UserLoginRequest,
   UserResponse,
@@ -409,4 +415,200 @@ export async function updateUserProfile(
   }
 
   return updatedUser;
+}
+
+/**
+ * ==============================================================================
+ * PRODUCT & CLICK & COLLECT CATALOG APIS (SLE-58, SLE-119, SLE-120, SLE-121, SLE-125)
+ * ==============================================================================
+ */
+
+/**
+ * Retrieves the full product catalog of a specific store.
+ */
+export async function getStoreProducts(storeId: number | string): Promise<Product[]> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products`);
+  const res = await fetchWithTimeout(endpoint);
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer les produits du magasin (HTTP ${res.status})`);
+  }
+  return (await res.json()) as Product[];
+}
+
+/**
+ * Retrieves a single product by storeId and productId.
+ */
+export async function getProductById(
+  storeId: number | string,
+  productId: number | string
+): Promise<Product> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products/${productId}`);
+  const res = await fetchWithTimeout(endpoint);
+  if (!res.ok) {
+    throw new Error(`Produit introuvable (HTTP ${res.status})`);
+  }
+  return (await res.json()) as Product;
+}
+
+/**
+ * Creates a new product in the store catalogue (JSON or Multipart with S3 image upload).
+ */
+export async function createProduct(
+  storeId: number | string,
+  data: ProductCreateRequest,
+  imageFile?: File
+): Promise<Product> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products`);
+  const token = getAuthToken();
+
+  let body: BodyInit;
+  const headers: Record<string, string> = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  if (imageFile) {
+    const formData = new FormData();
+    const productBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    formData.append('product', productBlob);
+    formData.append('file', imageFile);
+    body = formData;
+  } else {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(data);
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+    body,
+  });
+
+  if (!res.ok) {
+    let detail = `Erreur lors de la création du produit (HTTP ${res.status})`;
+    try {
+      const err = await res.json();
+      if (err.message) detail = err.message;
+      else if (err.detail) detail = err.detail;
+    } catch {}
+    throw new Error(detail);
+  }
+
+  return (await res.json()) as Product;
+}
+
+/**
+ * Updates an existing product (JSON or Multipart with S3 image upload).
+ */
+export async function updateProduct(
+  storeId: number | string,
+  productId: number | string,
+  data: ProductUpdateRequest,
+  imageFile?: File
+): Promise<Product> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products/${productId}`);
+  const token = getAuthToken();
+
+  let body: BodyInit;
+  const headers: Record<string, string> = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  if (imageFile) {
+    const formData = new FormData();
+    const productBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    formData.append('product', productBlob);
+    formData.append('file', imageFile);
+    body = formData;
+  } else {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(data);
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PUT',
+    headers,
+    body,
+  });
+
+  if (!res.ok) {
+    let detail = `Erreur lors de la mise à jour du produit (HTTP ${res.status})`;
+    try {
+      const err = await res.json();
+      if (err.message) detail = err.message;
+      else if (err.detail) detail = err.detail;
+    } catch {}
+    throw new Error(detail);
+  }
+
+  return (await res.json()) as Product;
+}
+
+/**
+ * Deletes a product from the store catalog.
+ */
+export async function deleteProduct(
+  storeId: number | string,
+  productId: number | string
+): Promise<void> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products/${productId}`);
+  const token = getAuthToken();
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'DELETE',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok && res.status !== 204) {
+    let detail = `Erreur lors de la suppression du produit (HTTP ${res.status})`;
+    try {
+      const err = await res.json();
+      if (err.message) detail = err.message;
+    } catch {}
+    throw new Error(detail);
+  }
+}
+
+/**
+ * Granularly adjusts product inventory stock via PATCH (SLE-121).
+ */
+export async function updateProductStock(
+  storeId: number | string,
+  productId: number | string,
+  stockUpdate: StockUpdateRequest
+): Promise<Product> {
+  const payload: Record<string, number> = {};
+  if (typeof stockUpdate.quantityDelta === 'number') {
+    payload.quantityDelta = stockUpdate.quantityDelta;
+  } else if (typeof stockUpdate.delta === 'number') {
+    payload.quantityDelta = stockUpdate.delta;
+  }
+  if (typeof stockUpdate.newQuantity === 'number') {
+    payload.newQuantity = stockUpdate.newQuantity;
+  }
+
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products/${productId}/stock`);
+  const token = getAuthToken();
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let detail = `Erreur lors de la mise à jour du stock (HTTP ${res.status})`;
+    try {
+      const err = await res.json();
+      if (err.message) detail = err.message;
+      else if (err.detail) detail = err.detail;
+    } catch {}
+    throw new Error(detail);
+  }
+
+  return (await res.json()) as Product;
 }

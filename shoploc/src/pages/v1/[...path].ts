@@ -4,11 +4,21 @@ import type { APIRoute } from 'astro';
 
 export const ALL: APIRoute = async ({ request, params, url }) => {
   const path = params.path || '';
-  const targetServiceUrl =
+  const isUsersRoute =
+    path.startsWith('users') || path.startsWith('auth') || path.startsWith('.well-known');
+
+  const usersServiceUrl =
+    (typeof import.meta !== 'undefined' && import.meta.env?.USERS_SERVICE_URL) ||
+    process.env.USERS_SERVICE_URL ||
+    'http://localhost:8081';
+
+  const defaultBackendUrl =
     (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
     process.env.INTERNAL_API_URL ||
     process.env.DEV_BACKEND_URL ||
     'http://localhost:8080';
+
+  const targetServiceUrl = isUsersRoute ? usersServiceUrl : defaultBackendUrl;
 
   const destination = `${targetServiceUrl.replace(/\/+$/, '')}/v1/${path}${url.search}`;
 
