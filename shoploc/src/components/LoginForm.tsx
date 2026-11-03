@@ -11,7 +11,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { PasswordInput } from './PasswordInput';
 import { loginValidationSchema, type LoginFormData } from '@/lib/validation/login';
 import { loginUser } from '@/lib/api';
@@ -70,12 +69,12 @@ export function LoginForm() {
   });
 
   if (currentUser) {
-    const roleLabel =
+    const welcomeDescription =
       currentUser.role === 'ADMIN'
-        ? 'Administrateur'
+        ? "Vous êtes connecté à l'espace d'administration ShopLoc."
         : currentUser.role === 'MERCHANT'
-          ? 'Commerçant'
-          : 'Citoyen';
+          ? 'Vous êtes connecté à votre espace commerçant ShopLoc.'
+          : 'Vous êtes connecté à votre profil citoyen ShopLoc.';
 
     const displayName =
       [currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ') || currentUser.email;
@@ -89,34 +88,12 @@ export function LoginForm() {
           <CardTitle className="text-xl sm:text-2xl text-foreground">
             Ravi de vous revoir, {currentUser.firstName || displayName} !
           </CardTitle>
-          <CardDescription className="text-sm">
-            Vous êtes connecté à votre profil citoyen ShopLoc.
-          </CardDescription>
-          <div className="flex justify-center items-center gap-2 mt-2">
-            <Badge
-              variant={
-                currentUser.role === 'ADMIN'
-                  ? 'destructive'
-                  : currentUser.role === 'MERCHANT'
-                    ? 'secondary'
-                    : 'outline'
-              }
-              className="px-2.5 py-0.5 text-xs font-medium"
-            >
-              Rôle : {roleLabel}
-            </Badge>
-            <Badge
-              variant="outline"
-              className="px-2 py-0.5 text-[11px] font-normal border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
-            >
-              Session active
-            </Badge>
-          </div>
+          <CardDescription className="text-sm">{welcomeDescription}</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
           <div className="rounded-xl border bg-background/80 p-4 space-y-3">
-            {currentUser.clientCode && (
+            {currentUser.role === 'CLIENT' && currentUser.clientCode && (
               <div className="flex items-center justify-between border-b pb-2.5">
                 <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   <IdCard className="size-4 text-primary" />
@@ -139,35 +116,37 @@ export function LoginForm() {
               </div>
             </div>
 
-            {currentUser.pickupLocation ? (
-              <div className="pt-2 border-t text-sm">
-                <div className="flex items-start gap-2">
-                  <MapPin className="size-4 text-primary shrink-0 mt-0.5" />
-                  <div>
-                    <span className="text-xs text-muted-foreground block">
-                      Point de retrait de votre carte
-                    </span>
-                    <span className="font-medium text-foreground">
-                      {currentUser.pickupLocation}
-                    </span>
+            {currentUser.role === 'CLIENT' &&
+              currentUser.clientCode &&
+              (currentUser.pickupLocation ? (
+                <div className="pt-2 border-t text-sm">
+                  <div className="flex items-start gap-2">
+                    <MapPin className="size-4 text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <span className="text-xs text-muted-foreground block">
+                        Point de retrait de votre carte
+                      </span>
+                      <span className="font-medium text-foreground">
+                        {currentUser.pickupLocation}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="pt-2 border-t text-sm">
-                <div className="flex items-start gap-2">
-                  <Smartphone className="size-4 text-emerald-600 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="text-xs text-muted-foreground block">
-                      Format de votre carte locale
-                    </span>
-                    <span className="font-medium text-emerald-600">
-                      Carte 100% numérique (dématérialisée)
-                    </span>
+              ) : (
+                <div className="pt-2 border-t text-sm">
+                  <div className="flex items-start gap-2">
+                    <Smartphone className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="text-xs text-muted-foreground block">
+                        Format de votre carte locale
+                      </span>
+                      <span className="font-medium text-emerald-600">
+                        Carte 100% numérique (dématérialisée)
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              ))}
           </div>
 
           <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30 text-xs text-muted-foreground">
