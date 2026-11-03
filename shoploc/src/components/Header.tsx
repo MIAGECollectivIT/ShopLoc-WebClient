@@ -77,7 +77,7 @@ export function Header({ currentPath }: HeaderProps) {
               )}
 
               <a
-                href={role === 'CLIENT' ? ROUTES.profile.path : ROUTES.login.path}
+                href={ROUTES.profile.path}
                 className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-muted/60 hover:bg-muted border text-xs transition-colors"
                 title="Accéder à mon profil"
               >

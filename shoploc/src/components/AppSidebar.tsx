@@ -242,8 +242,16 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
 
                 <SidebarMenuItem>
                   <SidebarMenuButton render={<a href="/profile" />}>
-                    <QrCode className="size-4 text-emerald-600 dark:text-emerald-400" />
-                    <span>Mon Profil & QR Code</span>
+                    {role === 'ADMIN' || role === 'MERCHANT' ? (
+                      <User className="size-4 text-muted-foreground" />
+                    ) : (
+                      <QrCode className="size-4 text-emerald-600 dark:text-emerald-400" />
+                    )}
+                    <span>
+                      {role === 'ADMIN' || role === 'MERCHANT'
+                        ? 'Mon Profil'
+                        : 'Mon Profil & QR Code'}
+                    </span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
@@ -261,19 +269,21 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
-                <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => setIsWalletOpen(true)}>
-                    <Wallet className="size-4 text-muted-foreground" />
-                    <div className="flex items-center justify-between flex-1">
-                      <span>Portefeuille & Fidélité</span>
-                      {user?.clientCode && (
-                        <span className="text-[10px] font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                          {user.clientCode}
-                        </span>
-                      )}
-                    </div>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {role === 'CLIENT' && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton onClick={() => setIsWalletOpen(true)}>
+                      <Wallet className="size-4 text-muted-foreground" />
+                      <div className="flex items-center justify-between flex-1">
+                        <span>Portefeuille & Fidélité</span>
+                        {user?.clientCode && (
+                          <span className="text-[10px] font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                            {user.clientCode}
+                          </span>
+                        )}
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
 
                 <SidebarMenuItem>
                   <SidebarMenuButton render={<a href="/stores" />}>
