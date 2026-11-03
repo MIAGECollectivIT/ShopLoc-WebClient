@@ -4,30 +4,13 @@ import type { APIRoute } from 'astro';
 
 export const ALL: APIRoute = async ({ request, params, url }) => {
   const path = params.path || '';
-  let targetServiceUrl =
-    (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_USERS_SERVICE_URL) ||
-    (typeof import.meta !== 'undefined' && import.meta.env?.USERS_SERVICE_URL) ||
-    process.env.INTERNAL_USERS_SERVICE_URL ||
-    process.env.USERS_SERVICE_URL ||
+  const targetServiceUrl =
+    (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_USERS_API_URL) ||
+    process.env.PUBLIC_USERS_API_URL ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
+    process.env.INTERNAL_API_URL ||
     process.env.DEV_BACKEND_URL ||
     'http://localhost:8080';
-
-  if (path.startsWith('stores')) {
-    targetServiceUrl =
-      (typeof import.meta !== 'undefined' && import.meta.env?.STORE_SERVICE_URL) ||
-      process.env.STORE_SERVICE_URL ||
-      targetServiceUrl;
-  } else if (path.startsWith('loyalty')) {
-    targetServiceUrl =
-      (typeof import.meta !== 'undefined' && import.meta.env?.LOYALTY_SERVICE_URL) ||
-      process.env.LOYALTY_SERVICE_URL ||
-      targetServiceUrl;
-  } else if (path.startsWith('sales')) {
-    targetServiceUrl =
-      (typeof import.meta !== 'undefined' && import.meta.env?.SALES_SERVICE_URL) ||
-      process.env.SALES_SERVICE_URL ||
-      targetServiceUrl;
-  }
 
   const destination = `${targetServiceUrl.replace(/\/+$/, '')}/v1/${path}${url.search}`;
 
