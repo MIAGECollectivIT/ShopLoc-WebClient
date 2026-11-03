@@ -10,8 +10,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   if (token) {
     const usersUrl =
-      (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_USERS_API_URL) ||
-      process.env.PUBLIC_USERS_API_URL ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
       process.env.INTERNAL_API_URL ||
       'http://localhost:8080';
     try {

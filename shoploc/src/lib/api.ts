@@ -51,26 +51,19 @@ export async function fetchWithTimeout(
   }
 }
 
-export function getApiEndpoint(path: string, serviceUrlEnv?: string): string {
+export function getApiEndpoint(path: string, _serviceUrl?: string): string {
   const base =
-    (typeof import.meta !== 'undefined' &&
-      (import.meta.env?.PUBLIC_USERS_API_URL || import.meta.env?.PUBLIC_API_URL)) ||
-    (typeof process !== 'undefined' &&
-      (serviceUrlEnv || process.env?.PUBLIC_USERS_API_URL || process.env?.INTERNAL_API_URL)) ||
-    (typeof window !== 'undefined' ? '' : 'http://localhost:8080');
+    typeof window !== 'undefined'
+      ? ''
+      : (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
+        (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
+        'http://localhost:8080';
 
   return `${base.replace(/\/$/, '')}${path}`;
 }
 
 export function getUsersApiEndpoint(path: string): string {
-  const base =
-    (typeof import.meta !== 'undefined' &&
-      (import.meta.env?.PUBLIC_USERS_API_URL || import.meta.env?.PUBLIC_API_URL)) ||
-    (typeof process !== 'undefined' &&
-      (process.env?.PUBLIC_USERS_API_URL || process.env?.INTERNAL_API_URL)) ||
-    (typeof window !== 'undefined' ? '' : 'http://localhost:8080');
-
-  return `${base.replace(/\/$/, '')}${path}`;
+  return getApiEndpoint(path);
 }
 
 export interface ServiceHealthResponse {
