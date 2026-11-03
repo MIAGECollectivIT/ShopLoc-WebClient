@@ -7,6 +7,8 @@ declare global {
       user: AuthUser | null;
       token: string | null;
       authUnavailable?: boolean;
+      tokenInvalid?: boolean;
+      tokenRevoked?: boolean;
     }
   }
 }

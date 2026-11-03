@@ -9,9 +9,23 @@ export const AUTH_CHANGE_EVENT = 'shoploc-auth-change';
  * Decodes base64 payload safely across browser and Node.js environments.
  */
 function decodeBase64(base64: string): string {
-  const normalized = base64.replace(/-/g, '+').replace(/_/g, '/');
+  let normalized = base64.replace(/-/g, '+').replace(/_/g, '/');
+  while (normalized.length % 4 !== 0) {
+    normalized += '=';
+  }
   if (typeof window !== 'undefined' && typeof window.atob === 'function') {
-    return window.atob(normalized);
+    try {
+      return decodeURIComponent(
+        Array.prototype.map
+          .call(
+            window.atob(normalized),
+            (c: string) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+          )
+          .join('')
+      );
+    } catch {
+      return window.atob(normalized);
+    }
   }
   return Buffer.from(normalized, 'base64').toString('utf-8');
 }
@@ -223,7 +237,11 @@ export function useAuth() {
       })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
-          if (data && data.isAuthenticated === false) {
+          if (
+            data &&
+            data.isAuthenticated === false &&
+            (data.error === 'TOKEN_INVALID' || data.error === 'TOKEN_REVOKED')
+          ) {
             // SSR session token was explicitly invalidated or revoked by the server
             clearAuthSession();
           } else if (data && data.user) {
