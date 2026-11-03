@@ -403,7 +403,14 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
                   </p>
                 )}
                 {/* Real-time Password Strength Meter */}
-                <PasswordStrengthMeter password={formik.values.password} />
+                <PasswordStrengthMeter
+                  password={formik.values.password}
+                  userInfo={{
+                    firstName: formik.values.firstName,
+                    lastName: formik.values.lastName,
+                    email: formik.values.email,
+                  }}
+                />
               </div>
 
               <div className="space-y-1.5">
