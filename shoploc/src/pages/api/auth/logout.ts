@@ -10,8 +10,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
 
   if (token) {
     const usersUrl =
+      (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
       (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
-      process.env.INTERNAL_API_URL ||
       'http://localhost:8080';
     try {
       await fetch(`${usersUrl.replace(/\/+$/, '')}/v1/users/logout`, {

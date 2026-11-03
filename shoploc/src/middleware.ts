@@ -18,10 +18,10 @@ let cachedPublicKeyPem: string | null = null;
 async function getOrFetchPublicKey(): Promise<string | null> {
   if (cachedPublicKeyPem) return cachedPublicKeyPem;
   const envKey =
-    (typeof import.meta !== 'undefined' && import.meta.env?.JWT_PUBLIC_KEY) ||
-    (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_JWT_PUBLIC_KEY) ||
     process.env.JWT_PUBLIC_KEY ||
-    process.env.PUBLIC_JWT_PUBLIC_KEY;
+    process.env.PUBLIC_JWT_PUBLIC_KEY ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.JWT_PUBLIC_KEY) ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_JWT_PUBLIC_KEY);
   if (envKey && typeof envKey === 'string' && envKey.trim().length > 0) {
     try {
       cachedPublicKeyPem = formatPublicKeyPem(envKey);
@@ -31,8 +31,8 @@ async function getOrFetchPublicKey(): Promise<string | null> {
     }
   }
   const usersUrl =
+    (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
     (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
-    process.env.INTERNAL_API_URL ||
     'http://localhost:8080';
   try {
     const res = await fetch(`${usersUrl.replace(/\/+$/, '')}/v1/auth/public-key`, {
@@ -71,8 +71,8 @@ async function isTokenRevoked(jti?: string): Promise<boolean> {
   if (now - lastRevocationFetch > 15000) {
     lastRevocationFetch = now;
     const usersUrl =
+      (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
       (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
-      process.env.INTERNAL_API_URL ||
       'http://localhost:8080';
     try {
       const res = await fetch(`${usersUrl.replace(/\/+$/, '')}/v1/auth/revoked-tokens`, {
