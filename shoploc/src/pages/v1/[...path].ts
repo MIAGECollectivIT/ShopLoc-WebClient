@@ -5,8 +5,6 @@ import type { APIRoute } from 'astro';
 export const ALL: APIRoute = async ({ request, params, url }) => {
   const path = params.path || '';
   const targetServiceUrl =
-    (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_USERS_API_URL) ||
-    process.env.PUBLIC_USERS_API_URL ||
     (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
     process.env.INTERNAL_API_URL ||
     process.env.DEV_BACKEND_URL ||
