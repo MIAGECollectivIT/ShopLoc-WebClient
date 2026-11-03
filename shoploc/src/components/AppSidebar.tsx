@@ -46,6 +46,7 @@ import {
   AlertCircle,
   IdCard,
   Store as StoreIcon,
+  QrCode,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { updateUserProfile } from '@/lib/api';
@@ -240,9 +241,16 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                 )}
 
                 <SidebarMenuItem>
+                  <SidebarMenuButton render={<a href="/profile" />}>
+                    <QrCode className="size-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>Mon Profil & QR Code</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
+                <SidebarMenuItem>
                   <SidebarMenuButton onClick={() => setIsProfileOpen(true)}>
                     <User className="size-4 text-muted-foreground" />
-                    <span>Afficher mon profil</span>
+                    <span>Modifier mes informations</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 

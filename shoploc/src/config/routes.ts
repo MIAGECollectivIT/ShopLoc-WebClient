@@ -1,4 +1,4 @@
-import { Home, Store, BookOpen, ShoppingCart, UserPlus, LogIn } from 'lucide-react';
+import { Home, Store, BookOpen, ShoppingCart, UserPlus, LogIn, User } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react';
 
@@ -44,6 +44,11 @@ export const ROUTES = {
     path: '/register',
     label: 'Inscription',
     icon: UserPlus,
+  },
+  profile: {
+    path: '/profile',
+    label: 'Mon Profil',
+    icon: User,
   },
 } as const;
 

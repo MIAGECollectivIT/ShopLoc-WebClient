@@ -77,9 +77,9 @@ export function Header({ currentPath }: HeaderProps) {
               )}
 
               <a
-                href={ROUTES.login.path}
+                href={role === 'CLIENT' ? ROUTES.profile.path : ROUTES.login.path}
                 className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-muted/60 hover:bg-muted border text-xs transition-colors"
-                title="Accéder à mon profil de connexion"
+                title="Accéder à mon profil"
               >
                 <UserIcon className="size-3.5 text-primary" />
                 <span className="font-medium max-w-[120px] truncate hidden sm:inline">
