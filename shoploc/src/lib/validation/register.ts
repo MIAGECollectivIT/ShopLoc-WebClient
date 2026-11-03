@@ -163,9 +163,15 @@ export const registerValidationSchema = Yup.object().shape({
   confirmPassword: Yup.string()
     .required('La confirmation du mot de passe est obligatoire')
     .oneOf([Yup.ref('password')], 'Les mots de passe ne correspondent pas'),
-  pickupLocation: Yup.string()
-    .required('Le lieu de retrait de carte physique est obligatoire')
-    .max(150, 'Le lieu de retrait ne doit pas dépasser 150 caractères'),
+  wantsPhysicalCard: Yup.boolean().default(false),
+  pickupLocation: Yup.string().when('wantsPhysicalCard', {
+    is: true,
+    then: (schema) =>
+      schema
+        .required('Veuillez sélectionner un point de retrait pour votre carte physique')
+        .max(150, 'Le lieu de retrait ne doit pas dépasser 150 caractères'),
+    otherwise: (schema) => schema.notRequired(),
+  }),
 });
 
 // Zod validation schema matching the backend constraints
@@ -215,10 +221,12 @@ export const registerZodSchema = z
         'Le mot de passe doit contenir au moins un caractère spécial'
       ),
     confirmPassword: z.string().min(1, 'La confirmation du mot de passe est obligatoire'),
+    wantsPhysicalCard: z.boolean().default(false),
     pickupLocation: z
       .string()
-      .min(1, 'Le lieu de retrait de carte physique est obligatoire')
-      .max(150, 'Le lieu de retrait ne doit pas dépasser 150 caractères'),
+      .max(150, 'Le lieu de retrait ne doit pas dépasser 150 caractères')
+      .optional()
+      .nullable(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Les mots de passe ne correspondent pas',
@@ -235,6 +243,15 @@ export const registerZodSchema = z
       message:
         'Le mot de passe ne doit pas contenir votre prénom, votre nom ou votre adresse email',
       path: ['password'],
+    }
+  )
+  .refine(
+    (data) =>
+      !data.wantsPhysicalCard ||
+      (typeof data.pickupLocation === 'string' && data.pickupLocation.trim().length > 0),
+    {
+      message: 'Veuillez sélectionner un point de retrait pour votre carte physique',
+      path: ['pickupLocation'],
     }
   );
 

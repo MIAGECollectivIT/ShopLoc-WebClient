@@ -310,7 +310,7 @@ export async function loginUser(credentials: UserLoginRequest): Promise<UserResp
     lastName: sessionData.lastName || '',
     birthDate: userObj.birthDate || '1995-01-01',
     clientCode: sessionData.clientCode || 'CL-00000',
-    pickupLocation: userObj.pickupLocation || "Mairie — Point d'accueil",
+    pickupLocation: userObj.pickupLocation || undefined,
     licensePlates: userObj.licensePlates || [],
     createdAt: userObj.createdAt || new Date().toISOString(),
     updatedAt: userObj.updatedAt || new Date().toISOString(),

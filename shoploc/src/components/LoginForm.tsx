@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   PlusCircle,
+  Smartphone,
 } from 'lucide-react';
 
 export function LoginForm() {
@@ -138,7 +139,7 @@ export function LoginForm() {
               </div>
             </div>
 
-            {currentUser.pickupLocation && (
+            {currentUser.pickupLocation ? (
               <div className="pt-2 border-t text-sm">
                 <div className="flex items-start gap-2">
                   <MapPin className="size-4 text-primary shrink-0 mt-0.5" />
@@ -148,6 +149,20 @@ export function LoginForm() {
                     </span>
                     <span className="font-medium text-foreground">
                       {currentUser.pickupLocation}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="pt-2 border-t text-sm">
+                <div className="flex items-start gap-2">
+                  <Smartphone className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-xs text-muted-foreground block">
+                      Format de votre carte locale
+                    </span>
+                    <span className="font-medium text-emerald-600">
+                      Carte 100% numérique (dématérialisée)
                     </span>
                   </div>
                 </div>

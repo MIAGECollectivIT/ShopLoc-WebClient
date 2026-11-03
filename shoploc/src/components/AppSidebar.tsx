@@ -682,13 +682,22 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                       {user.clientCode || 'Attribué en mairie'}
                     </span>
                   </div>
-                  {user.pickupLocation && (
+                  {user.pickupLocation ? (
                     <div className="text-right">
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">
                         Point de retrait
                       </span>
                       <span className="text-xs font-medium text-foreground truncate max-w-[140px] inline-block">
                         {user.pickupLocation}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="text-right">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">
+                        Format
+                      </span>
+                      <span className="text-xs font-medium text-emerald-600 inline-block">
+                        100% Dématérialisée
                       </span>
                     </div>
                   )}
