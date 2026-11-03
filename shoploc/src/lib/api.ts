@@ -55,8 +55,8 @@ export function getApiEndpoint(path: string, _serviceUrl?: string): string {
   const base =
     typeof window !== 'undefined'
       ? ''
-      : (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
-        (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
+      : (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
+        (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
         'http://localhost:8080';
 
   return `${base.replace(/\/$/, '')}${path}`;
