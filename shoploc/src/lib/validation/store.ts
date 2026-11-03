@@ -1,4 +1,4 @@
-import * as Yup from 'yup';
+import { z } from 'zod';
 
 export const STORE_CATEGORIES = [
   'Alimentation & Épicerie',
@@ -15,15 +15,6 @@ export const STORE_CATEGORIES = [
 ] as const;
 
 export type StoreCategory = (typeof STORE_CATEGORIES)[number];
-
-export interface CreateStoreFormData {
-  name: string;
-  category: string;
-  address: string;
-  url: string;
-  rib: string;
-  userId: number | '';
-}
 
 /**
  * Official letter-to-digit conversion map for French RIB account numbers.
@@ -184,46 +175,59 @@ export function formatRibOrIban(value: string): string {
 }
 
 /**
- * Yup schema for store creation form validation (SLE-86).
+ * Zod schema for store creation form validation (SLE-86).
  * User-facing validation messages remain strictly in French.
  */
-export const createStoreValidationSchema = Yup.object().shape({
-  name: Yup.string()
+export const createStoreZodSchema = z.object({
+  name: z
+    .string()
     .trim()
-    .required("Le nom de l'établissement est obligatoire")
+    .min(1, "Le nom de l'établissement est obligatoire")
     .max(255, 'Le nom ne doit pas dépasser 255 caractères'),
-  category: Yup.string()
+  category: z
+    .string()
     .trim()
-    .required("La catégorie d'activité est obligatoire")
+    .min(1, "La catégorie d'activité est obligatoire")
     .max(255, 'La catégorie ne doit pas dépasser 255 caractères'),
-  address: Yup.string()
+  address: z
+    .string()
     .trim()
-    .required("L'adresse de l'établissement est obligatoire")
+    .min(1, "L'adresse de l'établissement est obligatoire")
     .max(255, "L'adresse ne doit pas dépasser 255 caractères"),
-  url: Yup.string()
+  url: z
+    .string()
     .trim()
     .max(500, "L'URL ne doit pas dépasser 500 caractères")
-    .test('is-valid-url', "L'URL doit être valide (ex: https://mon-commerce.fr)", (val) => {
-      if (!val || val.trim() === '') return true;
-      try {
-        const urlToTest =
-          val.startsWith('http://') || val.startsWith('https://') ? val : `https://${val}`;
-        new URL(urlToTest);
-        return true;
-      } catch {
-        return false;
-      }
-    }),
-  rib: Yup.string()
+    .refine(
+      (val) => {
+        if (!val || val.trim() === '') return true;
+        try {
+          const urlToTest =
+            val.startsWith('http://') || val.startsWith('https://') ? val : `https://${val}`;
+          new URL(urlToTest);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "L'URL doit être valide (ex: https://mon-commerce.fr)" }
+    )
+    .optional()
+    .or(z.literal('')),
+  rib: z
+    .string()
     .trim()
-    .required('Le RIB ou IBAN est obligatoire')
-    .test(
-      'is-valid-rib-iban',
-      'Le format ou la clé algorithmique du RIB/IBAN est invalide (RIB français 23 car. ou IBAN valide)',
-      (val) => Boolean(val && isValidRibOrIban(val))
-    ),
-  userId: Yup.number()
-    .typeError('Veuillez sélectionner un compte partenaire')
-    .required("L'établissement doit être obligatoirement rattaché à un compte partenaire")
-    .positive('Identifiant de partenaire invalide'),
+    .min(1, 'Le RIB ou IBAN est obligatoire')
+    .refine((val) => Boolean(val && isValidRibOrIban(val)), {
+      message:
+        'Le format ou la clé algorithmique du RIB/IBAN est invalide (RIB français 23 car. ou IBAN valide)',
+    }),
+  userId: z
+    .union([z.number().positive('Identifiant de partenaire invalide'), z.literal('')])
+    .refine((val) => typeof val === 'number' && val > 0, {
+      message: 'Veuillez sélectionner un compte partenaire',
+    }),
 });
+
+export const createStoreValidationSchema = createStoreZodSchema;
+export type CreateStoreFormData = z.infer<typeof createStoreZodSchema>;

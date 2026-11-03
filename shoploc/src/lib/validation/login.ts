@@ -1,12 +1,14 @@
-import * as Yup from 'yup';
+import { z } from 'zod';
 import { RFC_5322_EMAIL_REGEX } from './register';
 
-export const loginValidationSchema = Yup.object().shape({
-  email: Yup.string()
+export const loginZodSchema = z.object({
+  email: z
+    .string()
     .trim()
-    .required("L'adresse email est obligatoire")
-    .matches(RFC_5322_EMAIL_REGEX, "Format d'adresse email invalide (ex: nom@domaine.fr)"),
-  password: Yup.string().required('Le mot de passe est obligatoire'),
+    .min(1, "L'adresse email est obligatoire")
+    .regex(RFC_5322_EMAIL_REGEX, "Format d'adresse email invalide (ex: nom@domaine.fr)"),
+  password: z.string().min(1, 'Le mot de passe est obligatoire'),
 });
 
-export type LoginFormData = Yup.InferType<typeof loginValidationSchema>;
+export const loginValidationSchema = loginZodSchema;
+export type LoginFormData = z.infer<typeof loginZodSchema>;
