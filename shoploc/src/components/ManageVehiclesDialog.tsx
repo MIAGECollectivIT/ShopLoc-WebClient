@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Car, Plus, Pencil, Trash2, Check, X, AlertCircle } from 'lucide-react';
+import { Car, Plus, Pencil, Trash2, Check, X, AlertCircle, Loader2 } from 'lucide-react';
 import { FrenchLicensePlateBadge } from './FrenchLicensePlateBadge';
 import { LicensePlateLegalNotice } from './LicensePlateLegalNotice';
 import {
@@ -43,6 +43,7 @@ export function ManageVehiclesDialog({
   const [confirmDeletePlate, setConfirmDeletePlate] = React.useState<string | null>(null);
   const [inputError, setInputError] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Reset form state when dialog opens or closes
@@ -53,6 +54,7 @@ export function ManageVehiclesDialog({
       setConfirmDeletePlate(null);
       setInputError(null);
       setActionError(null);
+      setSuccessMessage(null);
       setIsSubmitting(false);
     }
   }, [open]);
@@ -77,6 +79,7 @@ export function ManageVehiclesDialog({
     setInputValue(rawVal);
     setInputError(null);
     setActionError(null);
+    setSuccessMessage(null);
 
     if (rawVal.trim().length > 0) {
       const result = licensePlateSchema.safeParse(rawVal);
@@ -99,6 +102,7 @@ export function ManageVehiclesDialog({
     setInputValue(plate);
     setInputError(null);
     setActionError(null);
+    setSuccessMessage(null);
     setConfirmDeletePlate(null);
   };
 
@@ -131,15 +135,18 @@ export function ManageVehiclesDialog({
 
     setIsSubmitting(true);
     setActionError(null);
+    setSuccessMessage(null);
 
     try {
       if (editingPlate) {
         if (editingPlate.toUpperCase() !== finalPlate.toUpperCase() && onUpdatePlate) {
           await onUpdatePlate(editingPlate, finalPlate);
         }
+        setSuccessMessage(`La plaque ${finalPlate} a été mise à jour avec succès.`);
         setEditingPlate(null);
       } else if (onAddPlate) {
         await onAddPlate(finalPlate);
+        setSuccessMessage(`La plaque ${finalPlate} a été ajoutée à vos véhicules.`);
       }
       setInputValue('');
       setInputError(null);
@@ -157,10 +164,12 @@ export function ManageVehiclesDialog({
   const handleDelete = async (plate: string) => {
     setIsSubmitting(true);
     setActionError(null);
+    setSuccessMessage(null);
     try {
       if (onDeletePlate) {
         await onDeletePlate(plate);
       }
+      setSuccessMessage(`La plaque ${plate} a été supprimée.`);
       if (editingPlate === plate) {
         cancelEdit();
       }
@@ -193,6 +202,14 @@ export function ManageVehiclesDialog({
         {/* Mention légale RGPD */}
         <LicensePlateLegalNotice />
 
+        {/* Message de succès */}
+        {successMessage && (
+          <div className="flex items-center gap-2 p-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs">
+            <Check className="size-4 shrink-0" />
+            <span>{successMessage}</span>
+          </div>
+        )}
+
         {/* Message d'erreur global d'action (API) */}
         {actionError && (
           <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-xs">
@@ -223,6 +240,7 @@ export function ManageVehiclesDialog({
                 variant="ghost"
                 size="sm"
                 onClick={cancelEdit}
+                disabled={isSubmitting}
                 className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
               >
                 Annuler la modification
@@ -257,7 +275,12 @@ export function ManageVehiclesDialog({
               size="sm"
               className="h-9 gap-1.5 sm:self-start"
             >
-              {editingPlate ? (
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  <span>En cours...</span>
+                </>
+              ) : editingPlate ? (
                 <>
                   <Check className="size-4" />
                   <span>Enregistrer</span>
@@ -328,7 +351,11 @@ export function ManageVehiclesDialog({
                           onClick={() => handleDelete(plate)}
                           className="h-7 px-2 text-xs gap-1"
                         >
-                          <Check className="size-3" />
+                          {isSubmitting ? (
+                            <Loader2 className="size-3 animate-spin" />
+                          ) : (
+                            <Check className="size-3" />
+                          )}
                           <span>Oui</span>
                         </Button>
                         <Button

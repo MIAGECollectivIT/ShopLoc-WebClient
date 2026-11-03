@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useAuth } from '@/lib/auth';
-import { getCurrentUserProfile } from '@/lib/api';
+import { getCurrentUserProfile, addVehicle, updateVehicle, deleteVehicle } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 import type { UserResponse } from '@/types/user';
 import { ClientQrCodeCard } from './ClientQrCodeCard';
@@ -179,31 +179,41 @@ export function ClientProfileView() {
 
   const licensePlates = effectiveUser.licensePlates || [];
 
-  const handlePlateAdded = (newPlate: string) => {
+  const handlePlateAdded = async (newPlate: string) => {
+    const res = await addVehicle(newPlate);
+    const addedPlate = res.licensePlate || newPlate;
     setProfile((prev) =>
       prev
         ? {
             ...prev,
-            licensePlates: [...(prev.licensePlates || []), newPlate],
+            licensePlates: [
+              ...(prev.licensePlates || []).filter(
+                (p) => p.toUpperCase() !== addedPlate.toUpperCase()
+              ),
+              addedPlate,
+            ],
           }
         : prev
     );
   };
 
-  const handlePlateUpdated = (oldPlate: string, newPlate: string) => {
+  const handlePlateUpdated = async (oldPlate: string, newPlate: string) => {
+    const res = await updateVehicle(oldPlate, newPlate);
+    const updatedPlate = res.licensePlate || newPlate;
     setProfile((prev) =>
       prev
         ? {
             ...prev,
             licensePlates: (prev.licensePlates || []).map((p) =>
-              p.toUpperCase() === oldPlate.toUpperCase() ? newPlate : p
+              p.toUpperCase() === oldPlate.toUpperCase() ? updatedPlate : p
             ),
           }
         : prev
     );
   };
 
-  const handlePlateDeleted = (deletedPlate: string) => {
+  const handlePlateDeleted = async (deletedPlate: string) => {
+    await deleteVehicle(deletedPlate);
     setProfile((prev) =>
       prev
         ? {
