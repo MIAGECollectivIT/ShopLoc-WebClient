@@ -55,3 +55,8 @@ export interface AuthUser {
   pickupLocation?: string;
   licensePlates?: string[];
 }
+
+export interface VehicleResponse {
+  vehicleId: string;
+  licensePlate: string;
+}

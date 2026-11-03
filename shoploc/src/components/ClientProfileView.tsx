@@ -1,9 +1,11 @@
 import * as React from 'react';
 import { useAuth } from '@/lib/auth';
-import { getCurrentUserProfile } from '@/lib/api';
+import { getCurrentUserProfile, addVehicle, updateVehicle, deleteVehicle } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 import type { UserResponse } from '@/types/user';
 import { ClientQrCodeCard } from './ClientQrCodeCard';
+import { FrenchLicensePlateBadge } from './FrenchLicensePlateBadge';
+import { ManageVehiclesDialog } from './ManageVehiclesDialog';
 import {
   Card,
   CardContent,
@@ -28,6 +30,8 @@ import {
   AlertCircle,
   LogIn,
   IdCard,
+  Plus,
+  Settings2,
 } from 'lucide-react';
 
 export function ClientProfileView() {
@@ -35,6 +39,7 @@ export function ClientProfileView() {
   const [profile, setProfile] = React.useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [isManageVehiclesOpen, setIsManageVehiclesOpen] = React.useState(false);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -173,6 +178,53 @@ export function ClientProfileView() {
   };
 
   const licensePlates = effectiveUser.licensePlates || [];
+
+  const handlePlateAdded = async (newPlate: string) => {
+    const res = await addVehicle(newPlate);
+    const addedPlate = res.licensePlate || newPlate;
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            licensePlates: [
+              ...(prev.licensePlates || []).filter(
+                (p) => p.toUpperCase() !== addedPlate.toUpperCase()
+              ),
+              addedPlate,
+            ],
+          }
+        : prev
+    );
+  };
+
+  const handlePlateUpdated = async (oldPlate: string, newPlate: string) => {
+    const res = await updateVehicle(oldPlate, newPlate);
+    const updatedPlate = res.licensePlate || newPlate;
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            licensePlates: (prev.licensePlates || []).map((p) =>
+              p.toUpperCase() === oldPlate.toUpperCase() ? updatedPlate : p
+            ),
+          }
+        : prev
+    );
+  };
+
+  const handlePlateDeleted = async (deletedPlate: string) => {
+    await deleteVehicle(deletedPlate);
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            licensePlates: (prev.licensePlates || []).filter(
+              (p) => p.toUpperCase() !== deletedPlate.toUpperCase()
+            ),
+          }
+        : prev
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -318,12 +370,25 @@ export function ClientProfileView() {
                     <span>Plaques d'Immatriculation</span>
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Véhicules associés à votre compte pour la reconnaissance en caisse et drive.
+                    Véhicules associés à votre compte pour la reconnaissance en caisse et les
+                    avantages de stationnement.
                   </CardDescription>
                 </div>
-                <Badge variant="secondary" className="font-mono text-xs">
-                  {licensePlates.length} {licensePlates.length > 1 ? 'plaques' : 'plaque'}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="font-mono text-xs">
+                    {licensePlates.length} {licensePlates.length > 1 ? 'plaques' : 'plaque'}
+                  </Badge>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsManageVehiclesOpen(true)}
+                    className="h-8 gap-1.5 text-xs"
+                  >
+                    <Settings2 className="size-3.5" />
+                    <span>Gérer mes plaques</span>
+                  </Button>
+                </div>
               </CardHeader>
 
               <CardContent className="pt-4">
@@ -334,20 +399,7 @@ export function ClientProfileView() {
                         key={plate}
                         className="flex items-center justify-between p-3 rounded-xl border bg-muted/10 hover:bg-muted/30 transition-colors"
                       >
-                        {/* Badge stylisé plaque minéralogique française */}
-                        <div className="inline-flex items-stretch bg-white text-neutral-900 border-2 border-neutral-900 rounded-md shadow-sm overflow-hidden font-mono tracking-wider select-all">
-                          <div className="bg-blue-600 text-white px-1.5 py-1 flex flex-col items-center justify-center text-[10px] font-sans font-bold leading-none select-none">
-                            <span className="text-[7px] text-amber-300">★</span>
-                            <span>F</span>
-                          </div>
-                          <div className="px-3 py-1 text-sm sm:text-base font-extrabold flex items-center tracking-widest font-mono">
-                            {plate}
-                          </div>
-                          <div className="bg-blue-600 text-white px-1.5 py-1 flex flex-col items-center justify-center text-[8px] font-sans font-bold leading-none select-none">
-                            <span>FR</span>
-                          </div>
-                        </div>
-
+                        <FrenchLicensePlateBadge plate={plate} />
                         <span className="text-xs text-muted-foreground font-medium hidden sm:inline">
                           Enregistrée
                         </span>
@@ -362,14 +414,36 @@ export function ClientProfileView() {
                     <p className="text-sm font-semibold text-foreground">
                       Aucune plaque d'immatriculation enregistrée
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                      L'ajout de vos plaques facilitera la détection de votre compte lors de vos
-                      passages en drive ou parkings partenaires.
+                    <p className="text-xs text-muted-foreground mt-1 max-w-sm mb-4">
+                      L'ajout de vos plaques facilitera la détection de votre véhicule lors de vos
+                      passages en drive ou pour bénéficier de vos avantages de stationnement
+                      municipal.
                     </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setIsManageVehiclesOpen(true)}
+                      className="gap-1.5 text-xs"
+                    >
+                      <Plus className="size-3.5" />
+                      <span>Ajouter une plaque</span>
+                    </Button>
                   </div>
                 )}
               </CardContent>
             </Card>
+          )}
+
+          {/* Dialogue de gestion des plaques d'immatriculation */}
+          {isClient && (
+            <ManageVehiclesDialog
+              open={isManageVehiclesOpen}
+              onOpenChange={setIsManageVehiclesOpen}
+              licensePlates={licensePlates}
+              onAddPlate={handlePlateAdded}
+              onUpdatePlate={handlePlateUpdated}
+              onDeletePlate={handlePlateDeleted}
+            />
           )}
 
           {/* Raccourcis de navigation */}
