@@ -1,4 +1,3 @@
-import * as Yup from 'yup';
 import { z } from 'zod';
 
 export const MINIMUM_AGE = 18;
@@ -68,55 +67,6 @@ export function calculatePasswordStrength(requirements: PasswordRequirement[]): 
   return 'strong';
 }
 
-// Yup validation schema tailored for Formik real-time validation
-export const registerValidationSchema = Yup.object().shape({
-  firstName: Yup.string()
-    .trim()
-    .required('Le prénom est obligatoire')
-    .max(100, 'Le prénom ne doit pas dépasser 100 caractères'),
-  lastName: Yup.string()
-    .trim()
-    .required('Le nom est obligatoire')
-    .max(100, 'Le nom ne doit pas dépasser 100 caractères'),
-  birthDate: Yup.string()
-    .required('La date de naissance est obligatoire')
-    .test('is-in-past', 'La date de naissance doit être dans le passé', (val) => {
-      if (!val) return false;
-      const date = new Date(val);
-      return !isNaN(date.getTime()) && date < new Date();
-    })
-    .test(
-      'is-min-age',
-      `Vous devez avoir au moins ${MINIMUM_AGE} ans pour créer un compte`,
-      (val) => {
-        if (!val) return false;
-        return calculateAge(val) >= MINIMUM_AGE;
-      }
-    ),
-  email: Yup.string()
-    .trim()
-    .required("L'adresse email est obligatoire")
-    .max(255, "L'adresse email ne doit pas dépasser 255 caractères")
-    .matches(RFC_5322_EMAIL_REGEX, "Format d'adresse email invalide (ex: nom@domaine.fr)"),
-  password: Yup.string()
-    .required('Le mot de passe est obligatoire')
-    .min(8, 'Le mot de passe doit comporter au moins 8 caractères')
-    .max(100, 'Le mot de passe ne doit pas dépasser 100 caractères')
-    .matches(/[a-z]/, 'Le mot de passe doit contenir au moins une lettre minuscule')
-    .matches(/[A-Z]/, 'Le mot de passe doit contenir au moins une lettre majuscule')
-    .matches(/\d/, 'Le mot de passe doit contenir au moins un chiffre')
-    .matches(
-      PASSWORD_SPECIAL_CHARS_REGEX,
-      'Le mot de passe doit contenir au moins un caractère spécial (@$!%*?&#^()_+-=)'
-    ),
-  confirmPassword: Yup.string()
-    .required('La confirmation du mot de passe est obligatoire')
-    .oneOf([Yup.ref('password')], 'Les mots de passe ne correspondent pas'),
-  pickupLocation: Yup.string()
-    .required('Le lieu de retrait de carte physique est obligatoire')
-    .max(150, 'Le lieu de retrait ne doit pas dépasser 150 caractères'),
-});
-
 // Zod validation schema matching the backend constraints
 export const registerZodSchema = z
   .object({
@@ -171,4 +121,5 @@ export const registerZodSchema = z
     path: ['confirmPassword'],
   });
 
-export type RegisterFormData = Yup.InferType<typeof registerValidationSchema>;
+export const registerValidationSchema = registerZodSchema;
+export type RegisterFormData = z.infer<typeof registerZodSchema>;
