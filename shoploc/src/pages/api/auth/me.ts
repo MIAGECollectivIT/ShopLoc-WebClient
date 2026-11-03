@@ -21,10 +21,25 @@ export const GET: APIRoute = async (context) => {
     );
   }
 
+  if (!user && (context.locals.tokenInvalid || context.locals.tokenRevoked)) {
+    return new Response(
+      JSON.stringify({
+        user: null,
+        isAuthenticated: false,
+        error: context.locals.tokenRevoked ? 'TOKEN_REVOKED' : 'TOKEN_INVALID',
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
   return new Response(
     JSON.stringify({
       user,
       isAuthenticated: Boolean(user),
+      error: user ? null : 'NO_TOKEN',
     }),
     {
       status: 200,

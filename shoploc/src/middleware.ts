@@ -17,8 +17,12 @@ let cachedPublicKeyPem: string | null = null;
 
 async function getOrFetchPublicKey(): Promise<string | null> {
   if (cachedPublicKeyPem) return cachedPublicKeyPem;
-  const envKey = process.env.JWT_PUBLIC_KEY || process.env.PUBLIC_JWT_PUBLIC_KEY;
-  if (envKey && envKey.trim().length > 0) {
+  const envKey =
+    (typeof import.meta !== 'undefined' && import.meta.env?.JWT_PUBLIC_KEY) ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_JWT_PUBLIC_KEY) ||
+    process.env.JWT_PUBLIC_KEY ||
+    process.env.PUBLIC_JWT_PUBLIC_KEY;
+  if (envKey && typeof envKey === 'string' && envKey.trim().length > 0) {
     try {
       cachedPublicKeyPem = formatPublicKeyPem(envKey);
       return cachedPublicKeyPem;
@@ -27,6 +31,8 @@ async function getOrFetchPublicKey(): Promise<string | null> {
     }
   }
   const usersUrl =
+    (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_USERS_SERVICE_URL) ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.USERS_SERVICE_URL) ||
     process.env.INTERNAL_USERS_SERVICE_URL ||
     process.env.USERS_SERVICE_URL ||
     'http://localhost:8080';
@@ -67,6 +73,8 @@ async function isTokenRevoked(jti?: string): Promise<boolean> {
   if (now - lastRevocationFetch > 15000) {
     lastRevocationFetch = now;
     const usersUrl =
+      (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_USERS_SERVICE_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.USERS_SERVICE_URL) ||
       process.env.INTERNAL_USERS_SERVICE_URL ||
       process.env.USERS_SERVICE_URL ||
       'http://localhost:8080';
@@ -179,7 +187,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
         }
 
         return next();
+      } else {
+        context.locals.tokenRevoked = true;
       }
+    } else {
+      context.locals.tokenInvalid = true;
     }
 
     // Le jeton a été vérifié avec une clé valide et est explicitement invalide, expiré ou révoqué
