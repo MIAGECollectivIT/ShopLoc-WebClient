@@ -35,6 +35,8 @@ import {
   ShieldCheck,
   IdCard,
   LogIn,
+  Smartphone,
+  CreditCard,
 } from 'lucide-react';
 
 interface RegisterFormProps {
@@ -54,6 +56,7 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
       email: '',
       password: '',
       confirmPassword: '',
+      wantsPhysicalCard: false,
       pickupLocation: DEFAULT_MUNICIPALITY_LOCATION,
     },
     validationSchema: registerValidationSchema,
@@ -68,7 +71,7 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
           birthDate: values.birthDate,
           email: values.email,
           password: values.password,
-          pickupLocation: values.pickupLocation,
+          pickupLocation: values.wantsPhysicalCard ? values.pickupLocation : undefined,
         });
 
         // Connexion immédiate et automatique de l'utilisateur après inscription réussie
@@ -140,19 +143,36 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
               </div>
             </div>
 
-            <div className="pt-2 border-t text-sm">
-              <div className="flex items-start gap-2">
-                <MapPin className="size-4 text-primary shrink-0 mt-0.5" />
-                <div>
-                  <span className="text-xs text-muted-foreground block">
-                    Point de retrait de votre carte physique
-                  </span>
-                  <span className="font-medium">
-                    {registeredUser.pickupLocation || DEFAULT_MUNICIPALITY_LOCATION}
-                  </span>
+            {registeredUser.pickupLocation ? (
+              <div className="pt-2 border-t text-sm">
+                <div className="flex items-start gap-2">
+                  <MapPin className="size-4 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-xs text-muted-foreground block">
+                      Point de retrait de votre carte physique
+                    </span>
+                    <span className="font-medium">{registeredUser.pickupLocation}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="pt-2 border-t text-sm">
+                <div className="flex items-start gap-2">
+                  <Smartphone className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-xs text-muted-foreground block">
+                      Format de votre carte locale
+                    </span>
+                    <span className="font-medium text-emerald-600">
+                      Carte 100% numérique (dématérialisée)
+                    </span>
+                    <span className="text-xs text-muted-foreground block mt-0.5">
+                      Aucun retrait physique nécessaire. Votre code client est actif immédiatement.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30 text-xs text-muted-foreground">
@@ -436,33 +456,94 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
             </div>
           </div>
 
-          {/* Section: Card Pickup Location */}
+          {/* Section: Loyalty Card Format Choice */}
           <div className="space-y-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b pb-1.5 flex items-center gap-1.5">
-              <MapPin className="size-3.5" />
-              <span>Retrait de la carte physique</span>
+              <IdCard className="size-3.5" />
+              <span>Format de votre carte de fidélité</span>
             </h3>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="pickupLocation">Lieu de retrait souhaité</Label>
-              <PickupLocationSelect
-                id="pickupLocation"
-                value={formik.values.pickupLocation}
-                onValueChange={(val) => formik.setFieldValue('pickupLocation', val)}
-                stores={initialStores}
-                disabled={formik.isSubmitting}
-              />
-              {formik.touched.pickupLocation && formik.errors.pickupLocation && (
-                <p className="text-[12px] text-destructive flex items-center gap-1 mt-1">
-                  <AlertCircle className="size-3.5 shrink-0" />
-                  <span>{formik.errors.pickupLocation}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Option 1: 100% Dématérialisée */}
+              <button
+                type="button"
+                onClick={() => {
+                  formik.setFieldValue('wantsPhysicalCard', false);
+                }}
+                className={`relative flex flex-col text-left p-3.5 rounded-lg border transition-all cursor-pointer ${
+                  !formik.values.wantsPhysicalCard
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                    : 'border-border bg-card hover:bg-muted/50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="size-4 text-emerald-600" />
+                    <span className="font-semibold text-sm">100% Dématérialisée</span>
+                  </div>
+                  <span className="text-[10px] font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-1.5 py-0.5 rounded">
+                    Recommandé
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Active immédiatement sur votre téléphone. Aucun déplacement ni retrait nécessaire.
                 </p>
-              )}
-              <p className="text-[11px] text-muted-foreground">
-                Choisissez entre l'accueil de la mairie ou l'un des commerces partenaires de votre
-                ville.
-              </p>
+              </button>
+
+              {/* Option 2: Carte physique imprimée */}
+              <button
+                type="button"
+                onClick={() => {
+                  formik.setFieldValue('wantsPhysicalCard', true);
+                  if (!formik.values.pickupLocation) {
+                    formik.setFieldValue('pickupLocation', DEFAULT_MUNICIPALITY_LOCATION);
+                  }
+                }}
+                className={`relative flex flex-col text-left p-3.5 rounded-lg border transition-all cursor-pointer ${
+                  formik.values.wantsPhysicalCard
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                    : 'border-border bg-card hover:bg-muted/50'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <CreditCard className="size-4 text-primary" />
+                  <span className="font-semibold text-sm">Carte physique imprimée</span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Carte plastique nominative à retirer en mairie ou chez un commerce partenaire.
+                </p>
+              </button>
             </div>
+
+            {/* If user chooses physical card, show pickup location selector */}
+            {formik.values.wantsPhysicalCard && (
+              <div className="space-y-1.5 pt-2 border-t border-dashed">
+                <Label
+                  htmlFor="pickupLocation"
+                  className="flex items-center gap-1.5 text-xs font-medium"
+                >
+                  <MapPin className="size-3.5 text-primary" />
+                  <span>Lieu de retrait souhaité</span>
+                </Label>
+                <PickupLocationSelect
+                  id="pickupLocation"
+                  value={formik.values.pickupLocation || DEFAULT_MUNICIPALITY_LOCATION}
+                  onValueChange={(val) => formik.setFieldValue('pickupLocation', val)}
+                  stores={initialStores}
+                  disabled={formik.isSubmitting}
+                />
+                {formik.touched.pickupLocation && formik.errors.pickupLocation && (
+                  <p className="text-[12px] text-destructive flex items-center gap-1 mt-1">
+                    <AlertCircle className="size-3.5 shrink-0" />
+                    <span>{formik.errors.pickupLocation}</span>
+                  </p>
+                )}
+                <p className="text-[11px] text-muted-foreground">
+                  Choisissez entre l'accueil de la mairie ou l'un des commerces partenaires de votre
+                  ville.
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
 
