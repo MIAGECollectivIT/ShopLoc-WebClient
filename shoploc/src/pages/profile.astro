@@ -1,0 +1,19 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PageContainer from '../components/PageContainer.astro';
+import { ClientProfileView } from '../components/ClientProfileView';
+import { ROUTES } from '../config/routes';
+---
+
+<Layout
+  title="Mon Profil — ShopLoc"
+  description="Consultez vos informations personnelles et les détails de votre profil sur la plateforme ShopLoc."
+>
+  <PageContainer
+    title="Mon Profil"
+    description="Retrouvez vos informations personnelles et les paramètres de votre compte ShopLoc."
+    icon={ROUTES.profile.icon}
+  >
+    <ClientProfileView client:load />
+  </PageContainer>
+</Layout>
