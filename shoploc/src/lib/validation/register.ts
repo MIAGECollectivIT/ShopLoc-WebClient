@@ -1,4 +1,3 @@
-import * as Yup from 'yup';
 import { z } from 'zod';
 
 export const MINIMUM_AGE = 18;
@@ -107,73 +106,6 @@ export function calculatePasswordStrength(requirements: PasswordRequirement[]): 
   return 'strong';
 }
 
-// Yup validation schema tailored for Formik real-time validation
-export const registerValidationSchema = Yup.object().shape({
-  firstName: Yup.string()
-    .trim()
-    .required('Le prénom est obligatoire')
-    .max(100, 'Le prénom ne doit pas dépasser 100 caractères'),
-  lastName: Yup.string()
-    .trim()
-    .required('Le nom est obligatoire')
-    .max(100, 'Le nom ne doit pas dépasser 100 caractères'),
-  birthDate: Yup.string()
-    .required('La date de naissance est obligatoire')
-    .test('is-in-past', 'La date de naissance doit être dans le passé', (val) => {
-      if (!val) return false;
-      const date = new Date(val);
-      return !isNaN(date.getTime()) && date < new Date();
-    })
-    .test(
-      'is-min-age',
-      `Vous devez avoir au moins ${MINIMUM_AGE} ans pour créer un compte`,
-      (val) => {
-        if (!val) return false;
-        return calculateAge(val) >= MINIMUM_AGE;
-      }
-    ),
-  email: Yup.string()
-    .trim()
-    .required("L'adresse email est obligatoire")
-    .max(255, "L'adresse email ne doit pas dépasser 255 caractères")
-    .matches(RFC_5322_EMAIL_REGEX, "Format d'adresse email invalide (ex: nom@domaine.fr)"),
-  password: Yup.string()
-    .required('Le mot de passe est obligatoire')
-    .min(
-      MINIMUM_PASSWORD_LENGTH,
-      `Le mot de passe doit comporter au moins ${MINIMUM_PASSWORD_LENGTH} caractères (recommandation CNIL)`
-    )
-    .max(128, 'Le mot de passe ne doit pas dépasser 128 caractères')
-    .matches(/[a-z]/, 'Le mot de passe doit contenir au moins une lettre minuscule')
-    .matches(/[A-Z]/, 'Le mot de passe doit contenir au moins une lettre majuscule')
-    .matches(/\d/, 'Le mot de passe doit contenir au moins un chiffre')
-    .matches(
-      PASSWORD_SPECIAL_CHARS_REGEX,
-      'Le mot de passe doit contenir au moins un caractère spécial'
-    )
-    .test(
-      'no-personal-info',
-      'Le mot de passe ne doit pas contenir votre prénom, votre nom ou votre adresse email',
-      function (val) {
-        if (!val) return true;
-        const { firstName, lastName, email } = this.parent;
-        return !hasPersonalInfo(val, { firstName, lastName, email });
-      }
-    ),
-  confirmPassword: Yup.string()
-    .required('La confirmation du mot de passe est obligatoire')
-    .oneOf([Yup.ref('password')], 'Les mots de passe ne correspondent pas'),
-  wantsPhysicalCard: Yup.boolean().default(false),
-  pickupLocation: Yup.string().when('wantsPhysicalCard', {
-    is: true,
-    then: (schema) =>
-      schema
-        .required('Veuillez sélectionner un point de retrait pour votre carte physique')
-        .max(150, 'Le lieu de retrait ne doit pas dépasser 150 caractères'),
-    otherwise: (schema) => schema.notRequired(),
-  }),
-});
-
 // Zod validation schema matching the backend constraints
 export const registerZodSchema = z
   .object({
@@ -221,12 +153,11 @@ export const registerZodSchema = z
         'Le mot de passe doit contenir au moins un caractère spécial'
       ),
     confirmPassword: z.string().min(1, 'La confirmation du mot de passe est obligatoire'),
-    wantsPhysicalCard: z.boolean().default(false),
+    wantsPhysicalCard: z.boolean(),
     pickupLocation: z
       .string()
       .max(150, 'Le lieu de retrait ne doit pas dépasser 150 caractères')
-      .optional()
-      .nullable(),
+      .optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Les mots de passe ne correspondent pas',
@@ -255,4 +186,5 @@ export const registerZodSchema = z
     }
   );
 
-export type RegisterFormData = Yup.InferType<typeof registerValidationSchema>;
+export const registerValidationSchema = registerZodSchema;
+export type RegisterFormData = z.infer<typeof registerZodSchema>;
