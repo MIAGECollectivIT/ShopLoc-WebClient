@@ -48,6 +48,7 @@ export interface ButtonWithAuthorizationProps
  * Polymorphic button component with Role-Based Access Control (RBAC).
  * Supports rendering either as an interactive action button or a navigation link,
  * featuring configurable unauthorized fallback strategies (remove, hidden, disabled).
+ * Prevents SSR hydration mismatches by synchronizing initial mount on the client.
  */
 export function ButtonWithAuthorization({
   allowedRoles,
@@ -64,7 +65,24 @@ export function ButtonWithAuthorization({
   title,
   ...props
 }: ButtonWithAuthorizationProps) {
-  const { role, isAuthenticated } = useAuth();
+  const { role, isAuthenticated, isLoading } = useAuth();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Avoid SSR / client hydration mismatches before localStorage session is loaded
+  if (!mounted || isLoading) {
+    if (fallbackMode === 'hidden') {
+      return (
+        <span className="hidden" aria-hidden="true">
+          {children || label}
+        </span>
+      );
+    }
+    return null;
+  }
 
   // If no role restriction is specified, access is universally granted
   const isAuthorized =
