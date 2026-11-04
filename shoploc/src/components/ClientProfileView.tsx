@@ -147,6 +147,7 @@ export function ClientProfileView() {
         <CardFooter className="flex justify-center pt-2">
           <a
             href={ROUTES.login.path}
+            data-astro-reload=""
             className={buttonVariants({
               variant: 'default',
               size: 'default',

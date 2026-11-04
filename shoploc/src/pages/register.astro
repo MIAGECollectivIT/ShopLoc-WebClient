@@ -25,7 +25,7 @@ try {
     icon={ROUTES.register.icon}
   >
     <div class="max-w-2xl mx-auto py-2">
-      <RegisterForm client:load initialStores={initialStores} />
+      <RegisterForm client:only="react" initialStores={initialStores} />
     </div>
   </PageContainer>
 </Layout>
