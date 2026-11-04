@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { MainNav } from './MainNav';
 import { ModeToggle } from './ModeToggle';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -14,7 +15,12 @@ interface HeaderProps {
 export function Header({ currentPath }: HeaderProps) {
   const isRegister = currentPath === ROUTES.register.path;
   const isLogin = currentPath === ROUTES.login.path;
-  const { user, isAuthenticated, role, logout } = useAuth();
+  const { user, isAuthenticated, role, logout, isLoading } = useAuth();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const getRoleBadge = () => {
     switch (role) {
@@ -43,6 +49,8 @@ export function Header({ currentPath }: HeaderProps) {
     }
   };
 
+  const showAuthenticatedState = mounted && !isLoading && isAuthenticated && user;
+
   return (
     <header className="border-b">
       <div className="max-w-5xl mx-auto flex h-14 items-center justify-between gap-4 px-4 sm:px-6">
@@ -60,7 +68,7 @@ export function Header({ currentPath }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          {isAuthenticated && user ? (
+          {showAuthenticatedState ? (
             <>
               <a
                 href={ROUTES.profile.path}

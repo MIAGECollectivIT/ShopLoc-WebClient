@@ -36,6 +36,11 @@ import {
 
 export function ClientProfileView() {
   const { user: authUser, isAuthenticated, isLoading: authLoading, logout } = useAuth();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
   const [profile, setProfile] = React.useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -123,6 +128,10 @@ export function ClientProfileView() {
   }
 
   // Utilisateur non connecté
+  if (!mounted || authLoading) {
+    return null;
+  }
+
   if (!isAuthenticated && !profile) {
     return (
       <Card className="max-w-lg mx-auto border-dashed text-center p-6">

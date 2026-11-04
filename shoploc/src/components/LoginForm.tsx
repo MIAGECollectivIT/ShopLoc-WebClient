@@ -35,11 +35,17 @@ import {
 } from 'lucide-react';
 
 export function LoginForm() {
-  const { isAuthenticated, user: authUser, logout } = useAuth();
+  const { isAuthenticated, user: authUser, logout, isLoading } = useAuth();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [loggedInUser, setLoggedInUser] = React.useState<UserResponse | null>(null);
 
-  const currentUser = loggedInUser || (isAuthenticated && authUser ? authUser : null);
+  const currentUser =
+    loggedInUser || (mounted && !isLoading && isAuthenticated && authUser ? authUser : null);
 
   const {
     register,

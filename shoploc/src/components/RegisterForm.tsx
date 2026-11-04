@@ -40,7 +40,12 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
-  const { isAuthenticated, user: authUser } = useAuth();
+  const { isAuthenticated, user: authUser, isLoading } = useAuth();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [registeredUser, setRegisteredUser] = React.useState<UserResponse | null>(null);
 
@@ -222,7 +227,7 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
     );
   }
 
-  if (isAuthenticated && authUser) {
+  if (mounted && !isLoading && isAuthenticated && authUser) {
     const displayName =
       [authUser.firstName, authUser.lastName].filter(Boolean).join(' ') || authUser.email;
 
