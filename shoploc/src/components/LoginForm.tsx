@@ -201,6 +201,7 @@ export function LoginForm() {
             onClick={() => {
               logout();
               setLoggedInUser(null);
+              window.location.href = ROUTES.login.path;
             }}
           >
             <LogOut className="size-4 mr-2" />
@@ -277,6 +278,7 @@ export function LoginForm() {
             <span>Nouveau sur ShopLoc ? </span>
             <a
               href={ROUTES.register.path}
+              data-astro-reload=""
               className="text-primary font-medium hover:underline inline-flex items-center gap-1"
             >
               <UserPlus className="size-3" />

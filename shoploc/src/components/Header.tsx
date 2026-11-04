@@ -72,6 +72,7 @@ export function Header({ currentPath }: HeaderProps) {
             <>
               <a
                 href={ROUTES.profile.path}
+                data-astro-reload=""
                 className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-muted/60 hover:bg-muted border text-xs transition-colors"
                 title="Accéder à mon profil"
               >
@@ -86,7 +87,10 @@ export function Header({ currentPath }: HeaderProps) {
                 variant="ghost"
                 size="sm"
                 className="gap-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                onClick={() => logout()}
+                onClick={() => {
+                  logout();
+                  window.location.href = ROUTES.login.path;
+                }}
                 title="Se déconnecter"
               >
                 <LogOut className="size-3.5" />
@@ -97,6 +101,7 @@ export function Header({ currentPath }: HeaderProps) {
             <>
               <a
                 href={ROUTES.login.path}
+                data-astro-reload=""
                 className={buttonVariants({
                   variant: isLogin ? 'default' : 'ghost',
                   size: 'sm',
@@ -109,6 +114,7 @@ export function Header({ currentPath }: HeaderProps) {
 
               <a
                 href={ROUTES.register.path}
+                data-astro-reload=""
                 className={buttonVariants({
                   variant: isRegister ? 'default' : 'outline',
                   size: 'sm',

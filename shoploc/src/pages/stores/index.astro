@@ -46,7 +46,7 @@ try {
         {stores.length > 1 ? 's' : ''}
       </p>
       <ButtonWithAuthorization
-        client:load
+        client:only="react"
         allowedRoles={['ADMIN']}
         fallbackMode="remove"
         href={ROUTES.createStore.path}

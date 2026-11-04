@@ -216,14 +216,14 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                 {!isAuthenticated ? (
                   <>
                     <SidebarMenuItem>
-                      <SidebarMenuButton render={<a href="/register" />}>
+                      <SidebarMenuButton render={<a href="/register" data-astro-reload="" />}>
                         <UserPlus className="size-4 text-muted-foreground" />
                         <span>Créer un compte</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
 
                     <SidebarMenuItem>
-                      <SidebarMenuButton render={<a href="/login" />}>
+                      <SidebarMenuButton render={<a href="/login" data-astro-reload="" />}>
                         <LogIn className="size-4 text-muted-foreground" />
                         <span>Se connecter</span>
                       </SidebarMenuButton>
@@ -241,7 +241,7 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                 )}
 
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<a href="/profile" />}>
+                  <SidebarMenuButton render={<a href="/profile" data-astro-reload="" />}>
                     {role === 'ADMIN' || role === 'MERCHANT' ? (
                       <User className="size-4 text-muted-foreground" />
                     ) : (
@@ -354,6 +354,7 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
               onClick={() => {
                 if (window.confirm('Voulez-vous vous déconnecter de ShopLoc ?')) {
                   logout();
+                  window.location.href = '/login';
                 }
               }}
             >
@@ -365,7 +366,7 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
               variant="default"
               size="sm"
               className="w-full justify-start"
-              render={<a href="/login" />}
+              render={<a href="/login" data-astro-reload="" />}
             >
               <LogIn className="size-4 mr-2" />
               <span>Se connecter</span>
@@ -401,10 +402,14 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                 </p>
               </div>
               <div className="flex items-center justify-center gap-2 pt-2">
-                <Button size="sm" render={<a href="/login" />}>
+                <Button size="sm" render={<a href="/login" data-astro-reload="" />}>
                   Se connecter
                 </Button>
-                <Button variant="outline" size="sm" render={<a href="/register" />}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<a href="/register" data-astro-reload="" />}
+                >
                   Créer un compte
                 </Button>
               </div>
@@ -661,10 +666,14 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                 </p>
               </div>
               <div className="flex items-center justify-center gap-2 pt-2">
-                <Button size="sm" render={<a href="/login" />}>
+                <Button size="sm" render={<a href="/login" data-astro-reload="" />}>
                   Se connecter
                 </Button>
-                <Button variant="outline" size="sm" render={<a href="/register" />}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<a href="/register" data-astro-reload="" />}
+                >
                   Créer un compte
                 </Button>
               </div>
