@@ -1,16 +1,15 @@
 import { z } from 'zod';
 
 export const STORE_CATEGORIES = [
-  'Alimentation & Épicerie',
-  'Boulangerie & Pâtisserie',
-  'Boucherie & Charcuterie',
-  'Restauration & Traiteur',
-  'Commerce de détail',
-  'Mode & Habillement',
-  'Santé, Beauté & Bien-être',
-  'Culture, Loisirs & Cadeaux',
-  "Artisanat & Métiers d'art",
-  'Services & Proximité',
+  'Alimentation',
+  'Restauration',
+  'Prêt-à-porter',
+  'Maison et Décoration',
+  'Santé',
+  'Bien-être',
+  'Culture',
+  'Artisanat',
+  'Services de proximité',
   'Autre',
 ] as const;
 
