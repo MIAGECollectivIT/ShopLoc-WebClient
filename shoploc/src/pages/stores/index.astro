@@ -2,6 +2,9 @@
 import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
 import { StoreCard } from '../../components/StoreCard';
+import { ButtonWithAuthorization } from '../../components/ui/ButtonWithAuthorization';
+import { Plus } from 'lucide-react';
+import { ROUTES } from '../../config/routes';
 import {
   Empty,
   EmptyHeader,
@@ -10,8 +13,7 @@ import {
   EmptyDescription,
 } from '../../components/ui/empty';
 import { getStores, getApiEndpoint } from '../../lib/api';
-import { AlertCircle, Store, Plus } from 'lucide-react';
-import { ROUTES } from '../../config/routes';
+import { AlertCircle, Store } from 'lucide-react';
 import type { Store as StoreType } from '../../types/store';
 
 let stores: StoreType[] = [];
@@ -43,13 +45,15 @@ try {
         {stores.length} boutique{stores.length > 1 ? 's' : ''} disponible
         {stores.length > 1 ? 's' : ''}
       </p>
-      <a
+      <ButtonWithAuthorization
+        client:load
+        allowedRoles={['ADMIN']}
+        fallbackMode="remove"
         href={ROUTES.createStore.path}
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors shadow-xs"
-      >
-        <Plus className="size-3.5" />
-        <span>Ajouter un établissement</span>
-      </a>
+        icon={Plus}
+        label="Ajouter un établissement"
+        size="sm"
+      />
     </div>
 
     {error && (

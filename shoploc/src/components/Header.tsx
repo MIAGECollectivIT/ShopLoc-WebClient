@@ -5,7 +5,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/config/routes';
 import { useAuth } from '@/lib/auth';
-import { UserPlus, LogIn, LogOut, PlusCircle, User as UserIcon } from 'lucide-react';
+import { UserPlus, LogIn, LogOut, User as UserIcon } from 'lucide-react';
 
 interface HeaderProps {
   currentPath: string;
@@ -62,20 +62,6 @@ export function Header({ currentPath }: HeaderProps) {
         <div className="flex items-center gap-2">
           {isAuthenticated && user ? (
             <>
-              {(role === 'ADMIN' || role === 'MERCHANT') && (
-                <a
-                  href="/stores/new"
-                  className={buttonVariants({
-                    variant: 'outline',
-                    size: 'sm',
-                    className: 'gap-1.5 hidden md:inline-flex',
-                  })}
-                >
-                  <PlusCircle className="size-3.5" />
-                  <span>Nouveau commerce</span>
-                </a>
-              )}
-
               <a
                 href={ROUTES.profile.path}
                 className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-muted/60 hover:bg-muted border text-xs transition-colors"
