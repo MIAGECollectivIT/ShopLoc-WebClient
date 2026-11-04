@@ -2,6 +2,7 @@ import * as React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ProductImage } from '@/components/ProductImage';
 import { getStores, getStoreProducts } from '@/lib/api';
 import type { Store } from '@/types/store';
 import { type Product, getStockStatus } from '@/types/product';
@@ -314,19 +315,14 @@ export function GlobalProductCatalog() {
                 <div>
                   {/* Image container */}
                   <div className="relative aspect-4/3 w-full bg-muted/60 overflow-hidden flex items-center justify-center border-b border-border">
-                    {product.imageUrl ? (
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center text-muted-foreground/60 gap-1.5 p-4">
-                        <Package className="size-10 stroke-1" />
-                        <span className="text-[11px] font-medium">Visuel indisponible</span>
-                      </div>
-                    )}
+                    <ProductImage
+                      storeId={product.storeId}
+                      productId={product.id}
+                      imageUrl={product.imageUrl}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      fallbackText="Visuel indisponible"
+                    />
 
                     {/* Stock badge */}
                     <div className="absolute top-2.5 right-2.5">

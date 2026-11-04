@@ -470,6 +470,7 @@ export async function createProduct(
     const formData = new FormData();
     const productBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
     formData.append('product', productBlob);
+    formData.append('image', imageFile);
     formData.append('file', imageFile);
     body = formData;
   } else {
@@ -517,6 +518,7 @@ export async function updateProduct(
     const formData = new FormData();
     const productBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
     formData.append('product', productBlob);
+    formData.append('image', imageFile);
     formData.append('file', imageFile);
     body = formData;
   } else {
@@ -532,6 +534,74 @@ export async function updateProduct(
 
   if (!res.ok) {
     let detail = `Erreur lors de la mise à jour du produit (HTTP ${res.status})`;
+    try {
+      const err = await res.json();
+      if (err.message) detail = err.message;
+      else if (err.detail) detail = err.detail;
+    } catch {}
+    throw new Error(detail);
+  }
+
+  return (await res.json()) as Product;
+}
+
+/**
+ * Uploads or updates a product image via S3 multipart endpoint PATCH /v1/stores/{storeId}/products/{productId}/image (SLE-143 & SLE-144).
+ */
+export async function updateProductImage(
+  storeId: number | string,
+  productId: number | string,
+  imageFile: File
+): Promise<Product> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products/${productId}/image`);
+  const token = getAuthToken();
+
+  const formData = new FormData();
+  formData.append('image', imageFile);
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PATCH',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    let detail = `Erreur lors de la mise à jour de l'image (HTTP ${res.status})`;
+    try {
+      const err = await res.json();
+      if (err.message) detail = err.message;
+      else if (err.detail) detail = err.detail;
+    } catch {}
+    throw new Error(detail);
+  }
+
+  return (await res.json()) as Product;
+}
+
+/**
+ * Updates a product image with a direct URL via JSON endpoint PATCH /v1/stores/{storeId}/products/{productId}/image (SLE-143 & SLE-144).
+ */
+export async function updateProductImageUrl(
+  storeId: number | string,
+  productId: number | string,
+  imageUrl: string
+): Promise<Product> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products/${productId}/image`);
+  const token = getAuthToken();
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ imageUrl }),
+  });
+
+  if (!res.ok) {
+    let detail = `Erreur lors de la mise à jour de l'URL de l'image (HTTP ${res.status})`;
     try {
       const err = await res.json();
       if (err.message) detail = err.message;

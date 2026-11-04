@@ -12,6 +12,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { productSchema, ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE_BYTES } from '@/lib/validation/product';
 import { createProduct, updateProduct } from '@/lib/api';
+import { resolveProductImageUrl } from '@/lib/image';
+import { ProductImage } from '@/components/ProductImage';
 import type { Product } from '@/types/product';
 import { PackagePlus, Edit, Upload, Loader2, AlertCircle, X, Check } from 'lucide-react';
 
@@ -55,7 +57,12 @@ export function ProductFormDialog({
       setPrice(String(product.price));
       setStockQuantity(String(product.stockQuantity));
       setImageUrl(product.imageUrl || '');
-      setPreviewUrl(product.imageUrl || null);
+      const resolved = resolveProductImageUrl({
+        storeId,
+        productId: product.id,
+        imageUrl: product.imageUrl,
+      });
+      setPreviewUrl(resolved);
     } else {
       setReference('');
       setName('');
@@ -68,7 +75,16 @@ export function ProductFormDialog({
     setSelectedFile(null);
     setErrors({});
     setServerError(null);
-  }, [product, isOpen]);
+  }, [product, isOpen, storeId]);
+
+  // Revoke object URL when unmounting or replacing
+  React.useEffect(() => {
+    return () => {
+      if (previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -96,14 +112,27 @@ export function ProductFormDialog({
       return copy;
     });
 
+    if (previewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
     setSelectedFile(file);
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
   };
 
   const removeSelectedFile = () => {
+    if (previewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
     setSelectedFile(null);
-    setPreviewUrl(imageUrl || null);
+    const fallback = product
+      ? resolveProductImageUrl({
+          storeId,
+          productId: product.id,
+          imageUrl: imageUrl.trim() || product.imageUrl,
+        })
+      : imageUrl.trim() || null;
+    setPreviewUrl(fallback);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -337,7 +366,12 @@ export function ProductFormDialog({
             {/* Preview Box */}
             {previewUrl ? (
               <div className="relative rounded-lg overflow-hidden border border-border h-36 bg-muted/30 flex items-center justify-center group">
-                <img src={previewUrl} alt="Aperçu" className="h-full w-full object-cover" />
+                <ProductImage
+                  src={previewUrl}
+                  alt="Aperçu du produit"
+                  className="h-full w-full object-cover"
+                  fallbackText="Impossible de charger l'aperçu"
+                />
                 <Button
                   type="button"
                   variant="destructive"

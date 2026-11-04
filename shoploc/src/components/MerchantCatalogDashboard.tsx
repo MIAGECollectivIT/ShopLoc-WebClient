@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { StockControl } from '@/components/StockControl';
 import { ProductFormDialog } from '@/components/ProductFormDialog';
+import { ProductImage } from '@/components/ProductImage';
 import { getStoreProducts, deleteProduct } from '@/lib/api';
 import { type Product, type StockStatus, getStockStatus } from '@/types/product';
 import {
@@ -429,19 +430,14 @@ export function MerchantCatalogDashboard({
                 <div>
                   {/* Product Image */}
                   <div className="relative aspect-4/3 w-full bg-muted/60 overflow-hidden flex items-center justify-center border-b border-border">
-                    {product.imageUrl ? (
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center text-muted-foreground/60 gap-1.5 p-4">
-                        <Package className="size-10 stroke-1" />
-                        <span className="text-[11px] font-medium">Aucun visuel</span>
-                      </div>
-                    )}
+                    <ProductImage
+                      storeId={product.storeId || storeId}
+                      productId={product.id}
+                      imageUrl={product.imageUrl}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      fallbackText="Aucun visuel"
+                    />
 
                     {/* Reference & Stock Status Badge overlays */}
                     <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
