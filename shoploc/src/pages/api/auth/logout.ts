@@ -3,7 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { TOKEN_STORAGE_KEY } from '@/lib/auth';
 
-export const POST: APIRoute = async ({ request, cookies }) => {
+const handleLogout: APIRoute = async ({ request, cookies, redirect }) => {
   const token =
     cookies.get(TOKEN_STORAGE_KEY)?.value ||
     request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
@@ -31,8 +31,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     path: '/',
   });
 
+  if (request.method === 'GET') {
+    return redirect('/login');
+  }
+
   return new Response(JSON.stringify({ success: true }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
 };
+
+export const POST = handleLogout;
+export const GET = handleLogout;

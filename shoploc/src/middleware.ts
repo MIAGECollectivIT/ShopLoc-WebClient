@@ -202,6 +202,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const pathname = context.url.pathname;
 
+  // Déconnexion explicite ou paramètre logout : purge immédiate du cookie serveur
+  if (context.url.searchParams.has('logout') || pathname === '/logout') {
+    context.cookies.delete(TOKEN_STORAGE_KEY, { path: '/' });
+    context.locals.user = null;
+    context.locals.token = null;
+    if (pathname === '/logout') {
+      return context.redirect('/login');
+    }
+  }
+
   // 1. Protect pages reserved for authenticated users (SSR)
   if (pathname.startsWith('/profile')) {
     if (!context.locals.user) {
@@ -222,7 +232,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   // 3. Automatically redirect to profile if already authenticated when visiting auth pages
   if ((pathname === '/login' || pathname === '/register') && context.locals.user) {
-    return context.redirect('/profile');
+    if (context.url.searchParams.has('logout') || context.url.searchParams.has('force')) {
+      context.cookies.delete(TOKEN_STORAGE_KEY, { path: '/' });
+      context.locals.user = null;
+      context.locals.token = null;
+    } else {
+      return context.redirect('/profile');
+    }
   }
 
   return next();

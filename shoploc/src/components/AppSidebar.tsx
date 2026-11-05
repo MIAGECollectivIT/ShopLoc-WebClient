@@ -354,7 +354,7 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
               onClick={() => {
                 if (window.confirm('Voulez-vous vous déconnecter de ShopLoc ?')) {
                   logout();
-                  window.location.href = '/login';
+                  window.location.href = '/api/auth/logout';
                 }
               }}
             >
