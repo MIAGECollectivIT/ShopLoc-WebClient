@@ -2,7 +2,9 @@
 import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
 import { StoreCard } from '../../components/StoreCard';
-import { CreateStoreButton } from '../../components/CreateStoreButton';
+import { ButtonWithAuthorization } from '../../components/ui/ButtonWithAuthorization';
+import { Plus } from 'lucide-react';
+import { ROUTES } from '../../config/routes';
 import {
   Empty,
   EmptyHeader,
@@ -27,8 +29,6 @@ try {
   console.error(`[PAGE /stores] Erreur lors de l'appel à [${targetRoute}]:`, err);
   error = 'Impossible de récupérer les données des boutiques.';
 }
-
-const isAdmin = Astro.locals.user?.role === 'ADMIN';
 ---
 
 <Layout
@@ -45,7 +45,15 @@ const isAdmin = Astro.locals.user?.role === 'ADMIN';
         {stores.length} boutique{stores.length > 1 ? 's' : ''} disponible
         {stores.length > 1 ? 's' : ''}
       </p>
-      <CreateStoreButton client:load initialIsAdmin={isAdmin} />
+      <ButtonWithAuthorization
+        client:load
+        allowedRoles={['ADMIN']}
+        fallbackMode="remove"
+        href={ROUTES.createStore.path}
+        icon={Plus}
+        label="Ajouter un établissement"
+        size="sm"
+      />
     </div>
 
     {error && (

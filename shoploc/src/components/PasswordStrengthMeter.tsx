@@ -2,12 +2,14 @@ import {
   getPasswordRequirements,
   calculatePasswordStrength,
   type PasswordStrength,
+  type UserPersonalContext,
 } from '@/lib/validation/register';
 import { Check, X } from 'lucide-react';
 import { cn } from 'cn';
 
 interface PasswordStrengthMeterProps {
   password: string;
+  userInfo?: UserPersonalContext;
 }
 
 const STRENGTH_CONFIG: Record<
@@ -34,12 +36,12 @@ const STRENGTH_CONFIG: Record<
   },
 };
 
-export function PasswordStrengthMeter({ password }: PasswordStrengthMeterProps) {
+export function PasswordStrengthMeter({ password, userInfo }: PasswordStrengthMeterProps) {
   if (!password) {
     return null;
   }
 
-  const requirements = getPasswordRequirements(password);
+  const requirements = getPasswordRequirements(password, userInfo);
   const strength = calculatePasswordStrength(requirements);
   const currentConfig = STRENGTH_CONFIG[strength];
 

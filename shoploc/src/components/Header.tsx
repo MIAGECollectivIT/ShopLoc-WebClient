@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { MainNav } from './MainNav';
 import { ModeToggle } from './ModeToggle';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -5,7 +6,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/config/routes';
 import { useAuth } from '@/lib/auth';
-import { UserPlus, LogIn, LogOut, PlusCircle, User as UserIcon } from 'lucide-react';
+import { UserPlus, LogIn, LogOut, User as UserIcon } from 'lucide-react';
 
 interface HeaderProps {
   currentPath: string;
@@ -14,7 +15,12 @@ interface HeaderProps {
 export function Header({ currentPath }: HeaderProps) {
   const isRegister = currentPath === ROUTES.register.path;
   const isLogin = currentPath === ROUTES.login.path;
-  const { user, isAuthenticated, role, logout } = useAuth();
+  const { user, isAuthenticated, role, logout, isLoading } = useAuth();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const getRoleBadge = () => {
     switch (role) {
@@ -43,6 +49,8 @@ export function Header({ currentPath }: HeaderProps) {
     }
   };
 
+  const showAuthenticatedState = mounted && !isLoading && isAuthenticated && user;
+
   return (
     <header className="border-b">
       <div className="max-w-5xl mx-auto flex h-14 items-center justify-between gap-4 px-4 sm:px-6">
@@ -60,26 +68,12 @@ export function Header({ currentPath }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          {isAuthenticated && user ? (
+          {showAuthenticatedState ? (
             <>
-              {role === 'ADMIN' && (
-                <a
-                  href="/stores/new"
-                  className={buttonVariants({
-                    variant: 'outline',
-                    size: 'sm',
-                    className: 'gap-1.5 hidden md:inline-flex',
-                  })}
-                >
-                  <PlusCircle className="size-3.5" />
-                  <span>Nouveau commerce</span>
-                </a>
-              )}
-
               <a
-                href={ROUTES.login.path}
+                href={ROUTES.profile.path}
                 className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-muted/60 hover:bg-muted border text-xs transition-colors"
-                title="Accéder à mon profil de connexion"
+                title="Accéder à mon profil"
               >
                 <UserIcon className="size-3.5 text-primary" />
                 <span className="font-medium max-w-[120px] truncate hidden sm:inline">

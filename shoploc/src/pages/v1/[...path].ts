@@ -2,28 +2,149 @@ export const prerender = false;
 
 import type { APIRoute } from 'astro';
 
-export const ALL: APIRoute = async ({ request, params, url }) => {
-  const path = params.path || '';
-  const isUsersRoute =
-    path.startsWith('users') || path.startsWith('auth') || path.startsWith('.well-known');
+function resolveTargetServiceUrl(path: string): string {
+  const cleanPath = path.toLowerCase();
 
-  const usersServiceUrl =
-    (typeof import.meta !== 'undefined' && import.meta.env?.USERS_SERVICE_URL) ||
-    process.env.USERS_SERVICE_URL ||
-    'http://localhost:8081';
+  if (
+    cleanPath.startsWith('users') ||
+    cleanPath.startsWith('auth') ||
+    cleanPath.startsWith('.well-known')
+  ) {
+    return (
+      (typeof process !== 'undefined' && process.env?.USERS_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_USERS_SERVICE_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.USERS_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
+      (typeof process !== 'undefined' && process.env?.DEV_BACKEND_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.DEV_BACKEND_URL) ||
+      'http://localhost:8081'
+    );
+  }
 
-  const defaultBackendUrl =
+  if (cleanPath.startsWith('stores') || cleanPath.startsWith('products')) {
+    return (
+      (typeof process !== 'undefined' && process.env?.STORE_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_STORE_SERVICE_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.STORE_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
+      (typeof process !== 'undefined' && process.env?.DEV_BACKEND_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.DEV_BACKEND_URL) ||
+      'http://localhost:8080'
+    );
+  }
+
+  if (
+    cleanPath.startsWith('sales') ||
+    cleanPath.startsWith('orders') ||
+    cleanPath.startsWith('cart')
+  ) {
+    return (
+      (typeof process !== 'undefined' && process.env?.SALES_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_SALES_SERVICE_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.SALES_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
+      (typeof process !== 'undefined' && process.env?.DEV_BACKEND_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.DEV_BACKEND_URL) ||
+      'http://localhost:8080'
+    );
+  }
+
+  if (cleanPath.startsWith('loyalty')) {
+    return (
+      (typeof process !== 'undefined' && process.env?.LOYALTY_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_LOYALTY_SERVICE_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.LOYALTY_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
+      (typeof process !== 'undefined' && process.env?.DEV_BACKEND_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.DEV_BACKEND_URL) ||
+      'http://localhost:8080'
+    );
+  }
+
+  if (cleanPath.startsWith('observability')) {
+    return (
+      (typeof process !== 'undefined' && process.env?.OBSERVABILITY_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_OBSERVABILITY_SERVICE_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.OBSERVABILITY_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
+      (typeof process !== 'undefined' && process.env?.DEV_BACKEND_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.DEV_BACKEND_URL) ||
+      'http://localhost:8080'
+    );
+  }
+
+  return (
+    (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
     (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
-    process.env.INTERNAL_API_URL ||
-    process.env.DEV_BACKEND_URL ||
-    'http://localhost:8080';
+    (typeof process !== 'undefined' && process.env?.DEV_BACKEND_URL) ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.DEV_BACKEND_URL) ||
+    'http://localhost:8080'
+  );
+}
 
-  const targetServiceUrl = isUsersRoute ? usersServiceUrl : defaultBackendUrl;
-
+export const ALL: APIRoute = async ({ request, params, url, locals }) => {
+  const path = params.path || '';
+  const targetServiceUrl = resolveTargetServiceUrl(path);
   const destination = `${targetServiceUrl.replace(/\/+$/, '')}/v1/${path}${url.search}`;
 
   const forwardHeaders = new Headers(request.headers);
-  forwardHeaders.delete('host');
+  const hopByHopHeaders = [
+    'host',
+    'connection',
+    'keep-alive',
+    'transfer-encoding',
+    'content-length',
+    'expect',
+    'te',
+    'upgrade',
+    'proxy-connection',
+  ];
+  for (const h of hopByHopHeaders) {
+    forwardHeaders.delete(h);
+  }
+  if (locals.token && !forwardHeaders.has('authorization')) {
+    forwardHeaders.set('authorization', `Bearer ${locals.token}`);
+  }
+  if (locals.user) {
+    if (!forwardHeaders.has('x-user-id') && locals.user.id) {
+      forwardHeaders.set('x-user-id', locals.user.id);
+    }
+    if (!forwardHeaders.has('x-user-role') && locals.user.role) {
+      forwardHeaders.set('x-user-role', locals.user.role);
+    }
+    if (!forwardHeaders.has('x-user-email') && locals.user.email) {
+      forwardHeaders.set('x-user-email', locals.user.email);
+    }
+  }
+
+  const cleanPath = path.toLowerCase();
+  const isStoreMutation =
+    (cleanPath.startsWith('stores') || cleanPath.startsWith('products')) &&
+    request.method !== 'GET' &&
+    request.method !== 'HEAD';
+  const isProtectedUserEndpoint = cleanPath.startsWith('users/me');
+
+  if (
+    (isStoreMutation || isProtectedUserEndpoint) &&
+    !locals.user &&
+    !forwardHeaders.has('authorization')
+  ) {
+    return new Response(
+      JSON.stringify({
+        error: 'UNAUTHORIZED',
+        message: 'Authentification requise pour accéder à cette ressource',
+      }),
+      {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
 
   const fetchOptions: RequestInit = {
     method: request.method,
@@ -48,11 +169,20 @@ export const ALL: APIRoute = async ({ request, params, url }) => {
       headers: responseHeaders,
     });
   } catch (error: unknown) {
+    const cause =
+      error instanceof Error && 'cause' in error ? String((error as { cause: unknown }).cause) : '';
+    const detail =
+      error instanceof Error
+        ? cause
+          ? `${error.message} (${cause})`
+          : error.message
+        : String(error);
+
     return new Response(
       JSON.stringify({
         error: 'SERVICE_UNAVAILABLE',
         message: `Impossible de contacter le microservice cible (${destination})`,
-        detail: error instanceof Error ? error.message : String(error),
+        detail,
       }),
       {
         status: 502,

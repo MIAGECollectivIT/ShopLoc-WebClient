@@ -191,6 +191,37 @@ export function setAuthSession(auth: AuthResponse): void {
 }
 
 /**
+ * Updates properties of the authenticated user in localStorage without altering token or expiry,
+ * and notifies active subscribers across tabs/windows.
+ */
+export function updateAuthUser(partialUser: Partial<AuthUser>): AuthUser | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const currentUser = getAuthUser();
+  if (!currentUser) {
+    return null;
+  }
+
+  const updatedUser: AuthUser = {
+    ...currentUser,
+    ...partialUser,
+  };
+
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+
+  const token = getAuthToken();
+  window.dispatchEvent(
+    new CustomEvent(AUTH_CHANGE_EVENT, {
+      detail: { user: updatedUser, token },
+    })
+  );
+
+  return updatedUser;
+}
+
+/**
  * Clears the user session and token, and notifies subscribers.
  */
 export function clearAuthSession(): void {

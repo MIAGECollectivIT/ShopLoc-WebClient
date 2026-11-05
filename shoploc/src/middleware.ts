@@ -18,10 +18,10 @@ let cachedPublicKeyPem: string | null = null;
 async function getOrFetchPublicKey(): Promise<string | null> {
   if (cachedPublicKeyPem) return cachedPublicKeyPem;
   const envKey =
-    (typeof import.meta !== 'undefined' && import.meta.env?.JWT_PUBLIC_KEY) ||
-    (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_JWT_PUBLIC_KEY) ||
     process.env.JWT_PUBLIC_KEY ||
-    process.env.PUBLIC_JWT_PUBLIC_KEY;
+    process.env.PUBLIC_JWT_PUBLIC_KEY ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.JWT_PUBLIC_KEY) ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.PUBLIC_JWT_PUBLIC_KEY);
   if (envKey && typeof envKey === 'string' && envKey.trim().length > 0) {
     try {
       cachedPublicKeyPem = formatPublicKeyPem(envKey);
@@ -31,8 +31,8 @@ async function getOrFetchPublicKey(): Promise<string | null> {
     }
   }
   const usersUrl =
+    (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
     (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
-    process.env.INTERNAL_API_URL ||
     'http://localhost:8080';
   try {
     const res = await fetch(`${usersUrl.replace(/\/+$/, '')}/v1/auth/public-key`, {
@@ -71,8 +71,8 @@ async function isTokenRevoked(jti?: string): Promise<boolean> {
   if (now - lastRevocationFetch > 15000) {
     lastRevocationFetch = now;
     const usersUrl =
+      (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
       (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
-      process.env.INTERNAL_API_URL ||
       'http://localhost:8080';
     try {
       const res = await fetch(`${usersUrl.replace(/\/+$/, '')}/v1/auth/revoked-tokens`, {
@@ -142,61 +142,88 @@ export const onRequest = defineMiddleware(async (context, next) => {
     const publicKeyPem = await getOrFetchPublicKey();
 
     if (!publicKeyPem) {
-      // Clé publique temporairement indisponible : fail-closed pour cette requête,
-      // mais on préserve le cookie du client pour ne pas détruire sa session
+      // Public key temporarily unavailable: fail-closed for this request,
+      // but preserve the client cookie to avoid destroying their session
       context.locals.authUnavailable = true;
       context.locals.token = null;
       context.locals.user = null;
-      return next();
-    }
-
-    const payload = verifyAndDecodeToken(token, publicKeyPem);
-
-    if (payload) {
-      const revoked = await isTokenRevoked(payload.jti);
-      if (!revoked) {
-        context.locals.token = token;
-        context.locals.user = {
-          id: payload.userId || payload.sub || '',
-          email: payload.email || '',
-          role: (payload.role || payload.userRole || 'CLIENT') as UserRole,
-          firstName: payload.firstName || '',
-          lastName: payload.lastName || '',
-          clientCode: payload.clientCode,
-        };
-
-        if (!tokenCookie && token) {
-          const isHttps =
-            context.url.protocol === 'https:' ||
-            context.request.headers.get('x-forwarded-proto') === 'https';
-          const maxAgeSeconds = payload.exp
-            ? Math.max(60, Math.floor(payload.exp - Date.now() / 1000))
-            : 7200;
-
-          context.cookies.set(TOKEN_STORAGE_KEY, token, {
-            path: '/',
-            httpOnly: true,
-            sameSite: 'lax',
-            maxAge: maxAgeSeconds,
-            secure: isHttps,
-          });
-        }
-
-        return next();
-      } else {
-        context.locals.tokenRevoked = true;
-      }
     } else {
-      context.locals.tokenInvalid = true;
-    }
+      const payload = verifyAndDecodeToken(token, publicKeyPem);
 
-    // Le jeton a été vérifié avec une clé valide et est explicitement invalide, expiré ou révoqué
-    if (tokenCookie) {
-      context.cookies.delete(TOKEN_STORAGE_KEY, { path: '/' });
+      if (payload) {
+        const revoked = await isTokenRevoked(payload.jti);
+        if (!revoked) {
+          context.locals.token = token;
+          context.locals.user = {
+            id: payload.userId || payload.sub || '',
+            email: payload.email || '',
+            role: (payload.role || payload.userRole || 'CLIENT') as UserRole,
+            firstName: payload.firstName || '',
+            lastName: payload.lastName || '',
+            clientCode: payload.clientCode,
+          };
+
+          if (!tokenCookie && token) {
+            const isHttps =
+              context.url.protocol === 'https:' ||
+              context.request.headers.get('x-forwarded-proto') === 'https';
+            const maxAgeSeconds = payload.exp
+              ? Math.max(60, Math.floor(payload.exp - Date.now() / 1000))
+              : 7200;
+
+            context.cookies.set(TOKEN_STORAGE_KEY, token, {
+              path: '/',
+              httpOnly: true,
+              sameSite: 'lax',
+              maxAge: maxAgeSeconds,
+              secure: isHttps,
+            });
+          }
+        } else {
+          context.locals.tokenRevoked = true;
+          context.locals.token = null;
+          context.locals.user = null;
+        }
+      } else {
+        context.locals.tokenInvalid = true;
+        context.locals.token = null;
+        context.locals.user = null;
+      }
+
+      // The token was checked with a valid key and is explicitly invalid, expired, or revoked
+      if (!context.locals.user && tokenCookie) {
+        context.cookies.delete(TOKEN_STORAGE_KEY, { path: '/' });
+      }
+    }
+  } else {
+    context.locals.token = null;
+    context.locals.user = null;
+  }
+
+  const pathname = context.url.pathname;
+
+  // 1. Protect pages reserved for authenticated users (SSR)
+  if (pathname.startsWith('/profile')) {
+    if (!context.locals.user) {
+      return context.redirect('/login');
     }
   }
 
-  context.locals.token = null;
-  context.locals.user = null;
+  // 2. Protect store management/creation routes (MERCHANT / ADMIN)
+  if (pathname.startsWith('/stores/new')) {
+    if (!context.locals.user) {
+      return context.redirect('/login');
+    }
+    const role = context.locals.user.role;
+    if (role !== 'MERCHANT' && role !== 'ADMIN') {
+      return context.redirect('/stores');
+    }
+  }
+
+  // 3. Automatically redirect to profile if already authenticated when visiting auth pages
+  if ((pathname === '/login' || pathname === '/register') && context.locals.user) {
+    return context.redirect('/profile');
+  }
+
   return next();
 });

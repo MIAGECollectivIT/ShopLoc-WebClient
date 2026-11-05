@@ -9,3 +9,9 @@ shoploc/.astro
 .idea
 .vscode
 dist
+.env
+.env.*
+shoploc/.env
+shoploc/.env.*
+!.env.example
+!shoploc/.env.example

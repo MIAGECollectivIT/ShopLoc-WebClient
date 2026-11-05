@@ -46,6 +46,7 @@ import {
   AlertCircle,
   IdCard,
   Store as StoreIcon,
+  QrCode,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { updateUserProfile } from '@/lib/api';
@@ -240,9 +241,24 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                 )}
 
                 <SidebarMenuItem>
+                  <SidebarMenuButton render={<a href="/profile" />}>
+                    {role === 'ADMIN' || role === 'MERCHANT' ? (
+                      <User className="size-4 text-muted-foreground" />
+                    ) : (
+                      <QrCode className="size-4 text-emerald-600 dark:text-emerald-400" />
+                    )}
+                    <span>
+                      {role === 'ADMIN' || role === 'MERCHANT'
+                        ? 'Mon Profil'
+                        : 'Mon Profil & QR Code'}
+                    </span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
+                <SidebarMenuItem>
                   <SidebarMenuButton onClick={() => setIsProfileOpen(true)}>
                     <User className="size-4 text-muted-foreground" />
-                    <span>Afficher mon profil</span>
+                    <span>Modifier mes informations</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
@@ -253,19 +269,21 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
-                <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => setIsWalletOpen(true)}>
-                    <Wallet className="size-4 text-muted-foreground" />
-                    <div className="flex items-center justify-between flex-1">
-                      <span>Portefeuille & Fidélité</span>
-                      {user?.clientCode && (
-                        <span className="text-[10px] font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                          {user.clientCode}
-                        </span>
-                      )}
-                    </div>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {role === 'CLIENT' && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton onClick={() => setIsWalletOpen(true)}>
+                      <Wallet className="size-4 text-muted-foreground" />
+                      <div className="flex items-center justify-between flex-1">
+                        <span>Portefeuille & Fidélité</span>
+                        {user?.clientCode && (
+                          <span className="text-[10px] font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                            {user.clientCode}
+                          </span>
+                        )}
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
 
                 <SidebarMenuItem>
                   <SidebarMenuButton render={<a href="/stores" />}>
@@ -682,13 +700,22 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                       {user.clientCode || 'Attribué en mairie'}
                     </span>
                   </div>
-                  {user.pickupLocation && (
+                  {user.pickupLocation ? (
                     <div className="text-right">
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">
                         Point de retrait
                       </span>
                       <span className="text-xs font-medium text-foreground truncate max-w-[140px] inline-block">
                         {user.pickupLocation}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="text-right">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">
+                        Format
+                      </span>
+                      <span className="text-xs font-medium text-emerald-600 inline-block">
+                        100% Dématérialisée
                       </span>
                     </div>
                   )}

@@ -22,9 +22,9 @@ export interface UserResponse {
   firstName: string;
   lastName: string;
   birthDate: string;
-  clientCode: string;
+  clientCode?: string;
   pickupLocation?: string;
-  licensePlates: string[];
+  licensePlates?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -54,4 +54,9 @@ export interface AuthUser {
   birthDate?: string;
   pickupLocation?: string;
   licensePlates?: string[];
+}
+
+export interface VehicleResponse {
+  vehicleId: string;
+  licensePlate: string;
 }

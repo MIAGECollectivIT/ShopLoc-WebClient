@@ -11,8 +11,15 @@ import type {
   UserResponse,
   AuthResponse,
   UserRole,
+  VehicleResponse,
 } from '@/types/user';
-import { getAuthToken, getAuthUser, setAuthSession, clearAuthSession } from './auth';
+import {
+  getAuthToken,
+  getAuthUser,
+  setAuthSession,
+  clearAuthSession,
+  updateAuthUser,
+} from './auth';
 
 export const API_TIMEOUT_MS = 10000;
 
@@ -316,7 +323,7 @@ export async function loginUser(credentials: UserLoginRequest): Promise<UserResp
     lastName: sessionData.lastName || '',
     birthDate: userObj.birthDate || '1995-01-01',
     clientCode: sessionData.clientCode || 'CL-00000',
-    pickupLocation: userObj.pickupLocation || "Mairie — Point d'accueil",
+    pickupLocation: userObj.pickupLocation || undefined,
     licensePlates: userObj.licensePlates || [],
     createdAt: userObj.createdAt || new Date().toISOString(),
     updatedAt: userObj.updatedAt || new Date().toISOString(),
@@ -681,4 +688,186 @@ export async function updateProductStock(
   }
 
   return (await res.json()) as Product;
+}
+
+/**
+ * ==============================================================================
+ * VEHICLES & LICENSE PLATES APIS (SLE-13)
+ * ==============================================================================
+ */
+
+/**
+export async function fetchUserVehicles(): Promise<VehicleResponse[]> {
+  const endpoint = getUsersApiEndpoint('/v1/users/me/vehicles');
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Impossible de récupérer les véhicules (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.detail) errorDetail = errorJson.detail;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as VehicleResponse[];
+}
+
+/**
+ * Adds a new vehicle license plate to the current user profile.
+ */
+export async function addVehicle(licensePlate: string): Promise<VehicleResponse> {
+  const endpoint = getUsersApiEndpoint('/v1/users/me/vehicles');
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ licensePlate }),
+  });
+
+  if (res.status === 409) {
+    throw new Error("Cette plaque d'immatriculation est déjà associée à un compte.");
+  }
+  if (res.status === 400) {
+    let errorDetail = "Le format de la plaque d'immatriculation est invalide.";
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.detail) errorDetail = errorJson.detail;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+  if (res.status === 403) {
+    throw new Error("Vous n'êtes pas autorisé à gérer les véhicules pour ce compte.");
+  }
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de l'ajout du véhicule (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.detail) errorDetail = errorJson.detail;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  const createdVehicle = (await res.json()) as VehicleResponse;
+
+  // Synchronisation de la session utilisateur locale
+  const currentUser = getAuthUser();
+  if (currentUser) {
+    const currentPlates = currentUser.licensePlates || [];
+    if (!currentPlates.some((p) => p.toUpperCase() === createdVehicle.licensePlate.toUpperCase())) {
+      updateAuthUser({
+        licensePlates: [...currentPlates, createdVehicle.licensePlate],
+      });
+    }
+  }
+
+  return createdVehicle;
+}
+
+/**
+ * Updates an existing license plate for the current user profile.
+ */
+export async function updateVehicle(oldPlate: string, newPlate: string): Promise<VehicleResponse> {
+  const endpoint = getUsersApiEndpoint(`/v1/users/me/vehicles/${encodeURIComponent(oldPlate)}`);
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ licensePlate: newPlate }),
+  });
+
+  if (res.status === 409) {
+    throw new Error("Cette nouvelle plaque d'immatriculation est déjà enregistrée sur un compte.");
+  }
+  if (res.status === 400) {
+    let errorDetail = "Le nouveau format de la plaque d'immatriculation est invalide.";
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.detail) errorDetail = errorJson.detail;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+  if (res.status === 404) {
+    throw new Error("Le véhicule à modifier n'a pas été trouvé.");
+  }
+  if (res.status === 403) {
+    throw new Error("Vous n'êtes pas autorisé à modifier ce véhicule.");
+  }
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la modification du véhicule (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.detail) errorDetail = errorJson.detail;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  const updatedVehicle = (await res.json()) as VehicleResponse;
+
+  // Synchronisation de la session utilisateur locale
+  const currentUser = getAuthUser();
+  if (currentUser) {
+    const currentPlates = currentUser.licensePlates || [];
+    const updatedPlates = currentPlates.map((p) =>
+      p.toUpperCase() === oldPlate.toUpperCase() ? updatedVehicle.licensePlate : p
+    );
+    updateAuthUser({
+      licensePlates: updatedPlates,
+    });
+  }
+
+  return updatedVehicle;
+}
+
+/**
+ * Deletes a vehicle license plate from the current user profile.
+ */
+export async function deleteVehicle(licensePlate: string): Promise<void> {
+  const endpoint = getUsersApiEndpoint(`/v1/users/me/vehicles/${encodeURIComponent(licensePlate)}`);
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (res.status === 404) {
+    throw new Error("Le véhicule à supprimer n'a pas été trouvé.");
+  }
+  if (res.status === 403) {
+    throw new Error("Vous n'êtes pas autorisé à supprimer ce véhicule.");
+  }
+  if (!res.ok && res.status !== 204) {
+    let errorDetail = `Erreur lors de la suppression du véhicule (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.detail) errorDetail = errorJson.detail;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  // Synchronisation de la session utilisateur locale
+  const currentUser = getAuthUser();
+  if (currentUser) {
+    const currentPlates = currentUser.licensePlates || [];
+    const updatedPlates = currentPlates.filter(
+      (p) => p.toUpperCase() !== licensePlate.toUpperCase()
+    );
+    updateAuthUser({
+      licensePlates: updatedPlates,
+    });
+  }
 }
