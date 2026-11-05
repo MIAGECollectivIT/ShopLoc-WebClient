@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Field, FieldLabel, FieldError } from '@/components/ui/field';
 import { PasswordInput } from './PasswordInput';
 import { loginZodSchema, type LoginFormData } from '@/lib/validation/login';

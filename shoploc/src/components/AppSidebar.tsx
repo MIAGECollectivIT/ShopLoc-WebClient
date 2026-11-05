@@ -230,7 +230,7 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                     </SidebarMenuItem>
                   </>
                 ) : (
-                  (role === 'ADMIN' || role === 'MERCHANT') && (
+                  role === 'ADMIN' && (
                     <SidebarMenuItem>
                       <SidebarMenuButton render={<a href="/stores/new" />}>
                         <PlusCircle className="size-4 text-primary" />

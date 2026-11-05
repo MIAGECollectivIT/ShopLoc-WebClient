@@ -1,44 +1,21 @@
 ---
+export const prerender = false;
+
 import Layout from '../layouts/Layout.astro';
 import PageContainer from '../components/PageContainer.astro';
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-  EmptyContent,
-} from '../components/ui/empty';
-import { buttonVariants } from '../components/ui/button';
 import { ROUTES } from '../config/routes';
-import { PackageOpen } from 'lucide-react';
+import { GlobalProductCatalog } from '../components/GlobalProductCatalog';
 ---
 
 <Layout
-  title="Catalogue — ShopLoc"
-  description="Consultez l'ensemble des offres et produits des commerçants partenaires."
+  title="Catalogue des produits — ShopLoc"
+  description="Consultez l'ensemble des offres et produits Click & Collect des commerçants partenaires."
 >
   <PageContainer
-    title="Catalogue des produits"
-    description="Consultez l'ensemble des offres et produits des commerçants partenaires."
+    title="Catalogue Click & Collect"
+    description="Retrouvez les produits disponibles immédiatement au retrait chez vos commerçants locaux."
     icon={ROUTES.catalog.icon}
   >
-    <Empty>
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <PackageOpen />
-        </EmptyMedia>
-        <EmptyTitle>Catalogue en cours d'alimentation</EmptyTitle>
-        <EmptyDescription>
-          Les commerçants partenaires préparent actuellement leurs offres et produits. Revenez
-          bientôt !
-        </EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <a href={ROUTES.stores.path} class={buttonVariants({ variant: 'default', size: 'sm' })}>
-          Découvrir les boutiques
-        </a>
-      </EmptyContent>
-    </Empty>
+    <GlobalProductCatalog client:load />
   </PageContainer>
 </Layout>

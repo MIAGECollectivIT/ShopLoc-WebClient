@@ -5,7 +5,11 @@ import type { APIRoute } from 'astro';
 function resolveTargetServiceUrl(path: string): string {
   const cleanPath = path.toLowerCase();
 
-  if (cleanPath.startsWith('users') || cleanPath.startsWith('auth')) {
+  if (
+    cleanPath.startsWith('users') ||
+    cleanPath.startsWith('auth') ||
+    cleanPath.startsWith('.well-known')
+  ) {
     return (
       (typeof process !== 'undefined' && process.env?.USERS_SERVICE_URL) ||
       (typeof process !== 'undefined' && process.env?.INTERNAL_USERS_SERVICE_URL) ||
@@ -14,7 +18,7 @@ function resolveTargetServiceUrl(path: string): string {
       (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
       (typeof process !== 'undefined' && process.env?.DEV_BACKEND_URL) ||
       (typeof import.meta !== 'undefined' && import.meta.env?.DEV_BACKEND_URL) ||
-      'http://localhost:8080'
+      'http://localhost:8081'
     );
   }
 
