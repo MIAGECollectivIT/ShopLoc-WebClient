@@ -89,7 +89,7 @@ export function Header({ currentPath }: HeaderProps) {
                 className="gap-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                 onClick={() => {
                   logout();
-                  window.location.href = ROUTES.login.path;
+                  window.location.href = '/api/auth/logout';
                 }}
                 title="Se déconnecter"
               >

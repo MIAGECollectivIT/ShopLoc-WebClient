@@ -200,7 +200,7 @@ export function LoginForm() {
             onClick={() => {
               logout();
               setLoggedInUser(null);
-              window.location.href = ROUTES.login.path;
+              window.location.href = '/api/auth/logout';
             }}
           >
             <LogOut className="size-4 mr-2" />
