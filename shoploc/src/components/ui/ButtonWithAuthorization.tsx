@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import type { UserRole } from '@/types/user';
 import type { VariantProps } from 'class-variance-authority';
 import { cn } from 'cn';
+import { Plus } from 'lucide-react';
 
 export type ButtonFallbackMode = 'remove' | 'hidden' | 'disabled';
 
@@ -90,6 +91,20 @@ export function ButtonWithAuthorization({
     allowedRoles.length === 0 ||
     (Boolean(isAuthenticated) && Boolean(role) && allowedRoles.includes(role as UserRole));
 
+  const renderIcon = () => {
+    if (
+      typeof Icon === 'function' ||
+      (typeof Icon === 'object' && Icon !== null && 'render' in Icon)
+    ) {
+      const Comp = Icon;
+      return <Comp className="size-3.5" />;
+    }
+    if (href?.includes('stores/new') || label?.toLowerCase().includes('ajouter')) {
+      return <Plus className="size-3.5" />;
+    }
+    return null;
+  };
+
   // Handle unauthorized state
   if (!isAuthorized) {
     if (fallbackMode === 'remove') {
@@ -115,7 +130,7 @@ export function ButtonWithAuthorization({
         aria-disabled="true"
         {...props}
       >
-        {Icon && <Icon className="size-3.5" />}
+        {renderIcon()}
         {children || label}
       </Button>
     );
@@ -125,7 +140,7 @@ export function ButtonWithAuthorization({
   if (href) {
     return (
       <a href={href} className={cn(buttonVariants({ variant, size, className }))} title={title}>
-        {Icon && <Icon className="size-3.5" />}
+        {renderIcon()}
         {children || label}
       </a>
     );
@@ -141,7 +156,7 @@ export function ButtonWithAuthorization({
       title={title}
       {...props}
     >
-      {Icon && <Icon className="size-3.5" />}
+      {renderIcon()}
       {children || label}
     </Button>
   );

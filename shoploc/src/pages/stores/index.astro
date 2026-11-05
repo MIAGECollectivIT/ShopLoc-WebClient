@@ -3,7 +3,6 @@ import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
 import { StoreCard } from '../../components/StoreCard';
 import { ButtonWithAuthorization } from '../../components/ui/ButtonWithAuthorization';
-import { Plus } from 'lucide-react';
 import { ROUTES } from '../../config/routes';
 import {
   Empty,
@@ -50,7 +49,6 @@ try {
         allowedRoles={['ADMIN']}
         fallbackMode="remove"
         href={ROUTES.createStore.path}
-        icon={Plus}
         label="Ajouter un établissement"
         size="sm"
       />
