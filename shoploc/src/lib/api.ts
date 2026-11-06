@@ -5,6 +5,7 @@ import type {
   ProductUpdateRequest,
   StockUpdateRequest,
 } from '@/types/product';
+import type { MerchantLoyaltyRate, MerchantLoyaltyRateRequest } from '@/types/loyalty';
 import type {
   UserRegistrationRequest,
   UserLoginRequest,
@@ -870,4 +871,74 @@ export async function deleteVehicle(licensePlate: string): Promise<void> {
       licensePlates: updatedPlates,
     });
   }
+}
+
+/**
+ * Récupère le barème de fidélité configuré pour un commerce (ou le barème par défaut 1 € = 1 pt).
+ * Accessible publiquement pour les clients et commerçants.
+ */
+export async function getStoreLoyaltyRate(storeId: number | string): Promise<MerchantLoyaltyRate> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${storeId}/rates`);
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (res.status === 404) {
+    return {
+      storeId: Number(storeId),
+      euroAmount: 1,
+      pointsReward: 1,
+    };
+  }
+
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer le barème de fidélité (${res.status})`);
+  }
+
+  return (await res.json()) as MerchantLoyaltyRate;
+}
+
+/**
+ * Configure ou met à jour le barème de fidélité d'un commerce.
+ * Réservé au commerçant propriétaire du magasin ou aux administrateurs.
+ */
+export async function updateStoreLoyaltyRate(
+  storeId: number | string,
+  data: MerchantLoyaltyRateRequest
+): Promise<MerchantLoyaltyRate> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${storeId}/rates`);
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour modifier le barème de fidélité.');
+  }
+  if (res.status === 403) {
+    throw new Error(
+      'Accès refusé : vous devez être le commerçant propriétaire de cet établissement pour modifier son barème.'
+    );
+  }
+  if (res.status === 404) {
+    throw new Error("Le commerce spécifié n'existe pas ou est introuvable.");
+  }
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de l'enregistrement du barème (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.detail) errorDetail = errorJson.detail;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as MerchantLoyaltyRate;
 }

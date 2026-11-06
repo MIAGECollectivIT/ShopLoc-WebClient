@@ -2,10 +2,12 @@ import * as React from 'react';
 import { useAuth } from '@/lib/auth';
 import type { Store } from '@/types/store';
 import { MerchantCatalogDashboard } from '@/components/MerchantCatalogDashboard';
+import { MerchantLoyaltyRateCard } from '@/components/MerchantLoyaltyRateCard';
 import { ClientProductCatalog } from '@/components/ClientProductCatalog';
+import { StoreLoyaltyBanner } from '@/components/StoreLoyaltyBanner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShieldCheck, Eye, Store as StoreIcon } from 'lucide-react';
+import { ShieldCheck, Eye, Coins, Package } from 'lucide-react';
 
 interface StoreProductsViewProps {
   store: Store;
@@ -13,7 +15,7 @@ interface StoreProductsViewProps {
 
 export function StoreProductsView({ store }: StoreProductsViewProps) {
   const { user, role, isAuthenticated, isLoading } = useAuth();
-  const [viewMode, setViewMode] = React.useState<'merchant' | 'client'>('merchant');
+  const [viewMode, setViewMode] = React.useState<'merchant' | 'loyalty' | 'client'>('merchant');
 
   // Check if current user is either an ADMIN or the MERCHANT owner of this store
   const isOwnerOrAdmin = React.useMemo(() => {
@@ -40,10 +42,11 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
     );
   }
 
-  // If citizen or unauthenticated visitor, show the client storefront directly
+  // If citizen or unauthenticated visitor, show the loyalty banner and client storefront directly
   if (!isOwnerOrAdmin) {
     return (
-      <div className="pt-6">
+      <div className="space-y-6 pt-6">
+        <StoreLoyaltyBanner storeId={storeIdNumber} />
         <ClientProductCatalog storeId={storeIdNumber} storeName={store.name} />
       </div>
     );
@@ -60,7 +63,8 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
             {role === 'ADMIN' ? 'Accès Administrateur' : 'Propriétaire du commerce'}
           </Badge>
           <span className="text-xs text-muted-foreground hidden sm:inline">
-            Vous pouvez gérer ce catalogue en temps réel ou prévisualiser l'expérience client.
+            Gérez votre catalogue de produits, configurez votre barème de fidélité ou prévisualisez
+            l'expérience client.
           </span>
         </div>
 
@@ -72,8 +76,19 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
             onClick={() => setViewMode('merchant')}
             className="h-7 text-xs gap-1.5 px-3"
           >
-            <StoreIcon className="size-3.5" />
-            <span>Gestion stock & produits</span>
+            <Package className="size-3.5" />
+            <span>Catalogue & stock</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant={viewMode === 'loyalty' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('loyalty')}
+            className="h-7 text-xs gap-1.5 px-3"
+          >
+            <Coins className="size-3.5" />
+            <span>Barème fidélité</span>
           </Button>
 
           <Button
@@ -90,10 +105,19 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
       </div>
 
       {/* Render selected view */}
-      {viewMode === 'merchant' ? (
+      {viewMode === 'merchant' && (
         <MerchantCatalogDashboard storeId={storeIdNumber} storeName={store.name} />
-      ) : (
-        <ClientProductCatalog storeId={storeIdNumber} storeName={store.name} />
+      )}
+
+      {viewMode === 'loyalty' && (
+        <MerchantLoyaltyRateCard storeId={storeIdNumber} storeName={store.name} />
+      )}
+
+      {viewMode === 'client' && (
+        <div className="space-y-6">
+          <StoreLoyaltyBanner storeId={storeIdNumber} />
+          <ClientProductCatalog storeId={storeIdNumber} storeName={store.name} />
+        </div>
       )}
     </div>
   );
