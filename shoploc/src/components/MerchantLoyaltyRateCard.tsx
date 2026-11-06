@@ -79,7 +79,7 @@ export function MerchantLoyaltyRateCard({
 
   // Derived numeric values for simulation
   const numEuro = parseFloat(euroAmount.replace(',', '.')) || 0;
-  const numPoints = parseInt(pointsReward, 10) || 0;
+  const numPoints = parseFloat(pointsReward.replace(',', '.')) || 0;
   const numTestAmount = parseFloat(testAmount.replace(',', '.')) || 0;
 
   // Validation helper
@@ -240,9 +240,10 @@ export function MerchantLoyaltyRateCard({
                   Comment fonctionne l'attribution des points ?
                 </span>
                 <p>
-                  Pour chaque tranche entière de <strong>montant en euros</strong> dépensée, votre
-                  client reçoit le <strong>nombre de points</strong> correspondant. Par exemple,
-                  avec 2,00 € = 1 pt, un achat de 9,50 € donne droit à 4 points.
+                  Pour chaque tranche de <strong>montant en euros</strong> dépensée, votre client
+                  reçoit le <strong>nombre de points</strong> correspondant (avec gestion des
+                  demi-points). Par exemple, avec 2,00 € = 1 pt, un achat de 25 € donne droit à 12,5
+                  points.
                 </p>
               </div>
             </div>
@@ -300,8 +301,8 @@ export function MerchantLoyaltyRateCard({
                   <Input
                     id="pointsReward"
                     type="number"
-                    step="1"
-                    min="1"
+                    step="0.5"
+                    min="0.5"
                     placeholder="1"
                     value={pointsReward}
                     onChange={(e) => {
@@ -320,7 +321,7 @@ export function MerchantLoyaltyRateCard({
                   <p className="text-xs text-destructive font-medium">{errors.pointsReward}</p>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Nombre entier supérieur ou égal à 1 (ex: 1, 2, 5, 10)
+                    Multiple de 0.5 supérieur ou égal à 0.5 pt (ex: 0.5, 1, 1.5, 2, 5)
                   </p>
                 )}
               </div>
