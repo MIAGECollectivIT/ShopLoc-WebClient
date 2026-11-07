@@ -1,5 +1,6 @@
 import { MapPin, Store as StoreIcon } from 'lucide-react';
 import type { Store } from '@/types/store';
+import { resolveStoreImageUrl } from '@/lib/image';
 import {
   Card,
   CardHeader,
@@ -17,10 +18,17 @@ interface StoreCardProps {
 }
 
 export function StoreCard({ store }: StoreCardProps) {
+  const resolvedImageUrl = resolveStoreImageUrl(store.url);
+
   return (
     <Card>
-      {store.url ? (
-        <img src={store.url} alt={store.name} className="h-40 w-full object-cover" loading="lazy" />
+      {resolvedImageUrl ? (
+        <img
+          src={resolvedImageUrl}
+          alt={store.name}
+          className="h-40 w-full object-cover"
+          loading="lazy"
+        />
       ) : (
         <div className="h-40 bg-muted flex flex-col items-center justify-center text-muted-foreground">
           <StoreIcon className="size-8" />

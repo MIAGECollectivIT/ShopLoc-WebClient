@@ -40,6 +40,7 @@ export function PartnerSelect({
   onValueChange,
   disabled = false,
   className,
+  id,
 }: PartnerSelectProps) {
   const [partners, setPartners] = React.useState<PartnerAccount[]>([]);
   const [searchQuery, setSearchQuery] = React.useState<string>('');
@@ -117,7 +118,11 @@ export function PartnerSelect({
         }}
         disabled={disabled}
       >
-        <SelectTrigger className={className ?? 'w-full'}>
+        <SelectTrigger
+          id={id}
+          aria-label="Compte partenaire propriétaire"
+          className={className ?? 'w-full'}
+        >
           <div className="flex items-center gap-2 truncate">
             {isLoading ? (
               <Loader2 className="size-3.5 animate-spin text-muted-foreground shrink-0" />
