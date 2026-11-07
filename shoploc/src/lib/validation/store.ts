@@ -16,6 +16,36 @@ export const STORE_CATEGORIES = [
 export type StoreCategory = (typeof STORE_CATEGORIES)[number];
 
 /**
+ * Supported MIME types accepted by store-service S3 storage (aligned with backend AllowedContentTypes).
+ */
+export const ACCEPTED_STORE_IMAGE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/svg+xml',
+] as const;
+
+export type StoreImageMimeType = (typeof ACCEPTED_STORE_IMAGE_TYPES)[number];
+
+/** Maximum file size authorized for store images: 10 MB (aligned with Spring Boot multipart max-file-size). */
+export const MAX_STORE_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Validates whether a file MIME type is supported by the store image storage service.
+ */
+export function isValidStoreImageType(mimeType: string): mimeType is StoreImageMimeType {
+  return (ACCEPTED_STORE_IMAGE_TYPES as readonly string[]).includes(mimeType);
+}
+
+/**
+ * Validates whether the file size does not exceed the statutory limit (10 MB).
+ */
+export function isValidStoreImageSize(sizeInBytes: number): boolean {
+  return sizeInBytes <= MAX_STORE_IMAGE_SIZE_BYTES;
+}
+
+/**
  * Official letter-to-digit conversion map for French RIB account numbers.
  * A, J = 1 | B, K, S = 2 | C, L, T = 3 | D, M, U = 4 | E, N, V = 5 | F, O, W = 6 | G, P, X = 7 | H, Q, Y = 8 | I, R, Z = 9
  */

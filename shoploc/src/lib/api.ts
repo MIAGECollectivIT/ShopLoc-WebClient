@@ -168,19 +168,45 @@ export async function getPartners(query?: string, limit: number = 20): Promise<P
 }
 
 /**
- * Dispatches a store creation request to store-service /v1/stores (SLE-69, SLE-85).
+ * Assembles a multipart/form-data payload compliant with Spring Boot's dual @RequestPart contract.
+ * - Part "store": application/json Blob containing store metadata
+ * - Part "image": binary File stream containing the store picture
  */
-export async function createStore(payload: StoreCreateRequest): Promise<StoreResponse> {
+function buildStoreMultipartFormData(payload: StoreCreateRequest, image: File): FormData {
+  const formData = new FormData();
+  formData.append('store', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+  formData.append('image', image);
+  return formData;
+}
+
+/**
+ * Dispatches a store creation request to store-service /v1/stores (SLE-69, SLE-85).
+ * Supports JSON or multipart/form-data when an optional image file is uploaded.
+ */
+export async function createStore(
+  payload: StoreCreateRequest,
+  image?: File | null
+): Promise<StoreResponse> {
   const endpoint = getApiEndpoint('/v1/stores');
   const token = getAuthToken();
-  const res = await fetchWithTimeout(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(payload),
-  });
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const requestInit: RequestInit = image
+    ? {
+        method: 'POST',
+        headers: { ...authHeaders },
+        body: buildStoreMultipartFormData(payload, image),
+      }
+    : {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders,
+        },
+        body: JSON.stringify(payload),
+      };
+
+  const res = await fetchWithTimeout(endpoint, requestInit);
 
   if (!res.ok) {
     let errorDetail = `Erreur lors de la création du commerce (${res.status})`;

@@ -6,6 +6,7 @@ import { Badge } from '../../components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardAction } from '../../components/ui/card';
 import { buttonVariants } from '../../components/ui/button';
 import { getStoreById } from '../../lib/api';
+import { resolveStoreImageUrl } from '../../lib/image';
 import { ROUTES } from '../../config/routes';
 import { ArrowLeft, MapPin, Store as StoreIcon } from 'lucide-react';
 import type { Store } from '../../types/store';
@@ -28,8 +29,12 @@ const store = initialStore ?? (id ? await getStoreById(id).catch(() => null) : n
       <div class="space-y-6">
         {/* Store Banner Card */}
         <Card className="overflow-hidden border-border bg-card">
-          {store.url ? (
-            <img src={store.url} alt={store.name} class="h-64 sm:h-72 w-full object-cover" />
+          {resolveStoreImageUrl(store.url) ? (
+            <img
+              src={resolveStoreImageUrl(store.url)}
+              alt={store.name}
+              class="h-64 sm:h-72 w-full object-cover"
+            />
           ) : (
             <div class="h-44 bg-muted/60 flex flex-col items-center justify-center text-muted-foreground">
               <StoreIcon className="size-10 stroke-1 mb-1 text-muted-foreground/60" />
