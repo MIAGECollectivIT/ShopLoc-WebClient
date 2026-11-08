@@ -8,6 +8,7 @@ function resolveTargetServiceUrl(path: string): string {
   if (
     cleanPath.startsWith('users') ||
     cleanPath.startsWith('auth') ||
+    cleanPath.startsWith('admin') ||
     cleanPath.startsWith('.well-known')
   ) {
     return (

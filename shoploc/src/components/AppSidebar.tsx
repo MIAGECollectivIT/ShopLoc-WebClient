@@ -47,6 +47,7 @@ import {
   IdCard,
   Store as StoreIcon,
   QrCode,
+  Users as UsersIcon,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { updateUserProfile } from '@/lib/api';
@@ -229,16 +230,7 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   </>
-                ) : (
-                  role === 'ADMIN' && (
-                    <SidebarMenuItem>
-                      <SidebarMenuButton render={<a href="/stores/new" />}>
-                        <PlusCircle className="size-4 text-primary" />
-                        <span className="font-medium text-primary">Nouveau commerce</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )
-                )}
+                ) : null}
 
                 <SidebarMenuItem>
                   <SidebarMenuButton render={<a href="/profile" data-astro-reload="" />}>
@@ -294,6 +286,34 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+
+          {/* Section Administration réservée aux administrateurs */}
+          {isAuthenticated && role === 'ADMIN' && (
+            <>
+              <SidebarSeparator />
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-primary font-semibold">
+                  Administration
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton render={<a href="/admin/partners" />}>
+                        <UsersIcon className="size-4 text-primary" />
+                        <span className="font-medium text-foreground">Gestion Partenaires</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton render={<a href="/stores/new" />}>
+                        <PlusCircle className="size-4 text-primary" />
+                        <span className="font-medium text-foreground">Nouveau commerce</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </>
+          )}
 
           <SidebarSeparator />
 

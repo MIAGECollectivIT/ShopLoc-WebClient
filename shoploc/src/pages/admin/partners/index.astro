@@ -1,0 +1,32 @@
+---
+export const prerender = false;
+
+import Layout from '../../../layouts/Layout.astro';
+import PageContainer from '../../../components/PageContainer.astro';
+import { AdminPartnersList } from '../../../components/AdminPartnersList';
+import { getAdminPartners } from '../../../lib/api';
+import { Users } from 'lucide-react';
+import type { AdminPartnerSummary } from '../../../types/partner';
+
+const token = Astro.locals.token || '';
+let initialPartners: AdminPartnerSummary[] = [];
+
+try {
+  initialPartners = await getAdminPartners('', 100, token);
+} catch (err: unknown) {
+  console.warn('[PAGE /admin/partners] Failed to fetch initial partners server-side:', err);
+}
+---
+
+<Layout
+  title="Gestion des partenaires - Administration ShopLoc"
+  description="Supervisez les comptes commerçants partenaires et consultez les commerces affiliés."
+>
+  <PageContainer
+    title="Comptes Partenaires"
+    description="Supervisez l'ensemble des comptes commerçants partenaires enregistrés et leurs commerces affiliés."
+    icon={Users}
+  >
+    <AdminPartnersList client:load initialPartners={initialPartners} />
+  </PageContainer>
+</Layout>

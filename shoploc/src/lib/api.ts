@@ -1,4 +1,5 @@
 import type { Store, StoreCreateRequest, StoreResponse, PartnerAccount } from '@/types/store';
+import type { AdminPartnerSummary, AdminPartnerDetail } from '@/types/partner';
 import type {
   Product,
   ProductCreateRequest,
@@ -165,6 +166,112 @@ export async function getPartners(query?: string, limit: number = 20): Promise<P
 
   const partners: PartnerAccount[] = await res.json();
   return partners;
+}
+
+/**
+ * Retrieves partner accounts for administrative management (SLE-126).
+ * Restricted to administrators. Supports query filtering.
+ */
+export async function getAdminPartners(
+  query?: string,
+  limit: number = 50,
+  authToken?: string
+): Promise<AdminPartnerSummary[]> {
+  const trimmed = query?.trim() || '';
+  const searchParams = new URLSearchParams();
+  if (trimmed) {
+    searchParams.set('query', trimmed);
+  }
+  searchParams.set('limit', String(limit));
+
+  const endpoint = getUsersApiEndpoint(`/v1/admin/partners?${searchParams.toString()}`);
+  const token = authToken || getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise pour accéder à la liste des partenaires.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès réservé aux administrateurs de la plateforme.');
+  }
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer les partenaires administratifs (HTTP ${res.status})`);
+  }
+
+  const partners: AdminPartnerSummary[] = await res.json();
+  return partners;
+}
+
+/**
+ * Retrieves detailed administrative profile of a specific partner merchant (SLE-126).
+ * Returns partner details and associated store IDs.
+ */
+export async function getAdminPartnerById(
+  id: string | number,
+  authToken?: string
+): Promise<AdminPartnerDetail> {
+  const endpoint = getUsersApiEndpoint(`/v1/admin/partners/${encodeURIComponent(String(id))}`);
+  const token = authToken || getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise pour accéder au détail du partenaire.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès réservé aux administrateurs de la plateforme.');
+  }
+  if (res.status === 404) {
+    throw new Error('Partenaire commerçant introuvable.');
+  }
+  if (!res.ok) {
+    throw new Error(`Erreur lors de la récupération du partenaire (HTTP ${res.status})`);
+  }
+
+  const partner: AdminPartnerDetail = await res.json();
+  return partner;
+}
+
+/**
+ * Associates an existing municipal store with a partner merchant (SLE-129 / SLE-126).
+ */
+export async function addStoreToPartner(
+  partnerId: string | number,
+  storeId: number,
+  authToken?: string
+): Promise<void> {
+  const endpoint = getUsersApiEndpoint(
+    `/v1/admin/partners/${encodeURIComponent(String(partnerId))}/stores`
+  );
+  const token = authToken || getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ storeId }),
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise pour associer un commerce.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès réservé aux administrateurs de la plateforme.');
+  }
+  if (!res.ok) {
+    throw new Error(`Impossible d'associer le commerce au partenaire (HTTP ${res.status})`);
+  }
 }
 
 /**
