@@ -230,7 +230,18 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  // 3. Automatically redirect to profile if already authenticated when visiting auth pages
+  // 3. Protect administrative routes (ADMIN only)
+  if (pathname.startsWith('/admin')) {
+    if (!context.locals.user) {
+      return context.redirect('/login');
+    }
+    const role = context.locals.user.role;
+    if (role !== 'ADMIN') {
+      return context.redirect('/');
+    }
+  }
+
+  // 4. Automatically redirect to profile if already authenticated when visiting auth pages
   if ((pathname === '/login' || pathname === '/register') && context.locals.user) {
     if (context.url.searchParams.has('logout') || context.url.searchParams.has('force')) {
       context.cookies.delete(TOKEN_STORAGE_KEY, { path: '/' });

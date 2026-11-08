@@ -1,4 +1,4 @@
-import { Home, Store, BookOpen, ShoppingCart, UserPlus, LogIn, User } from 'lucide-react';
+import { Home, Store, BookOpen, ShoppingCart, UserPlus, LogIn, User, Users } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react';
 
@@ -50,6 +50,12 @@ export const ROUTES = {
     label: 'Mon Profil',
     icon: User,
   },
+  adminPartners: {
+    path: '/admin/partners',
+    label: 'Administration Partenaires',
+    icon: Users,
+  },
+  adminPartnerDetail: (id: string | number) => `/admin/partners/${id}`,
 } as const;
 
 export const NAV_ROUTES: RouteConfig[] = [ROUTES.home, ROUTES.stores, ROUTES.catalog, ROUTES.cart];
