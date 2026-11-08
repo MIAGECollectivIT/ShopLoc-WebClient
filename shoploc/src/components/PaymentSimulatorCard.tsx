@@ -41,9 +41,23 @@ function generateReference(prefix: string): string {
   return `${prefix}-${randomSuffix}`;
 }
 
-export function PaymentSimulatorCard() {
-  const [amount, setAmount] = React.useState('42.50');
-  const [reference, setReference] = React.useState('CMD-CC-2026');
+export interface PaymentSimulatorCardProps {
+  initialAmount?: string | number;
+  initialReference?: string;
+  onPaymentSuccess?: (receipt: PaymentAuthorizationResponse) => void;
+}
+
+export function PaymentSimulatorCard({
+  initialAmount,
+  initialReference,
+  onPaymentSuccess,
+}: PaymentSimulatorCardProps = {}) {
+  const [amount, setAmount] = React.useState(
+    initialAmount !== undefined ? String(initialAmount) : '42.50'
+  );
+  const [reference, setReference] = React.useState(
+    initialReference || generateReference('CMD-CC')
+  );
   const [cardHolder, setCardHolder] = React.useState('Jean Dupont');
   const [cardNumber, setCardNumber] = React.useState('4111 2222 3333 4444');
   const [expiryDate, setExpiryDate] = React.useState('12/28');
@@ -105,6 +119,7 @@ export function PaymentSimulatorCard() {
         paymentToken: `tok_card_${lastFour}`,
       });
       setReceipt(response);
+      onPaymentSuccess?.(response);
     } catch (err: unknown) {
       setServerError(
         err instanceof Error ? err.message : 'Erreur lors de la communication avec la banque'
@@ -178,12 +193,16 @@ export function PaymentSimulatorCard() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="payment-reference">Référence transaction</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="payment-reference">Référence commande</Label>
+                  <span className="text-[11px] text-muted-foreground">Auto-générée</span>
+                </div>
                 <Input
                   id="payment-reference"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
                   disabled={isSubmitting}
+                  className="font-mono text-xs bg-muted/30"
                 />
                 {fieldErrors.reference && (
                   <p className="text-xs text-destructive">{fieldErrors.reference}</p>
@@ -195,6 +214,7 @@ export function PaymentSimulatorCard() {
               <Label htmlFor="card-holder">Titulaire de la carte</Label>
               <Input
                 id="card-holder"
+                placeholder="ex: Jean Dupont"
                 value={cardHolder}
                 onChange={(e) => setCardHolder(e.target.value)}
                 disabled={isSubmitting}
@@ -204,24 +224,26 @@ export function PaymentSimulatorCard() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-1 space-y-1.5">
-                <Label htmlFor="card-number">Numéro de carte (16 chiffres)</Label>
-                <Input
-                  id="card-number"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                  disabled={isSubmitting}
-                />
-                {fieldErrors.cardNumber && (
-                  <p className="text-xs text-destructive">{fieldErrors.cardNumber}</p>
-                )}
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="card-number">Numéro de carte (16 chiffres)</Label>
+              <Input
+                id="card-number"
+                placeholder="4111 2222 3333 4444"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(e.target.value)}
+                disabled={isSubmitting}
+              />
+              {fieldErrors.cardNumber && (
+                <p className="text-xs text-destructive">{fieldErrors.cardNumber}</p>
+              )}
+            </div>
 
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="card-expiry">Expiration (MM/AA)</Label>
                 <Input
                   id="card-expiry"
+                  placeholder="12/28"
                   value={expiryDate}
                   onChange={(e) => setExpiryDate(e.target.value)}
                   disabled={isSubmitting}
@@ -235,6 +257,7 @@ export function PaymentSimulatorCard() {
                 <Label htmlFor="card-cvc">CVC</Label>
                 <Input
                   id="card-cvc"
+                  placeholder="421"
                   value={cvc}
                   onChange={(e) => setCvc(e.target.value)}
                   disabled={isSubmitting}
