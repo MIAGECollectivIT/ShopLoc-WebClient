@@ -7,6 +7,7 @@ import type {
   StockUpdateRequest,
 } from '@/types/product';
 import type { MerchantLoyaltyRate, MerchantLoyaltyRateRequest } from '@/types/loyalty';
+import type { PaymentAuthorizationRequest, PaymentAuthorizationResponse } from '@/types/payment';
 import type {
   UserRegistrationRequest,
   UserLoginRequest,
@@ -1074,4 +1075,48 @@ export async function updateStoreLoyaltyRate(
   }
 
   return (await res.json()) as MerchantLoyaltyRate;
+}
+
+export async function authorizePayment(
+  payload: PaymentAuthorizationRequest
+): Promise<PaymentAuthorizationResponse> {
+  const endpoint = getApiEndpoint('/v1/sales/payments/authorize');
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Payment authorization failed (HTTP ${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as PaymentAuthorizationResponse;
+}
+
+export async function getPaymentByReference(
+  reference: string
+): Promise<PaymentAuthorizationResponse> {
+  const endpoint = getApiEndpoint(`/v1/sales/payments/${encodeURIComponent(reference)}`);
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Payment transaction not found (HTTP ${res.status})`);
+  }
+
+  return (await res.json()) as PaymentAuthorizationResponse;
 }
