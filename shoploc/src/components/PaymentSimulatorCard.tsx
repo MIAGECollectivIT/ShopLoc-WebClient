@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   Receipt,
   RotateCcw,
+  Calendar,
 } from 'lucide-react';
 
 interface PaymentPreset {
@@ -80,6 +81,56 @@ export function PaymentSimulatorCard({
     setServerError(null);
     setFieldErrors({});
     setReference(generateReference('CMD-CC'));
+  };
+
+  const monthInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleAmountChange = (val: string) => {
+    const clean = val.replace(/[^0-9.,]/g, '').replace(',', '.');
+    const parts = clean.split('.');
+    if (parts.length > 2) return;
+    setAmount(clean);
+  };
+
+  const handleCardNumberChange = (val: string) => {
+    const digitsOnly = val.replace(/\D/g, '').slice(0, 16);
+    const formatted = digitsOnly.match(/.{1,4}/g)?.join(' ') || digitsOnly;
+    setCardNumber(formatted);
+  };
+
+  const handleExpiryTextChange = (val: string) => {
+    const digitsOnly = val.replace(/\D/g, '').slice(0, 4);
+    if (digitsOnly.length >= 3) {
+      setExpiryDate(`${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2)}`);
+    } else {
+      setExpiryDate(digitsOnly);
+    }
+  };
+
+  const handleMonthPickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (!val) return;
+    const [year, month] = val.split('-');
+    if (year && month) {
+      const shortYear = year.slice(-2);
+      setExpiryDate(`${month}/${shortYear}`);
+    }
+  };
+
+  const openMonthPicker = () => {
+    const input = monthInputRef.current;
+    if (!input) return;
+    const pickerInput = input as HTMLInputElement & { showPicker?: () => void };
+    if (typeof pickerInput.showPicker === 'function') {
+      pickerInput.showPicker();
+    } else {
+      input.focus();
+    }
+  };
+
+  const handleCvcChange = (val: string) => {
+    const digitsOnly = val.replace(/\D/g, '').slice(0, 4);
+    setCvc(digitsOnly);
   };
 
   const handleAuthorizePayment = async (event: React.FormEvent) => {
@@ -151,7 +202,7 @@ export function PaymentSimulatorCard({
         </CardHeader>
 
         <form onSubmit={handleAuthorizePayment}>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pb-6">
             <div className="flex flex-wrap gap-2">
               {PAYMENT_PRESETS.map((preset) => (
                 <Button
@@ -180,11 +231,11 @@ export function PaymentSimulatorCard({
                 <Label htmlFor="payment-amount">Montant (€)</Label>
                 <Input
                   id="payment-amount"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => handleAmountChange(e.target.value)}
                   disabled={isSubmitting}
                 />
                 {fieldErrors.amount && (
@@ -218,6 +269,7 @@ export function PaymentSimulatorCard({
                 value={cardHolder}
                 onChange={(e) => setCardHolder(e.target.value)}
                 disabled={isSubmitting}
+                autoComplete="cc-name"
               />
               {fieldErrors.cardHolder && (
                 <p className="text-xs text-destructive">{fieldErrors.cardHolder}</p>
@@ -230,8 +282,11 @@ export function PaymentSimulatorCard({
                 id="card-number"
                 placeholder="4111 2222 3333 4444"
                 value={cardNumber}
-                onChange={(e) => setCardNumber(e.target.value)}
+                onChange={(e) => handleCardNumberChange(e.target.value)}
                 disabled={isSubmitting}
+                maxLength={19}
+                inputMode="numeric"
+                autoComplete="cc-number"
               />
               {fieldErrors.cardNumber && (
                 <p className="text-xs text-destructive">{fieldErrors.cardNumber}</p>
@@ -241,13 +296,38 @@ export function PaymentSimulatorCard({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="card-expiry">Expiration (MM/AA)</Label>
-                <Input
-                  id="card-expiry"
-                  placeholder="12/28"
-                  value={expiryDate}
-                  onChange={(e) => setExpiryDate(e.target.value)}
-                  disabled={isSubmitting}
-                />
+                <div className="relative flex items-center">
+                  <Input
+                    id="card-expiry"
+                    placeholder="12/28"
+                    value={expiryDate}
+                    onChange={(e) => handleExpiryTextChange(e.target.value)}
+                    disabled={isSubmitting}
+                    maxLength={5}
+                    inputMode="numeric"
+                    autoComplete="cc-exp"
+                    className="pr-10"
+                  />
+                  <input
+                    ref={monthInputRef}
+                    type="month"
+                    tabIndex={-1}
+                    className="sr-only"
+                    onChange={handleMonthPickerChange}
+                    min={new Date().toISOString().slice(0, 7)}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={openMonthPicker}
+                    disabled={isSubmitting}
+                    className="absolute right-0 h-full px-3 text-muted-foreground hover:text-foreground"
+                    title="Choisir via calendrier"
+                  >
+                    <Calendar className="size-4" />
+                  </Button>
+                </div>
                 {fieldErrors.expiryDate && (
                   <p className="text-xs text-destructive">{fieldErrors.expiryDate}</p>
                 )}
@@ -259,15 +339,18 @@ export function PaymentSimulatorCard({
                   id="card-cvc"
                   placeholder="421"
                   value={cvc}
-                  onChange={(e) => setCvc(e.target.value)}
+                  onChange={(e) => handleCvcChange(e.target.value)}
                   disabled={isSubmitting}
+                  maxLength={4}
+                  inputMode="numeric"
+                  autoComplete="cc-csc"
                 />
                 {fieldErrors.cvc && <p className="text-xs text-destructive">{fieldErrors.cvc}</p>}
               </div>
             </div>
           </CardContent>
 
-          <CardFooter className="pt-2 flex justify-end gap-2 border-t border-border">
+          <CardFooter className="py-4 px-6 flex justify-end gap-2 border-t border-border bg-muted/10">
             <Button type="submit" disabled={isSubmitting} className="gap-2">
               {isSubmitting ? (
                 <>
