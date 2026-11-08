@@ -56,9 +56,7 @@ export function PaymentSimulatorCard({
   const [amount, setAmount] = React.useState(
     initialAmount !== undefined ? String(initialAmount) : '42.50'
   );
-  const [reference, setReference] = React.useState(
-    initialReference || generateReference('CMD-CC')
-  );
+  const [reference, setReference] = React.useState(initialReference || generateReference('CMD-CC'));
   const [cardHolder, setCardHolder] = React.useState('Jean Dupont');
   const [cardNumber, setCardNumber] = React.useState('4111 2222 3333 4444');
   const [expiryDate, setExpiryDate] = React.useState('12/28');
