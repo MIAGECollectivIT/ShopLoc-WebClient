@@ -2,14 +2,7 @@ import { MapPin, Store as StoreIcon, ShieldCheck } from 'lucide-react';
 import type { Store } from '@/types/store';
 import { resolveStoreImageUrl } from '@/lib/image';
 import { useAuth } from '@/lib/auth';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardAction,
-  CardFooter,
-} from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ROUTES } from '@/config/routes';
@@ -61,11 +54,6 @@ export function StoreCard({ store }: StoreCardProps) {
           <MapPin className="size-3.5 shrink-0" />
           <span className="truncate">{store.address}</span>
         </CardDescription>
-        {store.id && (
-          <CardAction>
-            <Badge variant="outline">#{store.id}</Badge>
-          </CardAction>
-        )}
       </CardHeader>
 
       <CardFooter className="justify-between">
