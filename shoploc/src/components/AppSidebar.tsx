@@ -12,7 +12,7 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,7 +31,6 @@ import {
   Bell,
   Shield,
   MapPin,
-  Heart,
   HelpCircle,
   LogOut,
   Moon,
@@ -40,11 +39,18 @@ import {
   Check,
   ShoppingBag,
   Wallet,
-  CreditCard,
-  ArrowUpRight,
   UserPlus,
   LogIn,
+  PlusCircle,
+  Loader2,
+  AlertCircle,
+  IdCard,
+  Store as StoreIcon,
+  QrCode,
+  Users as UsersIcon,
 } from 'lucide-react';
+import { useAuth } from '@/lib/auth';
+import { updateUserProfile } from '@/lib/api';
 
 interface AppSidebarProps {
   currentPath?: string;
@@ -54,21 +60,33 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
   const [isProfileOpen, setIsProfileOpen] = React.useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
   const [isWalletOpen, setIsWalletOpen] = React.useState(false);
-  const [walletBalance, setWalletBalance] = React.useState(42.5);
-  const [topUpAmount, setTopUpAmount] = React.useState('20');
-  const [topUpSuccessToast, setTopUpSuccessToast] = React.useState(false);
 
-  // Mock editable profile data
-  const [profile, setProfile] = React.useState({
-    name: 'Camille Martin',
-    email: 'camille.martin@collectivit.fr',
-    city: 'Lyon',
-    loyaltyPoints: 340,
-    role: 'Citoyen éco-responsable',
+  const { user, isAuthenticated, role, logout } = useAuth();
+
+  // Real profile form state linked to authenticated user
+  const [profileForm, setProfileForm] = React.useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    pickupLocation: '',
+    birthDate: '',
   });
 
-  const [editProfileForm, setEditProfileForm] = React.useState(profile);
-  const [profileSavedToast, setProfileSavedToast] = React.useState(false);
+  const [isSavingProfile, setIsSavingProfile] = React.useState(false);
+  const [profileSuccessMsg, setProfileSuccessMsg] = React.useState<string | null>(null);
+  const [profileErrorMsg, setProfileErrorMsg] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (user) {
+      setProfileForm({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+        pickupLocation: user.pickupLocation || '',
+        birthDate: user.birthDate || '',
+      });
+    }
+  }, [user]);
 
   // Accessibility / notification settings
   const [settings, setSettings] = React.useState({
@@ -100,41 +118,94 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
     }
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setProfile(editProfileForm);
-    setProfileSavedToast(true);
-    setTimeout(() => {
-      setProfileSavedToast(false);
-      setIsProfileOpen(false);
-    }, 1200);
+    if (!user?.id) return;
+
+    setIsSavingProfile(true);
+    setProfileSuccessMsg(null);
+    setProfileErrorMsg(null);
+
+    try {
+      await updateUserProfile(user.id, {
+        firstName: profileForm.firstName.trim() || undefined,
+        lastName: profileForm.lastName.trim() || undefined,
+        pickupLocation: profileForm.pickupLocation.trim() || undefined,
+        birthDate: profileForm.birthDate.trim() || undefined,
+      });
+
+      setProfileSuccessMsg('Profil mis à jour avec succès !');
+      setTimeout(() => {
+        setProfileSuccessMsg(null);
+        setIsProfileOpen(false);
+      }, 1500);
+    } catch (err: unknown) {
+      setProfileErrorMsg(
+        err instanceof Error ? err.message : 'Erreur lors de la mise à jour du profil.'
+      );
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
+
+  const displayName = user
+    ? [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email
+    : '';
+
+  const roleLabel =
+    user?.role === 'ADMIN'
+      ? 'Administrateur'
+      : user?.role === 'MERCHANT'
+        ? 'Commerçant'
+        : 'Citoyen';
+
+  const userInitials = user
+    ? (user.firstName?.[0] || user.email?.[0] || 'U').toUpperCase() +
+      (user.lastName?.[0] || '').toUpperCase()
+    : 'SL';
 
   return (
     <>
       <Sidebar collapsible="offcanvas" className="border-r">
         {/* Sidebar Header with avatar and user info */}
         <SidebarHeader className="p-4 border-b">
-          <div className="flex items-center gap-3">
-            <Avatar size="lg" className="border">
-              <AvatarImage
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
-                alt={profile.name}
-              />
-              <AvatarFallback className="bg-primary text-primary-foreground font-semibold text-xs">
-                CM
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col min-w-0">
-              <span className="text-sm font-semibold truncate leading-tight">{profile.name}</span>
-              <span className="text-xs text-muted-foreground truncate">{profile.email}</span>
-              <div className="flex items-center gap-1.5 mt-1">
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary">
-                  {profile.loyaltyPoints} pts fidélité
-                </span>
+          {isAuthenticated && user ? (
+            <div className="flex items-center gap-3">
+              <Avatar size="lg" className="border">
+                <AvatarFallback className="bg-primary text-primary-foreground font-semibold text-xs">
+                  {userInitials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-semibold truncate leading-tight">{displayName}</span>
+                <span className="text-xs text-muted-foreground truncate">{user.email}</span>
+                <div className="flex items-center gap-1.5 mt-1">
+                  {user.clientCode && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-mono font-medium bg-primary/10 text-primary">
+                      {user.clientCode}
+                    </span>
+                  )}
+                  <span className="text-[10px] text-muted-foreground font-medium">
+                    ({roleLabel})
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Avatar size="lg" className="border">
+                <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-xs">
+                  SL
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-semibold truncate leading-tight">
+                  ShopLoc Collectiv'IT
+                </span>
+                <span className="text-xs text-muted-foreground truncate">Espace non connecté</span>
+              </div>
+            </div>
+          )}
         </SidebarHeader>
 
         <SidebarContent>
@@ -143,29 +214,43 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
             <SidebarGroupLabel>Mon Compte</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
+                {!isAuthenticated ? (
+                  <>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton render={<a href="/register" data-astro-reload="" />}>
+                        <UserPlus className="size-4 text-muted-foreground" />
+                        <span>Créer un compte</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+
+                    <SidebarMenuItem>
+                      <SidebarMenuButton render={<a href="/login" data-astro-reload="" />}>
+                        <LogIn className="size-4 text-muted-foreground" />
+                        <span>Se connecter</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </>
+                ) : null}
+
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<a href="/register" />}>
-                    <UserPlus className="size-4 text-muted-foreground" />
-                    <span>Créer un compte</span>
+                  <SidebarMenuButton render={<a href="/profile" data-astro-reload="" />}>
+                    {role === 'ADMIN' || role === 'MERCHANT' ? (
+                      <User className="size-4 text-muted-foreground" />
+                    ) : (
+                      <QrCode className="size-4 text-emerald-600 dark:text-emerald-400" />
+                    )}
+                    <span>
+                      {role === 'ADMIN' || role === 'MERCHANT'
+                        ? 'Mon Profil'
+                        : 'Mon Profil & QR Code'}
+                    </span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<a href="/login" />}>
-                    <LogIn className="size-4 text-muted-foreground" />
-                    <span>Se connecter</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => {
-                      setEditProfileForm(profile);
-                      setIsProfileOpen(true);
-                    }}
-                  >
+                  <SidebarMenuButton onClick={() => setIsProfileOpen(true)}>
                     <User className="size-4 text-muted-foreground" />
-                    <span>Afficher mon profil</span>
+                    <span>Modifier mes informations</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
@@ -176,44 +261,59 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
-                <SidebarMenuItem>
-                  <SidebarMenuButton onClick={() => setIsWalletOpen(true)}>
-                    <Wallet className="size-4 text-muted-foreground" />
-                    <div className="flex items-center justify-between flex-1">
-                      <span>Portefeuille</span>
-                      <span className="text-xs font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                        {walletBalance.toFixed(2)} €
-                      </span>
-                    </div>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {role === 'CLIENT' && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton onClick={() => setIsWalletOpen(true)}>
+                      <Wallet className="size-4 text-muted-foreground" />
+                      <div className="flex items-center justify-between flex-1">
+                        <span>Portefeuille & Fidélité</span>
+                        {user?.clientCode && (
+                          <span className="text-[10px] font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                            {user.clientCode}
+                          </span>
+                        )}
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
 
                 <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => {
-                      setEditProfileForm(profile);
-                      setIsProfileOpen(true);
-                    }}
-                  >
-                    <Heart className="size-4 text-muted-foreground" />
-                    <span>Commerces favoris</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => {
-                      setEditProfileForm(profile);
-                      setIsProfileOpen(true);
-                    }}
-                  >
-                    <MapPin className="size-4 text-muted-foreground" />
-                    <span>Adresses de retrait</span>
+                  <SidebarMenuButton render={<a href="/stores" />}>
+                    <StoreIcon className="size-4 text-muted-foreground" />
+                    <span>Commerces partenaires</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+
+          {/* Administration section restricted to administrators */}
+          {isAuthenticated && role === 'ADMIN' && (
+            <>
+              <SidebarSeparator />
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-primary font-semibold">
+                  Administration
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton render={<a href="/admin/partners" />}>
+                        <UsersIcon className="size-4 text-primary" />
+                        <span className="font-medium text-foreground">Gestion Partenaires</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton render={<a href="/stores/new" />}>
+                        <PlusCircle className="size-4 text-primary" />
+                        <span className="font-medium text-foreground">Nouveau commerce</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </>
+          )}
 
           <SidebarSeparator />
 
@@ -266,19 +366,32 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
 
         {/* Sidebar Footer */}
         <SidebarFooter className="p-3 border-t">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            onClick={() => {
-              if (window.confirm('Voulez-vous vous déconnecter de ShopLoc ?')) {
-                window.location.reload();
-              }
-            }}
-          >
-            <LogOut className="size-4 mr-2" />
-            <span>Déconnexion</span>
-          </Button>
+          {isAuthenticated ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={() => {
+                if (window.confirm('Voulez-vous vous déconnecter de ShopLoc ?')) {
+                  logout();
+                  window.location.href = '/api/auth/logout';
+                }
+              }}
+            >
+              <LogOut className="size-4 mr-2" />
+              <span>Déconnexion</span>
+            </Button>
+          ) : (
+            <Button
+              variant="default"
+              size="sm"
+              className="w-full justify-start"
+              render={<a href="/login" data-astro-reload="" />}
+            >
+              <LogIn className="size-4 mr-2" />
+              <span>Se connecter</span>
+            </Button>
+          )}
         </SidebarFooter>
       </Sidebar>
 
@@ -291,75 +404,142 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
               <span>Mon Profil ShopLoc</span>
             </DialogTitle>
             <DialogDescription>
-              Consultez et modifiez les informations de votre compte citoyen.
+              {isAuthenticated
+                ? 'Consultez et modifiez les informations de votre compte citoyen.'
+                : 'Connectez-vous pour accéder à vos informations personnelles.'}
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSaveProfile} className="space-y-4 py-2">
-            <div className="flex items-center gap-4 p-3 rounded-lg border bg-muted/40">
-              <Avatar size="lg">
-                <AvatarImage
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
-                  alt={profile.name}
-                />
-                <AvatarFallback>CM</AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <p className="text-sm font-semibold">{profile.name}</p>
-                <p className="text-xs text-muted-foreground">{profile.role}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs font-medium text-primary">
-                    ⭐ {profile.loyaltyPoints} points fidélité
-                  </span>
+          {!isAuthenticated ? (
+            <div className="py-6 text-center space-y-4">
+              <div className="mx-auto size-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                <User className="size-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold">Espace non connecté</h3>
+                <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                  Veuillez vous connecter ou vous inscrire pour consulter et modifier votre profil.
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <Button size="sm" render={<a href="/login" data-astro-reload="" />}>
+                  Se connecter
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  render={<a href="/register" data-astro-reload="" />}
+                >
+                  Créer un compte
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSaveProfile} className="space-y-4 py-2">
+              <div className="flex items-center gap-4 p-3 rounded-lg border bg-muted/40">
+                <Avatar size="lg" className="border">
+                  <AvatarFallback className="bg-primary text-primary-foreground font-semibold text-xs">
+                    {userInitials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate">{displayName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {user?.clientCode && (
+                      <span className="text-xs font-mono font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                        {user.clientCode}
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground font-medium">{roleLabel}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="prof-name">Nom complet</Label>
-              <Input
-                id="prof-name"
-                value={editProfileForm.name}
-                onChange={(e) => setEditProfileForm({ ...editProfileForm, name: e.target.value })}
-                required
-              />
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="prof-firstname">Prénom</Label>
+                  <Input
+                    id="prof-firstname"
+                    value={profileForm.firstName}
+                    onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
+                    placeholder="Prénom"
+                  />
+                </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="prof-email">Adresse e-mail</Label>
-              <Input
-                id="prof-email"
-                type="email"
-                value={editProfileForm.email}
-                onChange={(e) => setEditProfileForm({ ...editProfileForm, email: e.target.value })}
-                required
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="prof-city">Ville / Municipalité</Label>
-              <Input
-                id="prof-city"
-                value={editProfileForm.city}
-                onChange={(e) => setEditProfileForm({ ...editProfileForm, city: e.target.value })}
-                required
-              />
-            </div>
-
-            {profileSavedToast && (
-              <div className="flex items-center gap-2 text-xs text-green-600 bg-green-500/10 p-2 rounded-md">
-                <Check className="size-4 shrink-0" />
-                <span>Profil mis à jour avec succès !</span>
+                <div className="space-y-1.5">
+                  <Label htmlFor="prof-lastname">Nom</Label>
+                  <Input
+                    id="prof-lastname"
+                    value={profileForm.lastName}
+                    onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
+                    placeholder="Nom"
+                  />
+                </div>
               </div>
-            )}
 
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsProfileOpen(false)}>
-                Fermer
-              </Button>
-              <Button type="submit">Enregistrer les modifications</Button>
-            </DialogFooter>
-          </form>
+              <div className="space-y-1.5">
+                <Label htmlFor="prof-email">Adresse e-mail (identifiant)</Label>
+                <Input
+                  id="prof-email"
+                  type="email"
+                  value={profileForm.email}
+                  disabled
+                  className="bg-muted/50 cursor-not-allowed"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="prof-pickup">Point de retrait favori</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+                  <Input
+                    id="prof-pickup"
+                    className="pl-9"
+                    value={profileForm.pickupLocation}
+                    onChange={(e) =>
+                      setProfileForm({ ...profileForm, pickupLocation: e.target.value })
+                    }
+                    placeholder="Ex. Mairie Centrale, 1 Place de la Mairie"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="prof-birthdate">Date de naissance</Label>
+                <Input
+                  id="prof-birthdate"
+                  type="date"
+                  value={profileForm.birthDate}
+                  onChange={(e) => setProfileForm({ ...profileForm, birthDate: e.target.value })}
+                />
+              </div>
+
+              {profileErrorMsg && (
+                <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 p-2.5 rounded-md">
+                  <AlertCircle className="size-4 shrink-0" />
+                  <span>{profileErrorMsg}</span>
+                </div>
+              )}
+
+              {profileSuccessMsg && (
+                <div className="flex items-center gap-2 text-xs text-green-600 bg-green-500/10 p-2.5 rounded-md">
+                  <Check className="size-4 shrink-0" />
+                  <span>{profileSuccessMsg}</span>
+                </div>
+              )}
+
+              <DialogFooter className="pt-2">
+                <Button type="button" variant="outline" onClick={() => setIsProfileOpen(false)}>
+                  Fermer
+                </Button>
+                <Button type="submit" disabled={isSavingProfile}>
+                  {isSavingProfile && <Loader2 className="size-4 mr-2 animate-spin" />}
+                  Enregistrer les modifications
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -480,109 +660,123 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
         </DialogContent>
       </Dialog>
 
-      {/* Wallet Dialog */}
+      {/* Wallet & Loyalty Card Dialog */}
       <Dialog open={isWalletOpen} onOpenChange={setIsWalletOpen}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Wallet className="size-5 text-primary" />
-              <span>Mon Portefeuille Local</span>
+              <span>Carte Fidélité & Portefeuille Local</span>
             </DialogTitle>
             <DialogDescription>
-              Gérez votre solde et réglez facilement vos achats chez les commerçants partenaires de
-              votre commune.
+              Retrouvez votre identifiant citoyen pour vos achats auprès des commerçants adhérents.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            {/* Balance Card */}
-            <div className="rounded-xl border bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-4 flex flex-col justify-between space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Solde disponible
-                </span>
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-primary text-primary-foreground">
-                  Collectiv'Pay
-                </span>
+          {!isAuthenticated || !user ? (
+            <div className="py-6 text-center space-y-4">
+              <div className="mx-auto size-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                <Wallet className="size-6" />
               </div>
-              <div>
-                <p className="text-3xl font-extrabold tracking-tight">
-                  {walletBalance.toFixed(2)} €
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  + {profile.loyaltyPoints} points fidélité échangeables en remises
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold">Portefeuille Citoyen</h3>
+                <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                  Connectez-vous pour consulter votre carte de fidélité et votre identifiant
+                  commerçant.
                 </p>
               </div>
-            </div>
-
-            {/* Wallet top up */}
-            <div className="space-y-2 border rounded-lg p-3 bg-muted/20">
-              <Label className="text-xs font-semibold">Recharger mon compte</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min="5"
-                  step="5"
-                  value={topUpAmount}
-                  onChange={(e) => setTopUpAmount(e.target.value)}
-                  placeholder="Montant en €"
-                  className="h-9"
-                />
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <Button size="sm" render={<a href="/login" data-astro-reload="" />}>
+                  Se connecter
+                </Button>
                 <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => {
-                    const amount = parseFloat(topUpAmount);
-                    if (!isNaN(amount) && amount > 0) {
-                      setWalletBalance((prev) => prev + amount);
-                      setTopUpSuccessToast(true);
-                      setTimeout(() => setTopUpSuccessToast(false), 2000);
-                    }
-                  }}
-                  className="shrink-0"
+                  render={<a href="/register" data-astro-reload="" />}
                 >
-                  <CreditCard className="size-4 mr-1.5" />
-                  Recharger
+                  Créer un compte
                 </Button>
               </div>
-
-              {topUpSuccessToast && (
-                <div className="flex items-center gap-1.5 text-xs text-green-600 font-medium pt-1">
-                  <Check className="size-3.5" />
-                  <span>Rechargement de {topUpAmount} € effectué avec succès !</span>
-                </div>
-              )}
             </div>
-
-            {/* Mock recent transaction history */}
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Dernières opérations
-              </Label>
-              <div className="space-y-1.5 text-xs">
-                <div className="flex items-center justify-between p-2 rounded-md bg-muted/40">
+          ) : (
+            <div className="space-y-4 py-2">
+              {/* Digital Citizen Card */}
+              <div className="rounded-xl border bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-5 space-y-4 shadow-sm">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <ArrowUpRight className="size-4 text-primary" />
-                    <div>
-                      <p className="font-medium">Boulangerie Le Moulin</p>
-                      <p className="text-[10px] text-muted-foreground">Paiement sans contact</p>
-                    </div>
+                    <IdCard className="size-5 text-primary" />
+                    <span className="text-xs font-bold tracking-wider uppercase text-foreground">
+                      Collectiv'IT Pass
+                    </span>
                   </div>
-                  <span className="font-semibold text-foreground">- 4,80 €</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-primary text-primary-foreground">
+                    Fidélité Active
+                  </span>
                 </div>
 
-                <div className="flex items-center justify-between p-2 rounded-md bg-muted/40">
-                  <div className="flex items-center gap-2">
-                    <Check className="size-4 text-green-600" />
-                    <div>
-                      <p className="font-medium">Rechargement CB</p>
-                      <p className="text-[10px] text-muted-foreground">Carte bancaire **** 4242</p>
-                    </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Titulaire de la carte</p>
+                  <p className="text-lg font-bold text-foreground leading-tight">{displayName}</p>
+                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                </div>
+
+                <div className="pt-2 border-t border-primary/20 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">
+                      Code Client Commerçant
+                    </span>
+                    <span className="font-mono text-base font-extrabold text-primary">
+                      {user.clientCode || 'Attribué en mairie'}
+                    </span>
                   </div>
-                  <span className="font-semibold text-green-600">+ 30,00 €</span>
+                  {user.pickupLocation ? (
+                    <div className="text-right">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">
+                        Point de retrait
+                      </span>
+                      <span className="text-xs font-medium text-foreground truncate max-w-[140px] inline-block">
+                        {user.pickupLocation}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="text-right">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">
+                        Format
+                      </span>
+                      <span className="text-xs font-medium text-emerald-600 inline-block">
+                        100% Dématérialisée
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Instructions */}
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5 text-xs text-muted-foreground">
+                <p className="font-semibold text-foreground flex items-center gap-1.5">
+                  <Check className="size-3.5 text-primary" />
+                  Comment utiliser votre carte locale ?
+                </p>
+                <p>
+                  Présentez simplement votre code client lors de votre passage en caisse chez les
+                  commerçants partenaires de votre commune pour cumuler et faire valoir vos
+                  avantages.
+                </p>
+              </div>
+
+              <div className="pt-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  render={<a href="/stores" />}
+                >
+                  <StoreIcon className="size-4 mr-2" />
+                  Découvrir les commerces participants
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
 
           <DialogFooter>
             <Button onClick={() => setIsWalletOpen(false)}>Fermer</Button>

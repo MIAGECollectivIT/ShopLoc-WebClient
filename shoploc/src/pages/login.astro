@@ -15,7 +15,7 @@ import { ROUTES } from '../config/routes';
     icon={ROUTES.login.icon}
   >
     <div class="max-w-md mx-auto py-4">
-      <LoginForm client:load />
+      <LoginForm client:only="react" />
     </div>
   </PageContainer>
 </Layout>

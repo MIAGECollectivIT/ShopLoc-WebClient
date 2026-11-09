@@ -1,5 +1,5 @@
-# Stage 1: Build the Astro application
-FROM node:22-alpine AS builder
+# Stage 1: Build the Astro application on the build host platform (avoids QEMU emulation overhead/SIGILL)
+FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS builder
 WORKDIR /app
 
 # Install dependencies with Docker layer cache
@@ -10,8 +10,8 @@ RUN npm ci
 COPY shoploc/ ./
 RUN npm run build
 
-# Stage 2: Lightweight runtime image
-FROM node:22-alpine AS runner
+# Stage 2: Lightweight runtime image for the target platform
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
