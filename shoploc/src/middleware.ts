@@ -31,6 +31,9 @@ async function getOrFetchPublicKey(): Promise<string | null> {
     }
   }
   const usersUrl =
+    (typeof process !== 'undefined' && process.env?.USERS_SERVICE_URL) ||
+    (typeof process !== 'undefined' && process.env?.INTERNAL_USERS_SERVICE_URL) ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.USERS_SERVICE_URL) ||
     (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
     (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
     'http://localhost:8080';
@@ -71,6 +74,9 @@ async function isTokenRevoked(jti?: string): Promise<boolean> {
   if (now - lastRevocationFetch > 15000) {
     lastRevocationFetch = now;
     const usersUrl =
+      (typeof process !== 'undefined' && process.env?.USERS_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_USERS_SERVICE_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.USERS_SERVICE_URL) ||
       (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
       (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
       'http://localhost:8080';

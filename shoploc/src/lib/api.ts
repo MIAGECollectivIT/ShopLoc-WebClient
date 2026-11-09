@@ -68,10 +68,50 @@ export async function fetchWithTimeout(
 }
 
 export function getApiEndpoint(path: string, _serviceUrl?: string): string {
+  const cleanPath = path.toLowerCase().replace(/^\/+/, '');
+
+  let serviceBase: string | undefined;
+  if (
+    cleanPath.startsWith('users') ||
+    cleanPath.startsWith('auth') ||
+    cleanPath.startsWith('admin') ||
+    cleanPath.startsWith('.well-known')
+  ) {
+    serviceBase =
+      (typeof process !== 'undefined' && process.env?.USERS_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_USERS_SERVICE_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.USERS_SERVICE_URL);
+  } else if (cleanPath.startsWith('stores') || cleanPath.startsWith('products')) {
+    serviceBase =
+      (typeof process !== 'undefined' && process.env?.STORE_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_STORE_SERVICE_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.STORE_SERVICE_URL);
+  } else if (
+    cleanPath.startsWith('sales') ||
+    cleanPath.startsWith('orders') ||
+    cleanPath.startsWith('cart')
+  ) {
+    serviceBase =
+      (typeof process !== 'undefined' && process.env?.SALES_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_SALES_SERVICE_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.SALES_SERVICE_URL);
+  } else if (cleanPath.startsWith('loyalty')) {
+    serviceBase =
+      (typeof process !== 'undefined' && process.env?.LOYALTY_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_LOYALTY_SERVICE_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.LOYALTY_SERVICE_URL);
+  } else if (cleanPath.startsWith('observability')) {
+    serviceBase =
+      (typeof process !== 'undefined' && process.env?.OBSERVABILITY_SERVICE_URL) ||
+      (typeof process !== 'undefined' && process.env?.INTERNAL_OBSERVABILITY_SERVICE_URL) ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.OBSERVABILITY_SERVICE_URL);
+  }
+
   const base =
     typeof window !== 'undefined'
       ? ''
-      : (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
+      : serviceBase ||
+        (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
         (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
         'http://localhost:8080';
 
@@ -79,7 +119,19 @@ export function getApiEndpoint(path: string, _serviceUrl?: string): string {
 }
 
 export function getUsersApiEndpoint(path: string): string {
-  return getApiEndpoint(path);
+  const base =
+    typeof window !== 'undefined'
+      ? ''
+      : (typeof process !== 'undefined' && process.env?.USERS_SERVICE_URL) ||
+        (typeof process !== 'undefined' && process.env?.INTERNAL_USERS_SERVICE_URL) ||
+        (typeof import.meta !== 'undefined' && import.meta.env?.USERS_SERVICE_URL) ||
+        (typeof process !== 'undefined' && process.env?.INTERNAL_API_URL) ||
+        (typeof import.meta !== 'undefined' && import.meta.env?.INTERNAL_API_URL) ||
+        (typeof process !== 'undefined' && process.env?.DEV_BACKEND_URL) ||
+        (typeof import.meta !== 'undefined' && import.meta.env?.DEV_BACKEND_URL) ||
+        'http://localhost:8081';
+
+  return `${base.replace(/\/$/, '')}${path}`;
 }
 
 export interface ServiceHealthResponse {
@@ -273,6 +325,51 @@ export async function addStoreToPartner(
   if (!res.ok) {
     throw new Error(`Impossible d'associer le commerce au partenaire (HTTP ${res.status})`);
   }
+}
+
+export interface AdminPartnerUpdateRequest {
+  firstName: string;
+  lastName: string;
+  birthDate: string; // YYYY-MM-DD
+}
+
+/**
+ * Updates identity and administrative profile of a partner merchant (SLE-127).
+ */
+export async function updateAdminPartner(
+  partnerId: string | number,
+  payload: AdminPartnerUpdateRequest,
+  authToken?: string
+): Promise<AdminPartnerDetail> {
+  const endpoint = getUsersApiEndpoint(
+    `/v1/admin/partners/${encodeURIComponent(String(partnerId))}`
+  );
+  const token = authToken || getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise pour modifier le partenaire.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès réservé aux administrateurs de la plateforme.');
+  }
+  if (res.status === 404) {
+    throw new Error('Partenaire commerçant introuvable.');
+  }
+  if (!res.ok) {
+    throw new Error(`Impossible de modifier le compte partenaire (HTTP ${res.status})`);
+  }
+
+  const updated: AdminPartnerDetail = await res.json();
+  return updated;
 }
 
 /**
