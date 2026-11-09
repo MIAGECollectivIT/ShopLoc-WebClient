@@ -5,7 +5,7 @@ import Layout from '../../../layouts/Layout.astro';
 import { AdminPartnerDetailView } from '../../../components/AdminPartnerDetailView';
 import { getAdminPartnerById, getStoreById } from '../../../lib/api';
 import { ROUTES } from '../../../config/routes';
-import { Button } from '../../../components/ui/button';
+import { buttonVariants } from '../../../components/ui/button';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import type { AdminPartnerDetail } from '../../../types/partner';
 import type { Store } from '../../../types/store';
@@ -22,7 +22,7 @@ if (!id) {
 } else {
   try {
     partner = await getAdminPartnerById(id, token);
-    if (partner.storeIds && partner.storeIds.length > 0) {
+    if (partner && partner.storeIds && partner.storeIds.length > 0) {
       const storeResults = await Promise.all(
         partner.storeIds.map(async (storeId) => {
           try {
@@ -30,7 +30,7 @@ if (!id) {
           } catch {
             return {
               id: storeId,
-              name: `Commerce #${storeId}`,
+              name: 'Commerce affilié',
               address: 'Informations non disponibles',
             } as Store;
           }
@@ -58,15 +58,17 @@ const pageTitle = partner
 
     {!partner && (
       <div class="space-y-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          render={<a href={ROUTES.adminPartners.path} />}
-          className="gap-2 text-muted-foreground hover:text-foreground"
+        <a
+          href={ROUTES.adminPartners.path}
+          class={buttonVariants({
+            variant: 'ghost',
+            size: 'sm',
+            className: 'gap-2 text-muted-foreground hover:text-foreground inline-flex items-center',
+          })}
         >
           <ArrowLeft className="size-4" />
           <span>Retour à la liste des partenaires</span>
-        </Button>
+        </a>
 
         <div class="border rounded-xl p-12 text-center bg-card space-y-3">
           <AlertCircle className="size-10 text-destructive mx-auto" />
@@ -76,9 +78,12 @@ const pageTitle = partner
               "Le compte commerçant partenaire demandé n'existe pas ou n'est plus accessible."}
           </p>
           <div class="pt-2">
-            <Button variant="outline" size="sm" render={<a href={ROUTES.adminPartners.path} />}>
+            <a
+              href={ROUTES.adminPartners.path}
+              class={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
               Revenir aux partenaires
-            </Button>
+            </a>
           </div>
         </div>
       </div>

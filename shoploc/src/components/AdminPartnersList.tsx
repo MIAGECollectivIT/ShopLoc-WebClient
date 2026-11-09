@@ -186,7 +186,7 @@ export function AdminPartnersList({ initialPartners = [] }: AdminPartnersListPro
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {partners.map((partner) => (
             <Card
-              key={partner.id}
+              key={partner.publicId || partner.id}
               className="flex flex-col justify-between hover:border-primary/50 transition-colors shadow-sm"
             >
               <CardHeader className="pb-3">
@@ -199,9 +199,19 @@ export function AdminPartnersList({ initialPartners = [] }: AdminPartnersListPro
                       <CardTitle className="text-base font-semibold truncate leading-snug">
                         {partner.name || 'Partenaire sans nom'}
                       </CardTitle>
-                      <Badge variant="outline" className="mt-1 text-[11px] font-mono">
-                        ID #{partner.id}
-                      </Badge>
+                      {partner.publicId ? (
+                        <Badge
+                          variant="outline"
+                          className="mt-1 text-[11px] font-mono truncate max-w-[190px]"
+                          title={`UID : ${partner.publicId}`}
+                        >
+                          UID: {partner.publicId.slice(0, 8)}...
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="mt-1 text-[11px] font-mono">
+                          Partenaire
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <Badge
@@ -237,13 +247,16 @@ export function AdminPartnersList({ initialPartners = [] }: AdminPartnersListPro
               </CardContent>
 
               <CardFooter className="pt-2 border-t bg-muted/20 flex items-center justify-between">
-                <span className="text-[11px] text-muted-foreground font-mono truncate max-w-[140px]">
+                <span
+                  className="text-[11px] text-muted-foreground font-mono truncate max-w-[140px]"
+                  title={partner.publicId || ''}
+                >
                   {partner.publicId ? `${partner.publicId.slice(0, 8)}...` : ''}
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
-                  render={<a href={ROUTES.adminPartnerDetail(partner.id)} />}
+                  render={<a href={ROUTES.adminPartnerDetail(partner.publicId || partner.id)} />}
                   className="gap-1 text-xs"
                 >
                   <span>Voir la fiche</span>

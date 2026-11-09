@@ -1,7 +1,14 @@
 import * as React from 'react';
-import type { AdminPartnerDetail } from '@/types/partner';
+import type { AdminPartnerDetail, AdminPartnerSummary } from '@/types/partner';
 import type { Store } from '@/types/store';
-import { getStoreById, getStores, addStoreToPartner } from '@/lib/api';
+import {
+  getStoreById,
+  getStores,
+  addStoreToPartner,
+  updateAdminPartner,
+  getAdminPartners,
+  removeStoreFromPartner,
+} from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 import { resolveStoreImageUrl } from '@/lib/image';
 import {
@@ -42,6 +49,9 @@ import {
   AlertCircle,
   Check,
   Search,
+  Pencil,
+  Unlink,
+  Users,
 } from 'lucide-react';
 
 interface AdminPartnerDetailViewProps {
@@ -53,6 +63,7 @@ export function AdminPartnerDetailView({
   partner,
   initialStores = [],
 }: AdminPartnerDetailViewProps) {
+  const [currentPartner, setCurrentPartner] = React.useState<AdminPartnerDetail>(partner);
   const [stores, setStores] = React.useState<Store[]>(initialStores);
   const [loadingStores, setLoadingStores] = React.useState<boolean>(
     initialStores.length === 0 && (partner.storeIds?.length || 0) > 0
@@ -67,31 +78,50 @@ export function AdminPartnerDetailView({
   const [isSubmittingStore, setIsSubmittingStore] = React.useState<boolean>(false);
   const [addStoreError, setAddStoreError] = React.useState<string | null>(null);
 
+  // Modal dialog state for editing partner profile (SLE-127)
+  const [isEditPartnerOpen, setIsEditPartnerOpen] = React.useState<boolean>(false);
+  const [editFirstName, setEditFirstName] = React.useState<string>(partner.firstName || '');
+  const [editLastName, setEditLastName] = React.useState<string>(partner.lastName || '');
+  const [editBirthDate, setEditBirthDate] = React.useState<string>(partner.birthDate || '');
+  const [isSubmittingEdit, setIsSubmittingEdit] = React.useState<boolean>(false);
+  const [editError, setEditError] = React.useState<string | null>(null);
+
+  // Modal dialog state for detaching/reassigning store (SLE-127)
+  const [isDesaffectOpen, setIsDesaffectOpen] = React.useState<boolean>(false);
+  const [storeToDesaffect, setStoreToDesaffect] = React.useState<Store | null>(null);
+  const [reassignPartners, setReassignPartners] = React.useState<AdminPartnerSummary[]>([]);
+  const [reassignSearchQuery, setReassignSearchQuery] = React.useState<string>('');
+  const [selectedTargetPartnerId, setSelectedTargetPartnerId] = React.useState<string>('');
+  const [reassignToAnother, setReassignToAnother] = React.useState<boolean>(false);
+  const [isLoadingReassignPartners, setIsLoadingReassignPartners] = React.useState<boolean>(false);
+  const [isSubmittingDesaffect, setIsSubmittingDesaffect] = React.useState<boolean>(false);
+  const [desaffectError, setDesaffectError] = React.useState<string | null>(null);
+
   // Load store details for affiliated store IDs if not provided in SSR
   React.useEffect(() => {
     let isCancelled = false;
 
     async function loadStores() {
-      if (!partner.storeIds || partner.storeIds.length === 0) {
+      if (!currentPartner.storeIds || currentPartner.storeIds.length === 0) {
         setStores([]);
         setLoadingStores(false);
         return;
       }
 
-      if (initialStores.length >= partner.storeIds.length) {
+      if (initialStores.length >= currentPartner.storeIds.length) {
         setLoadingStores(false);
         return;
       }
 
       setLoadingStores(true);
       try {
-        const storePromises = partner.storeIds.map(async (storeId) => {
+        const storePromises = currentPartner.storeIds.map(async (storeId) => {
           try {
             return await getStoreById(storeId);
           } catch {
             return {
               id: storeId,
-              name: `Commerce #${storeId}`,
+              name: 'Commerce affilié',
               address: 'Informations non disponibles',
             } as Store;
           }
@@ -113,7 +143,7 @@ export function AdminPartnerDetailView({
     return () => {
       isCancelled = true;
     };
-  }, [partner.storeIds, initialStores]);
+  }, [currentPartner.storeIds, initialStores]);
 
   // Open dialog and fetch municipal stores not yet affiliated
   const handleOpenAddStoreDialog = async () => {
@@ -152,7 +182,7 @@ export function AdminPartnerDetailView({
 
     const storeIdNum = Number(selectedStoreId);
     try {
-      await addStoreToPartner(partner.id, storeIdNum);
+      await addStoreToPartner(currentPartner.publicId || currentPartner.id, storeIdNum);
 
       // Add to local state
       const targetStore = availableStores.find((s) => s.id === storeIdNum);
@@ -163,10 +193,13 @@ export function AdminPartnerDetailView({
         if (fetched) setStores((prev) => [...prev, fetched]);
       }
 
-      if (!partner.storeIds) partner.storeIds = [];
-      if (!partner.storeIds.includes(storeIdNum)) {
-        partner.storeIds.push(storeIdNum);
-      }
+      setCurrentPartner((prev) => {
+        const existingIds = prev.storeIds ? [...prev.storeIds] : [];
+        if (!existingIds.includes(storeIdNum)) {
+          existingIds.push(storeIdNum);
+        }
+        return { ...prev, storeIds: existingIds };
+      });
 
       setIsAddStoreOpen(false);
     } catch (err: unknown) {
@@ -175,6 +208,109 @@ export function AdminPartnerDetailView({
       );
     } finally {
       setIsSubmittingStore(false);
+    }
+  };
+
+  // Open dialog to edit partner coordinates (SLE-127)
+  const handleOpenEditPartner = () => {
+    setEditFirstName(currentPartner.firstName || '');
+    setEditLastName(currentPartner.lastName || '');
+    setEditBirthDate(currentPartner.birthDate || '');
+    setEditError(null);
+    setIsEditPartnerOpen(true);
+  };
+
+  // Submit partner update (SLE-127)
+  const handleConfirmEditPartner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editFirstName.trim() || !editLastName.trim() || !editBirthDate) {
+      setEditError('Tous les champs requis doivent être renseignés.');
+      return;
+    }
+
+    setIsSubmittingEdit(true);
+    setEditError(null);
+    try {
+      const updated = await updateAdminPartner(currentPartner.publicId || currentPartner.id, {
+        firstName: editFirstName.trim(),
+        lastName: editLastName.trim(),
+        birthDate: editBirthDate,
+      });
+      setCurrentPartner((prev) => ({
+        ...prev,
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        birthDate: updated.birthDate,
+        updatedAt: updated.updatedAt || new Date().toISOString(),
+      }));
+      setIsEditPartnerOpen(false);
+    } catch (err: unknown) {
+      setEditError(
+        err instanceof Error ? err.message : 'Impossible de mettre à jour le compte partenaire.'
+      );
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
+  // Open dialog to detach/reassign an affiliated store
+  const handleOpenDesaffectStore = async (store: Store) => {
+    setStoreToDesaffect(store);
+    setIsDesaffectOpen(true);
+    setDesaffectError(null);
+    setReassignSearchQuery('');
+    setSelectedTargetPartnerId('');
+    setReassignToAnother(false);
+    setIsLoadingReassignPartners(true);
+    try {
+      const allPartners = await getAdminPartners('', 100);
+      // Exclude current partner
+      const targets = allPartners.filter(
+        (p) => String(p.id) !== String(currentPartner.id) && p.publicId !== currentPartner.publicId
+      );
+      setReassignPartners(targets);
+      if (targets.length > 0) {
+        setSelectedTargetPartnerId(targets[0].publicId || String(targets[0].id));
+      }
+    } catch (err: unknown) {
+      console.warn('Impossible de charger la liste des partenaires pour réassignation:', err);
+    } finally {
+      setIsLoadingReassignPartners(false);
+    }
+  };
+
+  // Confirm unlinking or reassignment of store
+  const handleConfirmDesaffectStore = async () => {
+    if (!storeToDesaffect || !storeToDesaffect.id) return;
+
+    setIsSubmittingDesaffect(true);
+    setDesaffectError(null);
+
+    const storeIdNum = storeToDesaffect.id;
+    try {
+      if (reassignToAnother && selectedTargetPartnerId) {
+        // Reassign to selected target partner
+        await addStoreToPartner(selectedTargetPartnerId, storeIdNum);
+      } else {
+        // Direct unlinking from current partner
+        await removeStoreFromPartner(currentPartner.publicId || currentPartner.id, storeIdNum);
+      }
+
+      // Remove from current partner's store list in local state
+      setStores((prev) => prev.filter((s) => s.id !== storeIdNum));
+      setCurrentPartner((prev) => ({
+        ...prev,
+        storeIds: (prev.storeIds || []).filter((id) => id !== storeIdNum),
+      }));
+
+      setIsDesaffectOpen(false);
+      setStoreToDesaffect(null);
+    } catch (err: unknown) {
+      setDesaffectError(
+        err instanceof Error ? err.message : "Erreur lors de la désaffectation de l'établissement."
+      );
+    } finally {
+      setIsSubmittingDesaffect(false);
     }
   };
 
@@ -193,10 +329,28 @@ export function AdminPartnerDetailView({
     return availableStores.find((s) => String(s.id) === selectedStoreId);
   }, [availableStores, selectedStoreId]);
 
+  const filteredReassignPartners = React.useMemo(() => {
+    if (!reassignSearchQuery.trim()) return reassignPartners;
+    const q = reassignSearchQuery.toLowerCase();
+    return reassignPartners.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.email.toLowerCase().includes(q) ||
+        (p.companyName && p.companyName.toLowerCase().includes(q))
+    );
+  }, [reassignPartners, reassignSearchQuery]);
+
+  const selectedTargetPartner = React.useMemo(() => {
+    return reassignPartners.find((p) => (p.publicId || String(p.id)) === selectedTargetPartnerId);
+  }, [reassignPartners, selectedTargetPartnerId]);
+
   const fullName =
-    partner.firstName && partner.lastName
-      ? `${partner.firstName} ${partner.lastName}`
-      : partner.firstName || partner.lastName || partner.companyName || partner.email;
+    currentPartner.firstName && currentPartner.lastName
+      ? `${currentPartner.firstName} ${currentPartner.lastName}`
+      : currentPartner.firstName ||
+        currentPartner.lastName ||
+        currentPartner.companyName ||
+        currentPartner.email;
 
   const formatDate = (isoString?: string) => {
     if (!isoString) return 'Non renseigné';
@@ -222,11 +376,11 @@ export function AdminPartnerDetailView({
   };
 
   const initials = React.useMemo(() => {
-    if (partner.firstName && partner.lastName) {
-      return (partner.firstName[0] + partner.lastName[0]).toUpperCase();
+    if (currentPartner.firstName && currentPartner.lastName) {
+      return (currentPartner.firstName[0] + currentPartner.lastName[0]).toUpperCase();
     }
     return (fullName || 'P').slice(0, 2).toUpperCase();
-  }, [partner.firstName, partner.lastName, fullName]);
+  }, [currentPartner.firstName, currentPartner.lastName, fullName]);
 
   return (
     <div className="space-y-6">
@@ -243,6 +397,16 @@ export function AdminPartnerDetailView({
         </Button>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenEditPartner}
+            className="gap-1.5 text-xs border-muted-foreground/30 hover:bg-muted/50"
+          >
+            <Pencil className="size-3.5" />
+            <span>Modifier le partenaire</span>
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -279,27 +443,31 @@ export function AdminPartnerDetailView({
                     {fullName}
                   </CardTitle>
                   <Badge variant="default" className="text-xs uppercase font-medium">
-                    {partner.role === 'MERCHANT' ? 'Commerçant Partenaire' : partner.role}
+                    {currentPartner.role === 'MERCHANT'
+                      ? 'Commerçant Partenaire'
+                      : currentPartner.role}
                   </Badge>
                 </div>
-                {partner.companyName && (
+                {currentPartner.companyName && (
                   <CardDescription className="flex items-center gap-1.5 text-sm font-medium text-foreground/80">
                     <Building className="size-4 shrink-0 text-muted-foreground" />
-                    <span>{partner.companyName}</span>
+                    <span>{currentPartner.companyName}</span>
                   </CardDescription>
                 )}
               </div>
             </div>
 
+            {/* UID badge - Database ID completely hidden from the view */}
             <div className="flex flex-wrap sm:flex-col items-start sm:items-end gap-1.5 text-xs text-muted-foreground font-mono">
-              <Badge variant="outline" className="font-mono text-xs">
-                ID #{partner.id}
-              </Badge>
-              {partner.publicId && (
-                <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Fingerprint className="size-3" />
-                  <span>UUID: {partner.publicId}</span>
-                </div>
+              {currentPartner.publicId && (
+                <Badge
+                  variant="outline"
+                  className="font-mono text-xs flex items-center gap-1.5 px-2.5 py-1"
+                  title="Identifiant public UUID du partenaire"
+                >
+                  <Fingerprint className="size-3.5 text-muted-foreground" />
+                  <span>UID : {currentPartner.publicId}</span>
+                </Badge>
               )}
             </div>
           </div>
@@ -310,24 +478,33 @@ export function AdminPartnerDetailView({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Personal & Commercial Details Card */}
         <Card>
-          <CardHeader className="pb-3 border-b">
+          <CardHeader className="pb-3 border-b flex flex-row items-center justify-between">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <User className="size-4 text-primary" />
               <span>Informations d'identification</span>
             </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenEditPartner}
+              className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
+            >
+              <Pencil className="size-3" />
+              <span>Modifier</span>
+            </Button>
           </CardHeader>
           <CardContent className="p-6 space-y-4 text-sm">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <span className="text-xs text-muted-foreground block">Prénom</span>
                 <span className="font-medium text-foreground">
-                  {partner.firstName || 'Non renseigné'}
+                  {currentPartner.firstName || 'Non renseigné'}
                 </span>
               </div>
               <div>
                 <span className="text-xs text-muted-foreground block">Nom</span>
                 <span className="font-medium text-foreground">
-                  {partner.lastName || 'Non renseigné'}
+                  {currentPartner.lastName || 'Non renseigné'}
                 </span>
               </div>
             </div>
@@ -336,7 +513,7 @@ export function AdminPartnerDetailView({
               <span className="text-xs text-muted-foreground block">Adresse email</span>
               <div className="flex items-center gap-2 font-medium text-foreground">
                 <Mail className="size-4 text-muted-foreground shrink-0" />
-                <span className="truncate">{partner.email}</span>
+                <span className="truncate">{currentPartner.email}</span>
               </div>
             </div>
 
@@ -344,7 +521,7 @@ export function AdminPartnerDetailView({
               <span className="text-xs text-muted-foreground block">Raison sociale / Enseigne</span>
               <div className="flex items-center gap-2 font-medium text-foreground">
                 <Building className="size-4 text-muted-foreground shrink-0" />
-                <span>{partner.companyName || 'Aucune enseigne renseignée'}</span>
+                <span>{currentPartner.companyName || 'Aucune enseigne renseignée'}</span>
               </div>
             </div>
 
@@ -352,7 +529,7 @@ export function AdminPartnerDetailView({
               <span className="text-xs text-muted-foreground block">Date de naissance</span>
               <div className="flex items-center gap-2 font-medium text-foreground">
                 <Calendar className="size-4 text-muted-foreground shrink-0" />
-                <span>{formatDate(partner.birthDate)}</span>
+                <span>{formatDate(currentPartner.birthDate)}</span>
               </div>
             </div>
           </CardContent>
@@ -370,19 +547,19 @@ export function AdminPartnerDetailView({
             <div>
               <span className="text-xs text-muted-foreground block">Date de création</span>
               <span className="font-medium text-foreground">
-                {formatDateTime(partner.createdAt)}
+                {formatDateTime(currentPartner.createdAt)}
               </span>
             </div>
 
             <div>
               <span className="text-xs text-muted-foreground block">Dernière mise à jour</span>
               <span className="font-medium text-foreground">
-                {formatDateTime(partner.updatedAt)}
+                {formatDateTime(currentPartner.updatedAt)}
               </span>
             </div>
 
             <div>
-              <span className="text-xs text-muted-foreground block">Nombre d'établissements</span>
+              <span className="text-xs text-muted-foreground block">Établissements affiliés</span>
               <div className="flex items-center gap-2 font-medium text-foreground mt-1">
                 <Badge variant="secondary" className="font-semibold text-xs">
                   {stores.length} commerce
@@ -469,9 +646,9 @@ export function AdminPartnerDetailView({
                         <CardTitle className="text-base font-semibold leading-tight">
                           {store.name}
                         </CardTitle>
-                        {store.id && (
-                          <Badge variant="outline" className="font-mono text-[11px] shrink-0">
-                            #{store.id}
+                        {store.category && (
+                          <Badge variant="secondary" className="text-[10px] shrink-0">
+                            {store.category}
                           </Badge>
                         )}
                       </div>
@@ -479,36 +656,43 @@ export function AdminPartnerDetailView({
                         <MapPin className="size-3.5 shrink-0 text-primary" />
                         <span className="truncate">{store.address}</span>
                       </CardDescription>
-                      {store.category && (
-                        <div className="mt-2">
-                          <Badge variant="secondary" className="text-[10px]">
-                            {store.category}
-                          </Badge>
-                        </div>
-                      )}
                     </CardHeader>
                   </div>
 
-                  <CardFooter className="p-4 pt-2 border-t bg-muted/10 flex items-center justify-between">
+                  <CardFooter className="p-4 pt-2 border-t bg-muted/10 flex items-center justify-between gap-2">
                     {store.rib ? (
-                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground font-mono truncate max-w-[150px]">
+                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground font-mono truncate max-w-[130px]">
                         <CreditCard className="size-3 shrink-0" />
                         <span className="truncate">{store.rib}</span>
                       </div>
                     ) : (
                       <span className="text-[11px] text-muted-foreground">RIB non renseigné</span>
                     )}
-                    {store.id && (
+
+                    <div className="flex items-center gap-1.5">
                       <Button
                         variant="outline"
                         size="sm"
-                        render={<a href={ROUTES.storeDetail(store.id)} />}
-                        className="gap-1 text-xs"
+                        onClick={() => handleOpenDesaffectStore(store)}
+                        className="gap-1 text-xs h-7 px-2 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                        title="Désaffecter ce commerce du partenaire"
                       >
-                        <span>Consulter</span>
-                        <ExternalLink className="size-3" />
+                        <Unlink className="size-3" />
+                        <span>Désaffecter</span>
                       </Button>
-                    )}
+
+                      {store.id && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          render={<a href={ROUTES.storeDetail(store.id)} />}
+                          className="gap-1 text-xs h-7 px-2"
+                        >
+                          <span>Consulter</span>
+                          <ExternalLink className="size-3" />
+                        </Button>
+                      )}
+                    </div>
                   </CardFooter>
                 </Card>
               );
@@ -553,7 +737,104 @@ export function AdminPartnerDetailView({
         )}
       </div>
 
-      {/* Dialog for linking an existing store with rich card preview */}
+      {/* Dialog for editing partner details (SLE-127) */}
+      <Dialog open={isEditPartnerOpen} onOpenChange={setIsEditPartnerOpen}>
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={handleConfirmEditPartner}>
+            <DialogHeader>
+              <DialogTitle>Modifier le profil partenaire</DialogTitle>
+              <DialogDescription>
+                Mettez à jour les coordonnées administratives du commerçant partenaire.
+              </DialogDescription>
+            </DialogHeader>
+
+            {editError && (
+              <div className="mt-3 p-3 text-xs rounded-md bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-2">
+                <AlertCircle className="size-4 shrink-0" />
+                <span>{editError}</span>
+              </div>
+            )}
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-1.5">
+                <label htmlFor="edit-firstname" className="text-xs font-medium text-foreground">
+                  Prénom <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="edit-firstname"
+                  type="text"
+                  value={editFirstName}
+                  onChange={(e) => setEditFirstName(e.target.value)}
+                  placeholder="Jean"
+                  required
+                  maxLength={100}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="edit-lastname" className="text-xs font-medium text-foreground">
+                  Nom <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="edit-lastname"
+                  type="text"
+                  value={editLastName}
+                  onChange={(e) => setEditLastName(e.target.value)}
+                  placeholder="Dupont"
+                  required
+                  maxLength={100}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="edit-birthdate" className="text-xs font-medium text-foreground">
+                  Date de naissance <span className="text-destructive">*</span>
+                </label>
+                <Input
+                  id="edit-birthdate"
+                  type="date"
+                  value={editBirthDate}
+                  onChange={(e) => setEditBirthDate(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditPartnerOpen(false)}
+                disabled={isSubmittingEdit}
+              >
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                variant="default"
+                size="sm"
+                disabled={isSubmittingEdit}
+                className="gap-1.5"
+              >
+                {isSubmittingEdit ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    <span>Enregistrement...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="size-3.5" />
+                    <span>Enregistrer</span>
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for linking an existing store */}
       <Dialog open={isAddStoreOpen} onOpenChange={setIsAddStoreOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -636,9 +917,6 @@ export function AdminPartnerDetailView({
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant="outline" className="text-[10px] font-mono">
-                          #{store.id}
-                        </Badge>
                         <div
                           className={`size-4 rounded-full border flex items-center justify-center ${
                             isSelected
@@ -657,9 +935,7 @@ export function AdminPartnerDetailView({
               {selectedStore && (
                 <div className="p-2.5 rounded-md bg-muted/40 border text-xs text-muted-foreground flex items-center justify-between">
                   <span>Commerce sélectionné :</span>
-                  <span className="font-medium text-foreground">
-                    {selectedStore.name} (#{selectedStore.id})
-                  </span>
+                  <span className="font-medium text-foreground">{selectedStore.name}</span>
                 </div>
               )}
             </div>
@@ -693,6 +969,184 @@ export function AdminPartnerDetailView({
                     {selectedStore
                       ? `Rattacher ${selectedStore.name}`
                       : 'Confirmer le rattachement'}
+                  </span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for detaching an affiliated store (with optional reassignment) */}
+      <Dialog open={isDesaffectOpen} onOpenChange={setIsDesaffectOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Unlink className="size-5" />
+              <span>Désaffecter l'établissement</span>
+            </DialogTitle>
+            <DialogDescription>
+              Voulez-vous désaffecter l'établissement <strong>{storeToDesaffect?.name}</strong> du
+              compte partenaire de <strong>{fullName}</strong> ?
+            </DialogDescription>
+          </DialogHeader>
+
+          {desaffectError && (
+            <div className="p-3 text-xs rounded-md bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-2">
+              <AlertCircle className="size-4 shrink-0" />
+              <span>{desaffectError}</span>
+            </div>
+          )}
+
+          <div className="space-y-4 py-2">
+            {/* Reassignment checkbox toggle */}
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
+              <div className="space-y-0.5">
+                <span className="text-xs font-semibold text-foreground block">
+                  Réassigner vers un autre partenaire
+                </span>
+                <span className="text-[11px] text-muted-foreground block">
+                  Transférer directement la gestion du commerce à un autre commerçant.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                id="toggle-reassign"
+                checked={reassignToAnother}
+                onChange={(e) => setReassignToAnother(e.target.checked)}
+                className="size-4 rounded border-border text-primary focus:ring-primary"
+              />
+            </div>
+
+            {/* Target Partner Selector (if reassignment is checked) */}
+            {reassignToAnother && (
+              <div className="space-y-3 pt-1">
+                {isLoadingReassignPartners ? (
+                  <div className="py-6 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <Loader2 className="size-5 animate-spin text-primary" />
+                    <span className="text-xs">
+                      Chargement des comptes partenaires disponibles...
+                    </span>
+                  </div>
+                ) : reassignPartners.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-muted-foreground">
+                    Aucun autre compte partenaire disponible pour la réassignation.
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder="Rechercher par nom, enseigne ou email..."
+                        value={reassignSearchQuery}
+                        onChange={(e) => setReassignSearchQuery(e.target.value)}
+                        className="pl-8 text-xs h-8"
+                      />
+                    </div>
+
+                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                      {filteredReassignPartners.map((targetPartner) => {
+                        const targetIdentifier = targetPartner.publicId || String(targetPartner.id);
+                        const isSelected = selectedTargetPartnerId === targetIdentifier;
+                        return (
+                          <div
+                            key={targetIdentifier}
+                            onClick={() => setSelectedTargetPartnerId(targetIdentifier)}
+                            className={`p-2.5 rounded-lg border cursor-pointer transition-all flex items-center justify-between gap-3 text-left ${
+                              isSelected
+                                ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                                : 'border-border hover:border-muted-foreground/40 bg-card hover:bg-muted/30'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div
+                                className={`p-1.5 rounded-md shrink-0 ${
+                                  isSelected
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'bg-muted text-muted-foreground'
+                                }`}
+                              >
+                                <Users className="size-3.5" />
+                              </div>
+                              <div className="min-w-0 space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-xs text-foreground truncate">
+                                    {targetPartner.name}
+                                  </span>
+                                  {targetPartner.companyName && (
+                                    <span className="text-[10px] text-muted-foreground truncate">
+                                      ({targetPartner.companyName})
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                  <Mail className="size-3 shrink-0 text-muted-foreground" />
+                                  <span className="truncate">{targetPartner.email}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div
+                                className={`size-4 rounded-full border flex items-center justify-center ${
+                                  isSelected
+                                    ? 'border-primary bg-primary text-primary-foreground'
+                                    : 'border-muted-foreground/30'
+                                }`}
+                              >
+                                {isSelected && <Check className="size-2.5 stroke-[3]" />}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {selectedTargetPartner && (
+                      <div className="p-2 rounded-md bg-muted/40 border text-xs text-muted-foreground flex items-center justify-between">
+                        <span>Nouveau partenaire assigné :</span>
+                        <span className="font-medium text-foreground">
+                          {selectedTargetPartner.name}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDesaffectOpen(false)}
+              disabled={isSubmittingDesaffect}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleConfirmDesaffectStore}
+              disabled={
+                isSubmittingDesaffect ||
+                (reassignToAnother && (!selectedTargetPartnerId || reassignPartners.length === 0))
+              }
+              className="gap-1.5"
+            >
+              {isSubmittingDesaffect ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  <span>Traitement en cours...</span>
+                </>
+              ) : (
+                <>
+                  <Unlink className="size-3.5" />
+                  <span>
+                    {reassignToAnother && selectedTargetPartner
+                      ? `Réassigner à ${selectedTargetPartner.name}`
+                      : 'Confirmer la désaffectation'}
                   </span>
                 </>
               )}
