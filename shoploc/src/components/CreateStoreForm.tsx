@@ -31,7 +31,6 @@ import {
   type CreateStoreFormData,
 } from '@/lib/validation/store';
 import { createStore } from '@/lib/api';
-import { useAuth } from '@/lib/auth';
 import { resolveStoreImageUrl } from '@/lib/image';
 import { ROUTES } from '@/config/routes';
 import type { StoreResponse } from '@/types/store';
@@ -299,7 +298,6 @@ function StoreImageUploadField({
  * Powered by React Hook Form, Base UI Field primitives, and Zod validation.
  */
 export function CreateStoreForm() {
-  const { user, role } = useAuth();
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [createdStore, setCreatedStore] = React.useState<StoreResponse | null>(null);
 
@@ -318,7 +316,6 @@ export function CreateStoreForm() {
     control,
     reset,
     watch,
-    setValue,
     formState: { errors, isSubmitting, isValid },
   } = useForm<CreateStoreFormData>({
     resolver: zodResolver(createStoreZodSchema),
@@ -332,12 +329,6 @@ export function CreateStoreForm() {
     },
     mode: 'onTouched',
   });
-
-  React.useEffect(() => {
-    if (role === 'MERCHANT' && user?.dbId) {
-      setValue('userId', user.dbId, { shouldValidate: true });
-    }
-  }, [role, user?.dbId, setValue]);
 
   const watchedRib = watch('rib') || '';
 
@@ -402,44 +393,25 @@ export function CreateStoreForm() {
           )}
 
           {/* Partner user account selection (SLE-87) */}
-          {role === 'MERCHANT' ? (
-            <div className="rounded-lg border bg-muted/30 p-3.5 space-y-1">
-              <span className="text-xs font-semibold text-muted-foreground block">
-                Compte partenaire propriétaire
-              </span>
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground">
-                  {user
-                    ? [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email
-                    : 'Votre compte'}
-                  {user?.email ? ` (${user.email})` : ''}
-                </span>
-                <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded font-semibold">
-                  {user?.dbId ? `Partenaire #${user.dbId}` : 'Votre compte commerçant'}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <Field>
-              <FieldLabel htmlFor="userId">
-                <span>Compte partenaire propriétaire</span>
-                <span className="text-destructive">*</span>
-              </FieldLabel>
-              <Controller
-                name="userId"
-                control={control}
-                render={({ field }) => (
-                  <PartnerSelect
-                    id="userId"
-                    value={field.value}
-                    onValueChange={(val) => field.onChange(val)}
-                    disabled={isSubmitting}
-                  />
-                )}
-              />
-              <FieldError>{errors.userId?.message}</FieldError>
-            </Field>
-          )}
+          <Field>
+            <FieldLabel htmlFor="userId">
+              <span>Compte partenaire propriétaire</span>
+              <span className="text-destructive">*</span>
+            </FieldLabel>
+            <Controller
+              name="userId"
+              control={control}
+              render={({ field }) => (
+                <PartnerSelect
+                  id="userId"
+                  value={field.value}
+                  onValueChange={(val) => field.onChange(val)}
+                  disabled={isSubmitting}
+                />
+              )}
+            />
+            <FieldError>{errors.userId?.message}</FieldError>
+          </Field>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Store Name */}
