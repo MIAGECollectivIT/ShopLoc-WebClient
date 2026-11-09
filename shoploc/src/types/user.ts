@@ -46,6 +46,7 @@ export interface AuthResponse {
 
 export interface AuthUser {
   id: string;
+  dbId?: number;
   email: string;
   role: UserRole;
   firstName?: string;

@@ -1173,11 +1173,13 @@ export async function updateStoreLoyaltyRate(
   data: MerchantLoyaltyRateRequest
 ): Promise<MerchantLoyaltyRate> {
   const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${storeId}/rates`);
+  const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(data),
   });
