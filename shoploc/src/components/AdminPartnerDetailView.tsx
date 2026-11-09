@@ -7,6 +7,7 @@ import {
   addStoreToPartner,
   updateAdminPartner,
   getAdminPartners,
+  removeStoreFromPartner,
 } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 import { resolveStoreImageUrl } from '@/lib/image';
@@ -49,7 +50,7 @@ import {
   Check,
   Search,
   Pencil,
-  ArrowRightLeft,
+  Unlink,
   Users,
 } from 'lucide-react';
 
@@ -85,15 +86,16 @@ export function AdminPartnerDetailView({
   const [isSubmittingEdit, setIsSubmittingEdit] = React.useState<boolean>(false);
   const [editError, setEditError] = React.useState<string | null>(null);
 
-  // Modal dialog state for reassigning store to another partner (SLE-127)
-  const [isReassignOpen, setIsReassignOpen] = React.useState<boolean>(false);
-  const [storeToReassign, setStoreToReassign] = React.useState<Store | null>(null);
+  // Modal dialog state for detaching/reassigning store (SLE-127)
+  const [isDesaffectOpen, setIsDesaffectOpen] = React.useState<boolean>(false);
+  const [storeToDesaffect, setStoreToDesaffect] = React.useState<Store | null>(null);
   const [reassignPartners, setReassignPartners] = React.useState<AdminPartnerSummary[]>([]);
   const [reassignSearchQuery, setReassignSearchQuery] = React.useState<string>('');
   const [selectedTargetPartnerId, setSelectedTargetPartnerId] = React.useState<string>('');
+  const [reassignToAnother, setReassignToAnother] = React.useState<boolean>(false);
   const [isLoadingReassignPartners, setIsLoadingReassignPartners] = React.useState<boolean>(false);
-  const [isSubmittingReassign, setIsSubmittingReassign] = React.useState<boolean>(false);
-  const [reassignError, setReassignError] = React.useState<string | null>(null);
+  const [isSubmittingDesaffect, setIsSubmittingDesaffect] = React.useState<boolean>(false);
+  const [desaffectError, setDesaffectError] = React.useState<string | null>(null);
 
   // Load store details for affiliated store IDs if not provided in SSR
   React.useEffect(() => {
@@ -251,13 +253,14 @@ export function AdminPartnerDetailView({
     }
   };
 
-  // Open dialog to reassign a store to another partner (SLE-127)
-  const handleOpenReassignStore = async (store: Store) => {
-    setStoreToReassign(store);
-    setIsReassignOpen(true);
-    setReassignError(null);
+  // Open dialog to detach/reassign an affiliated store
+  const handleOpenDesaffectStore = async (store: Store) => {
+    setStoreToDesaffect(store);
+    setIsDesaffectOpen(true);
+    setDesaffectError(null);
     setReassignSearchQuery('');
     setSelectedTargetPartnerId('');
+    setReassignToAnother(false);
     setIsLoadingReassignPartners(true);
     try {
       const allPartners = await getAdminPartners('', 100);
@@ -270,42 +273,44 @@ export function AdminPartnerDetailView({
         setSelectedTargetPartnerId(targets[0].publicId || String(targets[0].id));
       }
     } catch (err: unknown) {
-      setReassignError(
-        err instanceof Error
-          ? err.message
-          : 'Impossible de récupérer la liste des partenaires pour la réassignation.'
-      );
+      console.warn('Impossible de charger la liste des partenaires pour réassignation:', err);
     } finally {
       setIsLoadingReassignPartners(false);
     }
   };
 
-  // Confirm reassignment of store (SLE-127)
-  const handleConfirmReassignStore = async () => {
-    if (!storeToReassign || !storeToReassign.id || !selectedTargetPartnerId) return;
+  // Confirm unlinking or reassignment of store
+  const handleConfirmDesaffectStore = async () => {
+    if (!storeToDesaffect || !storeToDesaffect.id) return;
 
-    setIsSubmittingReassign(true);
-    setReassignError(null);
+    setIsSubmittingDesaffect(true);
+    setDesaffectError(null);
 
-    const storeIdNum = storeToReassign.id;
+    const storeIdNum = storeToDesaffect.id;
     try {
-      await addStoreToPartner(selectedTargetPartnerId, storeIdNum);
+      if (reassignToAnother && selectedTargetPartnerId) {
+        // Reassign to selected target partner
+        await addStoreToPartner(selectedTargetPartnerId, storeIdNum);
+      } else {
+        // Direct unlinking from current partner
+        await removeStoreFromPartner(currentPartner.publicId || currentPartner.id, storeIdNum);
+      }
 
-      // Remove from current partner's store list
+      // Remove from current partner's store list in local state
       setStores((prev) => prev.filter((s) => s.id !== storeIdNum));
       setCurrentPartner((prev) => ({
         ...prev,
         storeIds: (prev.storeIds || []).filter((id) => id !== storeIdNum),
       }));
 
-      setIsReassignOpen(false);
-      setStoreToReassign(null);
+      setIsDesaffectOpen(false);
+      setStoreToDesaffect(null);
     } catch (err: unknown) {
-      setReassignError(
-        err instanceof Error ? err.message : "Erreur lors de la réassignation de l'établissement."
+      setDesaffectError(
+        err instanceof Error ? err.message : "Erreur lors de la désaffectation de l'établissement."
       );
     } finally {
-      setIsSubmittingReassign(false);
+      setIsSubmittingDesaffect(false);
     }
   };
 
@@ -666,14 +671,14 @@ export function AdminPartnerDetailView({
 
                     <div className="flex items-center gap-1.5">
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        onClick={() => handleOpenReassignStore(store)}
-                        className="gap-1 text-xs h-7 px-2 text-muted-foreground hover:text-foreground"
-                        title="Réassigner ce commerce à un autre compte partenaire (SLE-127)"
+                        onClick={() => handleOpenDesaffectStore(store)}
+                        className="gap-1 text-xs h-7 px-2 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                        title="Désaffecter ce commerce du partenaire"
                       >
-                        <ArrowRightLeft className="size-3" />
-                        <span>Réassigner</span>
+                        <Unlink className="size-3" />
+                        <span>Désaffecter</span>
                       </Button>
 
                       {store.id && (
@@ -972,144 +977,177 @@ export function AdminPartnerDetailView({
         </DialogContent>
       </Dialog>
 
-      {/* Dialog for reassigning an affiliated store to another partner (SLE-127) */}
-      <Dialog open={isReassignOpen} onOpenChange={setIsReassignOpen}>
+      {/* Dialog for detaching an affiliated store (with optional reassignment) */}
+      <Dialog open={isDesaffectOpen} onOpenChange={setIsDesaffectOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Réassigner l'établissement</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Unlink className="size-5" />
+              <span>Désaffecter l'établissement</span>
+            </DialogTitle>
             <DialogDescription>
-              Transférez l'établissement <strong>{storeToReassign?.name}</strong> vers un autre
-              compte partenaire commerçant.
+              Voulez-vous désaffecter l'établissement <strong>{storeToDesaffect?.name}</strong> du
+              compte partenaire de <strong>{fullName}</strong> ?
             </DialogDescription>
           </DialogHeader>
 
-          {reassignError && (
+          {desaffectError && (
             <div className="p-3 text-xs rounded-md bg-destructive/10 text-destructive border border-destructive/20 flex items-center gap-2">
               <AlertCircle className="size-4 shrink-0" />
-              <span>{reassignError}</span>
+              <span>{desaffectError}</span>
             </div>
           )}
 
-          {isLoadingReassignPartners ? (
-            <div className="py-8 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-              <Loader2 className="size-6 animate-spin text-primary" />
-              <span className="text-xs">Chargement des comptes partenaires disponibles...</span>
-            </div>
-          ) : reassignPartners.length === 0 ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">
-              Aucun autre compte partenaire disponible pour la réassignation.
-            </div>
-          ) : (
-            <div className="space-y-3 py-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Rechercher par nom, enseigne ou email..."
-                  value={reassignSearchQuery}
-                  onChange={(e) => setReassignSearchQuery(e.target.value)}
-                  className="pl-8 text-xs h-8"
-                />
+          <div className="space-y-4 py-2">
+            {/* Reassignment checkbox toggle */}
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
+              <div className="space-y-0.5">
+                <span className="text-xs font-semibold text-foreground block">
+                  Réassigner vers un autre partenaire
+                </span>
+                <span className="text-[11px] text-muted-foreground block">
+                  Transférer directement la gestion du commerce à un autre commerçant.
+                </span>
               </div>
+              <input
+                type="checkbox"
+                id="toggle-reassign"
+                checked={reassignToAnother}
+                onChange={(e) => setReassignToAnother(e.target.checked)}
+                className="size-4 rounded border-border text-primary focus:ring-primary"
+              />
+            </div>
 
-              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                {filteredReassignPartners.map((targetPartner) => {
-                  const targetIdentifier = targetPartner.publicId || String(targetPartner.id);
-                  const isSelected = selectedTargetPartnerId === targetIdentifier;
-                  return (
-                    <div
-                      key={targetIdentifier}
-                      onClick={() => setSelectedTargetPartnerId(targetIdentifier)}
-                      className={`p-3 rounded-lg border cursor-pointer transition-all flex items-center justify-between gap-3 text-left ${
-                        isSelected
-                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                          : 'border-border hover:border-muted-foreground/40 bg-card hover:bg-muted/30'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className={`p-2 rounded-md shrink-0 ${
-                            isSelected
-                              ? 'bg-primary/10 text-primary'
-                              : 'bg-muted text-muted-foreground'
-                          }`}
-                        >
-                          <Users className="size-4" />
-                        </div>
-                        <div className="min-w-0 space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-xs text-foreground truncate">
-                              {targetPartner.name}
-                            </span>
-                            {targetPartner.companyName && (
-                              <span className="text-[11px] text-muted-foreground truncate">
-                                ({targetPartner.companyName})
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Mail className="size-3 shrink-0 text-muted-foreground" />
-                            <span className="truncate">{targetPartner.email}</span>
-                          </div>
-                          {targetPartner.publicId && (
-                            <div className="text-[10px] text-muted-foreground font-mono">
-                              UID: {targetPartner.publicId.slice(0, 8)}...
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div
-                          className={`size-4 rounded-full border flex items-center justify-center ${
-                            isSelected
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-muted-foreground/30'
-                          }`}
-                        >
-                          {isSelected && <Check className="size-2.5 stroke-[3]" />}
-                        </div>
-                      </div>
+            {/* Target Partner Selector (if reassignment is checked) */}
+            {reassignToAnother && (
+              <div className="space-y-3 pt-1">
+                {isLoadingReassignPartners ? (
+                  <div className="py-6 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                    <Loader2 className="size-5 animate-spin text-primary" />
+                    <span className="text-xs">
+                      Chargement des comptes partenaires disponibles...
+                    </span>
+                  </div>
+                ) : reassignPartners.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-muted-foreground">
+                    Aucun autre compte partenaire disponible pour la réassignation.
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder="Rechercher par nom, enseigne ou email..."
+                        value={reassignSearchQuery}
+                        onChange={(e) => setReassignSearchQuery(e.target.value)}
+                        className="pl-8 text-xs h-8"
+                      />
                     </div>
-                  );
-                })}
-              </div>
 
-              {selectedTargetPartner && (
-                <div className="p-2.5 rounded-md bg-muted/40 border text-xs text-muted-foreground flex items-center justify-between">
-                  <span>Partenaire destinataire sélectionné :</span>
-                  <span className="font-medium text-foreground">{selectedTargetPartner.name}</span>
-                </div>
-              )}
-            </div>
-          )}
+                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                      {filteredReassignPartners.map((targetPartner) => {
+                        const targetIdentifier = targetPartner.publicId || String(targetPartner.id);
+                        const isSelected = selectedTargetPartnerId === targetIdentifier;
+                        return (
+                          <div
+                            key={targetIdentifier}
+                            onClick={() => setSelectedTargetPartnerId(targetIdentifier)}
+                            className={`p-2.5 rounded-lg border cursor-pointer transition-all flex items-center justify-between gap-3 text-left ${
+                              isSelected
+                                ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                                : 'border-border hover:border-muted-foreground/40 bg-card hover:bg-muted/30'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div
+                                className={`p-1.5 rounded-md shrink-0 ${
+                                  isSelected
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'bg-muted text-muted-foreground'
+                                }`}
+                              >
+                                <Users className="size-3.5" />
+                              </div>
+                              <div className="min-w-0 space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-xs text-foreground truncate">
+                                    {targetPartner.name}
+                                  </span>
+                                  {targetPartner.companyName && (
+                                    <span className="text-[10px] text-muted-foreground truncate">
+                                      ({targetPartner.companyName})
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                  <Mail className="size-3 shrink-0 text-muted-foreground" />
+                                  <span className="truncate">{targetPartner.email}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div
+                                className={`size-4 rounded-full border flex items-center justify-center ${
+                                  isSelected
+                                    ? 'border-primary bg-primary text-primary-foreground'
+                                    : 'border-muted-foreground/30'
+                                }`}
+                              >
+                                {isSelected && <Check className="size-2.5 stroke-[3]" />}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {selectedTargetPartner && (
+                      <div className="p-2 rounded-md bg-muted/40 border text-xs text-muted-foreground flex items-center justify-between">
+                        <span>Nouveau partenaire assigné :</span>
+                        <span className="font-medium text-foreground">
+                          {selectedTargetPartner.name}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setIsReassignOpen(false)}
-              disabled={isSubmittingReassign}
+              onClick={() => setIsDesaffectOpen(false)}
+              disabled={isSubmittingDesaffect}
             >
               Annuler
             </Button>
             <Button
-              variant="default"
+              variant="destructive"
               size="sm"
-              onClick={handleConfirmReassignStore}
+              onClick={handleConfirmDesaffectStore}
               disabled={
-                isSubmittingReassign || !selectedTargetPartnerId || reassignPartners.length === 0
+                isSubmittingDesaffect ||
+                (reassignToAnother && (!selectedTargetPartnerId || reassignPartners.length === 0))
               }
               className="gap-1.5"
             >
-              {isSubmittingReassign ? (
+              {isSubmittingDesaffect ? (
                 <>
                   <Loader2 className="size-3.5 animate-spin" />
-                  <span>Réassignation en cours...</span>
+                  <span>Traitement en cours...</span>
                 </>
               ) : (
                 <>
-                  <ArrowRightLeft className="size-3.5" />
-                  <span>Confirmer la réassignation</span>
+                  <Unlink className="size-3.5" />
+                  <span>
+                    {reassignToAnother && selectedTargetPartner
+                      ? `Réassigner à ${selectedTargetPartner.name}`
+                      : 'Confirmer la désaffectation'}
+                  </span>
                 </>
               )}
             </Button>

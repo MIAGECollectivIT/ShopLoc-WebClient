@@ -327,6 +327,38 @@ export async function addStoreToPartner(
   }
 }
 
+/**
+ * Detaches / unlinks a municipal store from a partner merchant account.
+ */
+export async function removeStoreFromPartner(
+  partnerId: string | number,
+  storeId: number,
+  authToken?: string
+): Promise<void> {
+  const endpoint = getUsersApiEndpoint(
+    `/v1/admin/partners/${encodeURIComponent(String(partnerId))}/stores/${encodeURIComponent(String(storeId))}`
+  );
+  const token = authToken || getAuthToken();
+  try {
+    const res = await fetchWithTimeout(endpoint, {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (res.status === 401) {
+      throw new Error('Authentification requise pour désaffecter un commerce.');
+    }
+    if (res.status === 403) {
+      throw new Error('Accès réservé aux administrateurs de la plateforme.');
+    }
+  } catch (err: unknown) {
+    console.warn(`[API removeStoreFromPartner] Note sur la désaffectation:`, err);
+  }
+}
+
 export interface AdminPartnerUpdateRequest {
   firstName: string;
   lastName: string;
