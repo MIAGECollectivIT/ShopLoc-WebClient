@@ -91,7 +91,7 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
           values.wantsPhysicalCard && values.pickupLocation ? values.pickupLocation : undefined,
       });
 
-      // Connexion immédiate et automatique de l'utilisateur après inscription réussie
+      // Automatically log the user in immediately after successful registration
       await loginUser({
         email: values.email,
         password: values.password,
@@ -436,7 +436,7 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Option 1: 100% Dématérialisée */}
+              {/* Option 1: 100% Digital */}
               <button
                 type="button"
                 onClick={() => {
@@ -462,7 +462,7 @@ export function RegisterForm({ initialStores = [] }: RegisterFormProps) {
                 </p>
               </button>
 
-              {/* Option 2: Carte physique imprimée */}
+              {/* Option 2: Printed physical card */}
               <button
                 type="button"
                 onClick={() => {

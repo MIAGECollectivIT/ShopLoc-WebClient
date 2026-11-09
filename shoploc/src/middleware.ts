@@ -208,7 +208,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const pathname = context.url.pathname;
 
-  // Déconnexion explicite ou paramètre logout : purge immédiate du cookie serveur
+  // Explicit logout or logout query parameter: immediately purge server cookie
   if (context.url.searchParams.has('logout') || pathname === '/logout') {
     context.cookies.delete(TOKEN_STORAGE_KEY, { path: '/' });
     context.locals.user = null;

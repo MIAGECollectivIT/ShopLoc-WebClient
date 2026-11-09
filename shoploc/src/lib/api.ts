@@ -452,7 +452,7 @@ export async function createStore(
       if (errorJson.message) errorDetail = errorJson.message;
       else if (errorJson.error) errorDetail = errorJson.error;
     } catch {
-      // Ignorer l'erreur de parsing JSON
+      // Ignore JSON parsing error
     }
     throw new Error(errorDetail);
   }
@@ -539,7 +539,7 @@ export async function loginUser(credentials: UserLoginRequest): Promise<UserResp
       if (errorJson.message) errorDetail = errorJson.message;
       else if (errorJson.detail) errorDetail = errorJson.detail;
     } catch {
-      // Ignorer l'erreur de parsing JSON
+      // Ignore JSON parsing error
     }
     throw new Error(errorDetail);
   }
@@ -562,7 +562,7 @@ export async function loginUser(credentials: UserLoginRequest): Promise<UserResp
     licensePlates: userObj.licensePlates,
   };
 
-  // 1. Définir le cookie HttpOnly côté SSR via l'endpoint dédié
+  // 1. Set the SSR HttpOnly cookie via the dedicated endpoint
   if (typeof window !== 'undefined') {
     try {
       await fetch('/api/auth/session', {
@@ -576,7 +576,7 @@ export async function loginUser(credentials: UserLoginRequest): Promise<UserResp
     }
   }
 
-  // 2. Mettre à jour la session dans localStorage et notifier les composants
+  // 2. Update the session in localStorage and notify components
   setAuthSession(sessionData);
 
   return {
@@ -1023,7 +1023,7 @@ export async function addVehicle(licensePlate: string): Promise<VehicleResponse>
 
   const createdVehicle = (await res.json()) as VehicleResponse;
 
-  // Synchronisation de la session utilisateur locale
+  // Synchronize local user session
   const currentUser = getAuthUser();
   if (currentUser) {
     const currentPlates = currentUser.licensePlates || [];
@@ -1080,7 +1080,7 @@ export async function updateVehicle(oldPlate: string, newPlate: string): Promise
 
   const updatedVehicle = (await res.json()) as VehicleResponse;
 
-  // Synchronisation de la session utilisateur locale
+  // Synchronize local user session
   const currentUser = getAuthUser();
   if (currentUser) {
     const currentPlates = currentUser.licensePlates || [];
@@ -1123,7 +1123,7 @@ export async function deleteVehicle(licensePlate: string): Promise<void> {
     throw new Error(errorDetail);
   }
 
-  // Synchronisation de la session utilisateur locale
+  // Synchronize local user session
   const currentUser = getAuthUser();
   if (currentUser) {
     const currentPlates = currentUser.licensePlates || [];
@@ -1137,8 +1137,8 @@ export async function deleteVehicle(licensePlate: string): Promise<void> {
 }
 
 /**
- * Récupère le barème de fidélité configuré pour un commerce (ou le barème par défaut 1 € = 1 pt).
- * Accessible publiquement pour les clients et commerçants.
+ * Retrieves the configured loyalty rate for a store (or the default rate 1 € = 1 pt).
+ * Publicly accessible for customers and merchants.
  */
 export async function getStoreLoyaltyRate(storeId: number | string): Promise<MerchantLoyaltyRate> {
   const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${storeId}/rates`);
@@ -1165,8 +1165,8 @@ export async function getStoreLoyaltyRate(storeId: number | string): Promise<Mer
 }
 
 /**
- * Configure ou met à jour le barème de fidélité d'un commerce.
- * Réservé au commerçant propriétaire du magasin ou aux administrateurs.
+ * Configures or updates a store's loyalty rate.
+ * Restricted to the store's merchant owner or administrators.
  */
 export async function updateStoreLoyaltyRate(
   storeId: number | string,

@@ -1,6 +1,6 @@
 /**
- * Types TypeScript pour le microservice Loyalty Service.
- * Représente le barème de conversion euros -> points configuré par le commerçant.
+ * TypeScript types for the Loyalty Service microservice.
+ * Represents the euros-to-points conversion rate configured by the merchant.
  */
 
 export interface MerchantLoyaltyRate {
