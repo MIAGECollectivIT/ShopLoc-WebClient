@@ -26,7 +26,7 @@ const handleLogout: APIRoute = async ({ request, cookies, redirect }) => {
     }
   }
 
-  // Suppression sécurisée du cookie de session HttpOnly
+  // Securely delete the HttpOnly session cookie
   cookies.delete(TOKEN_STORAGE_KEY, {
     path: '/',
   });

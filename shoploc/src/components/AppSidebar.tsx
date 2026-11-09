@@ -287,7 +287,7 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
             </SidebarGroupContent>
           </SidebarGroup>
 
-          {/* Section Administration réservée aux administrateurs */}
+          {/* Administration section restricted to administrators */}
           {isAuthenticated && role === 'ADMIN' && (
             <>
               <SidebarSeparator />

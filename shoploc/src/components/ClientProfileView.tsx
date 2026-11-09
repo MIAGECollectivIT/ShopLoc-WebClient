@@ -63,7 +63,7 @@ export function ClientProfileView() {
         }
       } catch (err) {
         console.warn('Impossible de charger le profil via API, fallback sur la session:', err);
-        // Fallback sur les données locales du token/session si l'API est temporairement inaccessible
+        // Fallback to local token/session data if the API is temporarily unreachable
         if (isMounted && authUser) {
           setProfile({
             id: authUser.id,
@@ -101,7 +101,7 @@ export function ClientProfileView() {
     };
   }, [isAuthenticated, authLoading, authUser]);
 
-  // État de chargement initial
+  // Initial loading state
   if (authLoading || (isLoading && !profile)) {
     return (
       <div className="space-y-6">
@@ -127,7 +127,7 @@ export function ClientProfileView() {
     );
   }
 
-  // Utilisateur non connecté
+  // Unauthenticated user
   if (!mounted || authLoading) {
     return null;
   }
@@ -245,7 +245,7 @@ export function ClientProfileView() {
         </div>
       )}
 
-      {/* En-tête profil */}
+      {/* Profile header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border bg-gradient-to-r from-emerald-500/10 via-background to-background shadow-xs">
         <div className="flex items-center gap-4">
           <div className="size-14 rounded-2xl bg-emerald-600 text-white font-bold text-xl flex items-center justify-center shadow-md">
@@ -282,11 +282,11 @@ export function ClientProfileView() {
         </div>
       </div>
 
-      {/* Grille principale : Informations & Plaques vs QR Code */}
+      {/* Main grid: Personal Info & License Plates vs QR Code */}
       <div className={isClient ? 'grid grid-cols-1 lg:grid-cols-3 gap-6' : 'max-w-3xl space-y-6'}>
-        {/* Colonne principale : Informations & Véhicules */}
+        {/* Main column: Personal Info & Vehicles */}
         <div className={isClient ? 'lg:col-span-2 space-y-6' : 'space-y-6'}>
-          {/* Carte Informations personnelles */}
+          {/* Personal Information Card */}
           <Card className="shadow-xs">
             <CardHeader className="pb-3 border-b">
               <CardTitle className="text-base sm:text-lg flex items-center gap-2">
@@ -339,7 +339,7 @@ export function ClientProfileView() {
                 </span>
               </div>
 
-              {/* Rôle affiché pour les marchands et admins */}
+              {/* Role displayed for merchants and admins */}
               {!isClient && (
                 <div className="sm:col-span-2 p-3 rounded-lg border bg-muted/20">
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5 mb-1">
@@ -370,7 +370,7 @@ export function ClientProfileView() {
             </CardContent>
           </Card>
 
-          {/* Carte Plaques d'immatriculation (affichée uniquement pour les clients) */}
+          {/* License Plates Card (displayed only for clients) */}
           {isClient && (
             <Card className="shadow-xs">
               <CardHeader className="pb-3 border-b flex flex-row items-center justify-between">
@@ -444,7 +444,7 @@ export function ClientProfileView() {
             </Card>
           )}
 
-          {/* Dialogue de gestion des plaques d'immatriculation */}
+          {/* License plates management dialog */}
           {isClient && (
             <ManageVehiclesDialog
               open={isManageVehiclesOpen}
@@ -456,7 +456,7 @@ export function ClientProfileView() {
             />
           )}
 
-          {/* Raccourcis de navigation */}
+          {/* Navigation shortcuts */}
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             {!isClient && effectiveUser.role === 'MERCHANT' && (
               <a
@@ -498,7 +498,7 @@ export function ClientProfileView() {
           </div>
         </div>
 
-        {/* Colonne droite : QR Code & Code Client 7 caractères (affichée uniquement pour les clients) */}
+        {/* Right column: QR Code & 7-character Client Code (displayed only for clients) */}
         {isClient && (
           <div className="space-y-6">
             {effectiveUser.clientCode ? (
@@ -516,7 +516,7 @@ export function ClientProfileView() {
               </Card>
             )}
 
-            {/* Rappel sécurité & avantages */}
+            {/* Security & benefits reminder */}
             <div className="p-4 rounded-xl border bg-muted/30 text-xs text-muted-foreground space-y-2">
               <div className="flex items-center gap-2 font-medium text-foreground">
                 <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" />

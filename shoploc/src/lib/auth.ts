@@ -236,7 +236,7 @@ export function clearAuthSession(): void {
     document.cookie = `${TOKEN_STORAGE_KEY}=; path=/; max-age=0; SameSite=Lax`;
   }
 
-  // Purge immédiate du cookie serveur HttpOnly
+  // Immediately purge the HttpOnly server cookie
   try {
     fetch('/api/auth/logout', {
       method: 'POST',

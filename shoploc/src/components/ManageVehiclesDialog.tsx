@@ -199,10 +199,10 @@ export function ManageVehiclesDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Mention légale RGPD */}
+        {/* GDPR legal notice */}
         <LicensePlateLegalNotice />
 
-        {/* Message de succès */}
+        {/* Success message */}
         {successMessage && (
           <div className="flex items-center gap-2 p-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs">
             <Check className="size-4 shrink-0" />
@@ -210,7 +210,7 @@ export function ManageVehiclesDialog({
           </div>
         )}
 
-        {/* Message d'erreur global d'action (API) */}
+        {/* Global action error message (API) */}
         {actionError && (
           <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-xs">
             <AlertCircle className="size-4 shrink-0" />
@@ -218,7 +218,7 @@ export function ManageVehiclesDialog({
           </div>
         )}
 
-        {/* Formulaire d'ajout / de modification */}
+        {/* Add / edit vehicle form */}
         <form onSubmit={handleSubmit} className="p-4 rounded-xl border bg-muted/20 space-y-3">
           <div className="flex items-center justify-between">
             <Label htmlFor="license-plate-input" className="text-xs font-semibold">
@@ -294,7 +294,7 @@ export function ManageVehiclesDialog({
             </Button>
           </div>
 
-          {/* Prévisualisation dynamique en direct si le format est valide */}
+          {/* Live dynamic preview when the format is valid */}
           {isValidFormat && !isDuplicate && (
             <div className="pt-2 border-t border-muted/40 flex items-center justify-between">
               <span className="text-[11px] text-muted-foreground">Aperçu du format standard :</span>
@@ -303,7 +303,7 @@ export function ManageVehiclesDialog({
           )}
         </form>
 
-        {/* Liste des plaques actuellement enregistrées */}
+        {/* List of currently registered license plates */}
         <div className="space-y-3 pt-1">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

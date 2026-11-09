@@ -6,8 +6,8 @@ export const GET: APIRoute = async (context) => {
   const user = context.locals.user;
 
   if (!user && context.locals.authUnavailable) {
-    // Si la clé publique n'a pas pu être récupérée côté serveur SSR,
-    // on renvoie un code 503 pour que le client sache qu'il ne s'agit pas d'un rejet de token.
+    // If the public key could not be fetched on the SSR server side,
+    // return a 503 status so the client knows the token was not rejected.
     return new Response(
       JSON.stringify({
         user: null,
