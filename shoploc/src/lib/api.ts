@@ -15,6 +15,7 @@ import type {
   AuthResponse,
   UserRole,
   VehicleResponse,
+  CustomerIdentificationResponse,
 } from '@/types/user';
 import {
   getAuthToken,
@@ -68,7 +69,7 @@ export async function fetchWithTimeout(
 }
 
 export function getApiEndpoint(path: string, _serviceUrl?: string): string {
-  const cleanPath = path.toLowerCase().replace(/^\/+/, '');
+  const cleanPath = path.toLowerCase().replace(/^\/+/, '').replace(/^v1\//, '');
 
   let serviceBase: string | undefined;
   if (
@@ -1248,4 +1249,50 @@ export async function getPaymentByReference(
   }
 
   return (await res.json()) as PaymentAuthorizationResponse;
+}
+
+/**
+ * Identifies a customer by their 7-character loyalty code or scanned QR code (SLE-56).
+ * Restricted to authenticated merchants and administrators.
+ * Returns masked customer profile (GDPR compliant).
+ */
+export async function identifyCustomerByCardNumber(
+  clientCode: string
+): Promise<CustomerIdentificationResponse> {
+  const normalizedCode = clientCode.trim().toUpperCase();
+  const endpoint = getUsersApiEndpoint(
+    `/v1/users/loyalty-cards/${encodeURIComponent(normalizedCode)}`
+  );
+  const token = getAuthToken();
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise pour identifier un client.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès réservé aux commerçants partenaires et administrateurs.');
+  }
+  if (res.status === 404) {
+    throw new Error(`Aucun compte client trouvé pour le code fidélité "${normalizedCode}".`);
+  }
+  if (!res.ok) {
+    let detail = `Erreur lors de l'identification du client (${res.status})`;
+    try {
+      const err = await res.json();
+      if (err.message) detail = err.message;
+      else if (err.detail) detail = err.detail;
+    } catch {
+      // Ignore JSON parse error
+    }
+    throw new Error(detail);
+  }
+
+  return (await res.json()) as CustomerIdentificationResponse;
 }

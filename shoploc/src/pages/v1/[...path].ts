@@ -3,7 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 
 function resolveTargetServiceUrl(path: string): string {
-  const cleanPath = path.toLowerCase();
+  const cleanPath = path.toLowerCase().replace(/^\/+/, '').replace(/^v1\//, '');
 
   if (
     cleanPath.startsWith('users') ||

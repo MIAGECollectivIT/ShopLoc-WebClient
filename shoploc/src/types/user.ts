@@ -60,3 +60,13 @@ export interface VehicleResponse {
   vehicleId: string;
   licensePlate: string;
 }
+
+export interface CustomerIdentificationResponse {
+  publicId: string;
+  clientCode: string;
+  firstName: string;
+  lastNameMasked: string;
+  emailMasked: string;
+  recognized: boolean;
+  memberSinceYear?: number;
+}

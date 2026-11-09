@@ -59,7 +59,7 @@ const store = initialStore ?? (id ? await getStoreById(id).catch(() => null) : n
         </Card>
 
         {/* Dynamic Catalog Section (Merchant Dashboard or Customer Storefront) */}
-        <StoreProductsView client:load store={store} />
+        <StoreProductsView client:only="react" store={store} />
       </div>
     )}
 
