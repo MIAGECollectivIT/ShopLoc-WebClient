@@ -681,11 +681,11 @@ export function AdminPartnerDetailView({
                         <span>Désaffecter</span>
                       </Button>
 
-                      {store.id && (
+                      {(store.uid || store.id) && (
                         <Button
                           variant="outline"
                           size="sm"
-                          render={<a href={ROUTES.storeDetail(store.id)} />}
+                          render={<a href={ROUTES.storeDetail(store.uid || store.id!)} />}
                           className="gap-1 text-xs h-7 px-2"
                         >
                           <span>Consulter</span>

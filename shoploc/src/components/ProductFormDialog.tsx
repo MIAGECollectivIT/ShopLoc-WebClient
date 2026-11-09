@@ -15,7 +15,18 @@ import { createProduct, updateProduct } from '@/lib/api';
 import { resolveProductImageUrl } from '@/lib/image';
 import { ProductImage } from '@/components/ProductImage';
 import type { Product } from '@/types/product';
-import { PackagePlus, Edit, Upload, Loader2, AlertCircle, X, Check } from 'lucide-react';
+import type { ProductUpdateRequest } from '@/types/product';
+import {
+  PackagePlus,
+  Edit,
+  Upload,
+  Loader2,
+  AlertCircle,
+  Check,
+  Trash2,
+  RefreshCw,
+  Image as ImageIcon,
+} from 'lucide-react';
 
 interface ProductFormDialogProps {
   storeId: number;
@@ -43,10 +54,13 @@ export function ProductFormDialog({
 
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+  const [isImageRemoved, setIsImageRemoved] = React.useState(false);
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Initialize or reset form when modal opens or product changes
   React.useEffect(() => {
@@ -57,12 +71,17 @@ export function ProductFormDialog({
       setPrice(String(product.price));
       setStockQuantity(String(product.stockQuantity));
       setImageUrl(product.imageUrl || '');
-      const resolved = resolveProductImageUrl({
-        storeId,
-        productId: product.id,
-        imageUrl: product.imageUrl,
-      });
-      setPreviewUrl(resolved);
+      setIsImageRemoved(false);
+
+      // Only resolve an initial preview if the product already has an image recorded
+      const initialPreview = product.imageUrl?.trim()
+        ? resolveProductImageUrl({
+            storeId,
+            productId: product.id,
+            imageUrl: product.imageUrl,
+          })
+        : null;
+      setPreviewUrl(initialPreview);
     } else {
       setReference('');
       setName('');
@@ -71,8 +90,12 @@ export function ProductFormDialog({
       setStockQuantity('0');
       setImageUrl('');
       setPreviewUrl(null);
+      setIsImageRemoved(false);
     }
     setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     setErrors({});
     setServerError(null);
   }, [product, isOpen, storeId]);
@@ -86,10 +109,7 @@ export function ProductFormDialog({
     };
   }, [previewUrl]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processFile = (file: File) => {
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
       setErrors((prev) => ({
         ...prev,
@@ -109,30 +129,65 @@ export function ProductFormDialog({
     setErrors((prev) => {
       const copy = { ...prev };
       delete copy.file;
+      delete copy.imageUrl;
       return copy;
     });
 
     if (previewUrl?.startsWith('blob:')) {
       URL.revokeObjectURL(previewUrl);
     }
+
     setSelectedFile(file);
+    setIsImageRemoved(false);
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
+    setImageUrl('');
   };
 
-  const removeSelectedFile = () => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const triggerFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleRemoveImage = () => {
     if (previewUrl?.startsWith('blob:')) {
       URL.revokeObjectURL(previewUrl);
     }
     setSelectedFile(null);
-    const fallback = product
-      ? resolveProductImageUrl({
-          storeId,
-          productId: product.id,
-          imageUrl: imageUrl.trim() || product.imageUrl,
-        })
-      : imageUrl.trim() || null;
-    setPreviewUrl(fallback);
+    setPreviewUrl(null);
+    setImageUrl('');
+    setIsImageRemoved(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setImageUrl(val);
+
+    if (previewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
+    const trimmed = val.trim();
+    if (trimmed) {
+      setPreviewUrl(trimmed);
+      setIsImageRemoved(false);
+    } else {
+      setPreviewUrl(null);
+      setIsImageRemoved(true);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -140,14 +195,14 @@ export function ProductFormDialog({
     setErrors({});
     setServerError(null);
 
-    // Zod validation
+    // Zod validation (do not validate URL when uploading a binary file or clearing)
     const rawValues = {
       reference,
       name,
       description,
       price,
       stockQuantity,
-      imageUrl: imageUrl.trim() || undefined,
+      imageUrl: selectedFile || isImageRemoved ? undefined : imageUrl.trim() || undefined,
     };
 
     const result = productSchema.safeParse(rawValues);
@@ -167,20 +222,38 @@ export function ProductFormDialog({
     try {
       let saved: Product;
       if (isEditing && product) {
-        saved = await updateProduct(
-          storeId,
-          product.id,
-          {
-            reference: validated.reference,
-            name: validated.name,
-            description: validated.description || undefined,
-            price: validated.price,
-            stockQuantity: validated.stockQuantity,
-            imageUrl: validated.imageUrl || undefined,
-          },
-          selectedFile || undefined
-        );
+        const payload: ProductUpdateRequest = {
+          reference: validated.reference,
+          name: validated.name,
+          description: validated.description || undefined,
+          price: validated.price,
+          stockQuantity: validated.stockQuantity,
+        };
+
+        if (selectedFile) {
+          // 1. New file chosen -> multipart upload to S3 MinIO
+          saved = await updateProduct(storeId, product.id, payload, selectedFile);
+        } else if (isImageRemoved) {
+          // 2. Image explicitly removed -> clear image URL
+          saved = await updateProduct(storeId, product.id, {
+            ...payload,
+            imageUrl: '',
+          });
+        } else if (imageUrl.trim()) {
+          // 3. New external image URL specified
+          saved = await updateProduct(storeId, product.id, {
+            ...payload,
+            imageUrl: imageUrl.trim(),
+          });
+        } else {
+          // 4. Image unchanged -> retain existing imageUrl
+          saved = await updateProduct(storeId, product.id, {
+            ...payload,
+            imageUrl: product.imageUrl || undefined,
+          });
+        }
       } else {
+        // Creation of a new product
         saved = await createProduct(
           storeId,
           {
@@ -189,7 +262,7 @@ export function ProductFormDialog({
             description: validated.description || undefined,
             price: validated.price,
             stockQuantity: validated.stockQuantity,
-            imageUrl: validated.imageUrl || undefined,
+            imageUrl: selectedFile ? undefined : imageUrl.trim() || undefined,
           },
           selectedFile || undefined
         );
@@ -222,7 +295,7 @@ export function ProductFormDialog({
               </DialogTitle>
               <DialogDescription className="text-xs">
                 {isEditing
-                  ? 'Mettez à jour les informations, le tarif ou l’inventaire de cet article.'
+                  ? 'Mettez à jour les informations, la photo, le tarif ou l’inventaire de cet article.'
                   : 'Renseignez les détails de l’article pour l’ajouter à votre vitrine locale.'}
               </DialogDescription>
             </div>
@@ -363,47 +436,136 @@ export function ProductFormDialog({
               </span>
             </Label>
 
-            {/* Preview Box */}
+            {/* Always rendered hidden file input so it can be triggered at any time */}
+            <input
+              ref={fileInputRef}
+              id="file-upload"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleFileChange}
+              disabled={isSubmitting}
+            />
+
+            {/* Preview Box with Actions */}
             {previewUrl ? (
-              <div className="relative rounded-lg overflow-hidden border border-border h-36 bg-muted/30 flex items-center justify-center group">
-                <ProductImage
-                  src={previewUrl}
-                  alt="Aperçu du produit"
-                  className="h-full w-full object-cover"
-                  fallbackText="Impossible de charger l'aperçu"
-                />
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-2 right-2 size-7 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
-                  onClick={removeSelectedFile}
-                  title="Supprimer la photo"
-                >
-                  <X className="size-4" />
-                </Button>
+              <div className="space-y-2">
+                <div className="relative rounded-lg overflow-hidden border border-border h-40 bg-muted/30 flex items-center justify-center group">
+                  <ProductImage
+                    src={previewUrl}
+                    alt="Aperçu du produit"
+                    className="h-full w-full object-cover"
+                    fallbackText="Impossible de charger l'aperçu"
+                  />
+
+                  {/* Hover action overlay */}
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5 shadow"
+                      onClick={triggerFileSelect}
+                      disabled={isSubmitting}
+                    >
+                      <RefreshCw className="size-3.5" />
+                      Remplacer l'image
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5 shadow"
+                      onClick={handleRemoveImage}
+                      disabled={isSubmitting}
+                    >
+                      <Trash2 className="size-3.5" />
+                      Supprimer
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Status bar and explicit change buttons below preview */}
+                <div className="flex items-center justify-between gap-2 px-0.5">
+                  <div className="text-xs truncate">
+                    {selectedFile ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 truncate">
+                        <Check className="size-3.5 shrink-0" />
+                        <span className="truncate">
+                          Prête : {selectedFile.name} ({(selectedFile.size / 1024).toFixed(0)} Ko)
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <ImageIcon className="size-3.5 shrink-0" />
+                        Visuel configuré
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={triggerFileSelect}
+                      disabled={isSubmitting}
+                    >
+                      <Upload className="size-3" />
+                      Changer
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                      onClick={handleRemoveImage}
+                      disabled={isSubmitting}
+                    >
+                      <Trash2 className="size-3" />
+                      Supprimer
+                    </Button>
+                  </div>
+                </div>
               </div>
             ) : (
-              <label
-                htmlFor="file-upload"
-                className="border-2 border-dashed border-border hover:border-primary/50 bg-muted/20 hover:bg-muted/40 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer transition-colors"
+              /* Dropzone when no preview exists */
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={triggerFileSelect}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    triggerFileSelect();
+                  }
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) {
+                    processFile(file);
+                  }
+                }}
+                className="border-2 border-dashed border-border hover:border-primary/50 bg-muted/20 hover:bg-muted/40 rounded-lg p-5 flex flex-col items-center justify-center cursor-pointer transition-colors"
               >
                 <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
                   <Upload className="size-5" />
                 </div>
                 <p className="text-xs font-medium text-foreground">
-                  Glissez une image ou <span className="text-primary underline">parcourez</span>
+                  Glissez une image ou{' '}
+                  <span className="text-primary underline">parcourez vos fichiers</span>
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">JPEG, PNG ou WebP</p>
-                <input
-                  id="file-upload"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={handleFileChange}
-                  disabled={isSubmitting}
-                />
-              </label>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  JPEG, PNG ou WebP (max 10 Mo)
+                </p>
+              </div>
             )}
 
             {errors.file && (
@@ -420,10 +582,7 @@ export function ProductFormDialog({
                   type="url"
                   placeholder="Ou collez une URL d'image externe (https://...)"
                   value={imageUrl}
-                  onChange={(e) => {
-                    setImageUrl(e.target.value);
-                    if (!selectedFile) setPreviewUrl(e.target.value.trim() || null);
-                  }}
+                  onChange={handleImageUrlChange}
                   disabled={isSubmitting || Boolean(selectedFile)}
                   className={`text-xs ${errors.imageUrl ? 'border-destructive ring-destructive' : ''}`}
                 />

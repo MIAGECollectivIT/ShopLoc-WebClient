@@ -2,8 +2,7 @@
 export const prerender = false;
 
 import Layout from '../../layouts/Layout.astro';
-import { Badge } from '../../components/ui/badge';
-import { Card, CardHeader, CardTitle, CardDescription, CardAction } from '../../components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { buttonVariants } from '../../components/ui/button';
 import { getStoreById } from '../../lib/api';
 import { resolveStoreImageUrl } from '../../lib/image';
@@ -48,13 +47,6 @@ const store = initialStore ?? (id ? await getStoreById(id).catch(() => null) : n
               <MapPin className="size-4 shrink-0 text-primary" />
               <span>{store.address}</span>
             </CardDescription>
-            {store.id && (
-              <CardAction>
-                <Badge variant="outline" className="font-mono text-xs">
-                  Commerce #{store.id}
-                </Badge>
-              </CardAction>
-            )}
           </CardHeader>
         </Card>
 

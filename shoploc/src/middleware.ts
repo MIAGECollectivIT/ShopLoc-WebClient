@@ -99,6 +99,7 @@ interface JwtTokenPayload {
   exp?: number;
   jti?: string;
   userId?: string;
+  dbId?: number;
   sub?: string;
   email?: string;
   role?: UserRole | string;
@@ -160,8 +161,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
         const revoked = await isTokenRevoked(payload.jti);
         if (!revoked) {
           context.locals.token = token;
+          let parsedDbId: number | undefined;
+          if (typeof payload.dbId === 'number') {
+            parsedDbId = payload.dbId;
+          } else if (payload.dbId && !Number.isNaN(Number(payload.dbId))) {
+            parsedDbId = Number(payload.dbId);
+          }
+
           context.locals.user = {
             id: payload.userId || payload.sub || '',
+            dbId: parsedDbId,
             email: payload.email || '',
             role: (payload.role || payload.userRole || 'CLIENT') as UserRole,
             firstName: payload.firstName || '',

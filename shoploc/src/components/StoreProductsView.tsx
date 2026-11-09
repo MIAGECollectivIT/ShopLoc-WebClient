@@ -23,9 +23,15 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
     if (role === 'ADMIN') return true;
 
     if (role === 'MERCHANT') {
-      // Compare user.id with store.userId (both as strings to prevent type mismatch)
-      if (store.userId && String(user.id) === String(store.userId)) {
-        return true;
+      if (store.userId != null) {
+        // Compare numeric dbId from JWT claims with store.userId (Long/int in DB)
+        if (user.dbId != null && String(user.dbId) === String(store.userId)) {
+          return true;
+        }
+        // Fallback: compare public ID string in case store.userId was stored as UUID/string
+        if (user.id && String(user.id) === String(store.userId)) {
+          return true;
+        }
       }
     }
     return false;
