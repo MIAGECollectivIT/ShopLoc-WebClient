@@ -58,11 +58,11 @@ export function StoreCard({ store }: StoreCardProps) {
 
       <CardFooter className="justify-between">
         <Badge variant="secondary">Partenaire</Badge>
-        {store.id && (
+        {(store.uid || store.id) && (
           <Button
             variant={isMyStore ? 'default' : 'outline'}
             size="sm"
-            render={<a href={ROUTES.storeDetail(store.id)} />}
+            render={<a href={ROUTES.storeDetail(store.uid || store.id!)} />}
           >
             {isMyStore ? 'Gérer mon commerce' : 'Détails'}
           </Button>

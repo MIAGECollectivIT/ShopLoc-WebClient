@@ -7,6 +7,7 @@ import { getStores, getStoreProducts } from '@/lib/api';
 import type { Store } from '@/types/store';
 import { type Product, getStockStatus } from '@/types/product';
 import { CART_STORAGE_KEY, type CartItem } from '@/components/ClientProductCatalog';
+import { ROUTES } from '@/config/routes';
 import {
   ShoppingBag,
   Search,
@@ -23,6 +24,7 @@ import {
 interface ProductWithStore extends Product {
   storeName: string;
   storeAddress?: string;
+  storeUid?: string;
 }
 
 export function GlobalProductCatalog() {
@@ -61,6 +63,7 @@ export function GlobalProductCatalog() {
               ...p,
               storeName: st.name,
               storeAddress: st.address,
+              storeUid: st.uid,
             }));
           } catch {
             return [];
@@ -349,7 +352,7 @@ export function GlobalProductCatalog() {
                   <CardHeader className="p-4 pb-2 space-y-1.5">
                     {/* Store Origin Pill */}
                     <a
-                      href={`/stores/${product.storeId}`}
+                      href={ROUTES.storeDetail(product.storeUid || product.storeId)}
                       className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:underline transition-colors"
                       title="Voir le magasin"
                     >

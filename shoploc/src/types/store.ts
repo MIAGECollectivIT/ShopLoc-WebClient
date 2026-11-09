@@ -1,5 +1,6 @@
 export interface Store {
   id?: number;
+  uid?: string;
   name: string;
   address: string;
   url?: string;
@@ -20,6 +21,7 @@ export interface StoreCreateRequest {
 
 export interface StoreResponse {
   id: number;
+  uid?: string;
   name: string;
   address: string;
   url?: string;
