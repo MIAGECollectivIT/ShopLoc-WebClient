@@ -740,9 +740,9 @@ export async function createProduct(
   if (imageFile) {
     const formData = new FormData();
     const productBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-    formData.append('product', productBlob);
-    formData.append('image', imageFile);
-    formData.append('file', imageFile);
+    formData.append('product', productBlob, 'product.json');
+    formData.append('image', imageFile, imageFile.name);
+    formData.append('file', imageFile, imageFile.name);
     body = formData;
   } else {
     headers['Content-Type'] = 'application/json';
@@ -788,9 +788,9 @@ export async function updateProduct(
   if (imageFile) {
     const formData = new FormData();
     const productBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-    formData.append('product', productBlob);
-    formData.append('image', imageFile);
-    formData.append('file', imageFile);
+    formData.append('product', productBlob, 'product.json');
+    formData.append('image', imageFile, imageFile.name);
+    formData.append('file', imageFile, imageFile.name);
     body = formData;
   } else {
     headers['Content-Type'] = 'application/json';
