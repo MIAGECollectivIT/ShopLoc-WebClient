@@ -59,4 +59,4 @@ export const ROUTES = {
   adminPartnerDetail: (id: string | number) => `/admin/partners/${id}`,
 } as const;
 
-export const NAV_ROUTES: RouteConfig[] = [ROUTES.home, ROUTES.stores, ROUTES.catalog, ROUTES.cart];
+export const NAV_ROUTES: RouteConfig[] = [ROUTES.home, ROUTES.stores, ROUTES.catalog];

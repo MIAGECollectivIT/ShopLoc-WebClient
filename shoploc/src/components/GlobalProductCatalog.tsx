@@ -6,7 +6,7 @@ import { ProductImage } from '@/components/ProductImage';
 import { getStores, getStoreProducts } from '@/lib/api';
 import type { Store } from '@/types/store';
 import { type Product, getStockStatus } from '@/types/product';
-import { CART_STORAGE_KEY, type CartItem } from '@/components/ClientProductCatalog';
+import { useCart } from '@/hooks/useCart';
 import { ROUTES } from '@/config/routes';
 import {
   ShoppingBag,
@@ -28,6 +28,7 @@ interface ProductWithStore extends Product {
 }
 
 export function GlobalProductCatalog() {
+  const { addItem, items: cartItems } = useCart();
   const [stores, setStores] = React.useState<Store[]>([]);
   const [products, setProducts] = React.useState<ProductWithStore[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -43,6 +44,7 @@ export function GlobalProductCatalog() {
 
   // Cart quantities per product id
   const [quantities, setQuantities] = React.useState<Record<number, number>>({});
+  const [justAddedId, setJustAddedId] = React.useState<number | null>(null);
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -107,44 +109,31 @@ export function GlobalProductCatalog() {
     });
   };
 
-  const handleAddToCart = (product: ProductWithStore) => {
-    const qty = quantities[product.id] || 1;
+  const handleAddToCart = (product: ProductWithStore, remainingStock: number) => {
+    const qty = Math.min(remainingStock, quantities[product.id] || 1);
     if (qty <= 0 || product.stockQuantity <= 0) return;
 
-    try {
-      const rawCart = localStorage.getItem(CART_STORAGE_KEY);
-      const cart: CartItem[] = rawCart ? JSON.parse(rawCart) : [];
+    const res = addItem({
+      productId: product.id,
+      storeId: product.storeId,
+      storeUid: product.storeUid,
+      storeName: product.storeName,
+      name: product.name,
+      price: product.price,
+      imageUrl: product.imageUrl,
+      quantity: qty,
+      maxStock: product.stockQuantity,
+    });
 
-      const existingIndex = cart.findIndex(
-        (item) => item.productId === product.id && item.storeId === product.storeId
-      );
-
-      if (existingIndex >= 0) {
-        cart[existingIndex].quantity = Math.min(
-          product.stockQuantity,
-          cart[existingIndex].quantity + qty
-        );
-      } else {
-        cart.push({
-          productId: product.id,
-          storeId: product.storeId,
-          storeName: product.storeName,
-          name: product.name,
-          price: product.price,
-          imageUrl: product.imageUrl,
-          quantity: qty,
-        });
-      }
-
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-      window.dispatchEvent(new Event('shoploc-cart-updated'));
-
-      setToastMessage(`${qty} × "${product.name}" ajouté au panier !`);
-      setTimeout(() => setToastMessage(null), 3500);
-    } catch {
-      setToastMessage('Article ajouté au panier !');
-      setTimeout(() => setToastMessage(null), 3500);
+    if (res.success) {
+      setJustAddedId(product.id);
+      setTimeout(() => setJustAddedId(null), 1200);
+      setQuantities((prev) => ({ ...prev, [product.id]: 1 }));
+      setToastMessage(`${res.quantityAdded ?? qty} × "${product.name}" ajouté au panier !`);
+    } else {
+      setToastMessage(res.message || 'Article ajouté au panier !');
     }
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
   // Filtered & sorted
@@ -307,8 +296,14 @@ export function GlobalProductCatalog() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredProducts.map((product) => {
             const status = getStockStatus(product.stockQuantity);
+            const inCartItem = cartItems.find(
+              (i) => i.productId === product.id && i.storeId === product.storeId
+            );
+            const inCartQty = inCartItem?.quantity || 0;
+            const remainingStock = Math.max(0, product.stockQuantity - inCartQty);
             const isAvailable = product.stockQuantity > 0;
-            const selectedQty = quantities[product.id] || 1;
+            const isMaxInCart = isAvailable && remainingStock === 0;
+            const selectedQty = Math.min(remainingStock || 1, quantities[product.id] || 1);
 
             return (
               <Card
@@ -379,49 +374,8 @@ export function GlobalProductCatalog() {
                 </div>
 
                 {/* Footer: Quantity selector and Add to Cart */}
-                <div className="p-4 pt-2 border-t border-border/50 bg-muted/20 space-y-2.5">
-                  {isAvailable ? (
-                    <div className="flex items-center gap-2">
-                      <div className="inline-flex items-center rounded-lg border border-border bg-background shadow-xs p-0.5">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 rounded"
-                          onClick={() =>
-                            handleQuantityChange(product.id, -1, product.stockQuantity)
-                          }
-                          disabled={selectedQty <= 1}
-                          aria-label="Diminuer la quantité"
-                        >
-                          <Minus className="size-3.5" />
-                        </Button>
-                        <span className="w-8 text-center text-xs font-semibold font-mono">
-                          {selectedQty}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 rounded"
-                          onClick={() => handleQuantityChange(product.id, 1, product.stockQuantity)}
-                          disabled={selectedQty >= product.stockQuantity}
-                          aria-label="Augmenter la quantité"
-                        >
-                          <Plus className="size-3.5" />
-                        </Button>
-                      </div>
-
-                      <Button
-                        type="button"
-                        onClick={() => handleAddToCart(product)}
-                        className="flex-1 h-8 text-xs gap-1.5 shadow-xs"
-                      >
-                        <ShoppingBag className="size-3.5" />
-                        <span>Commander ({(product.price * selectedQty).toFixed(2)} €)</span>
-                      </Button>
-                    </div>
-                  ) : (
+                <div className="p-4 pt-2 border-t border-border/50 bg-muted/20 space-y-2">
+                  {!isAvailable ? (
                     <Button
                       type="button"
                       variant="secondary"
@@ -430,6 +384,83 @@ export function GlobalProductCatalog() {
                     >
                       Victime de son succès (Rupture)
                     </Button>
+                  ) : isMaxInCart ? (
+                    <div className="space-y-1">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled
+                        className="w-full h-8 text-xs opacity-80 cursor-not-allowed gap-1.5 font-medium border border-border"
+                      >
+                        <Check className="size-3.5 text-emerald-600" />
+                        <span>Stock max au panier ({inCartQty})</span>
+                      </Button>
+                      <p className="text-[10px] text-center text-muted-foreground">
+                        Tout le stock disponible est dans votre panier
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className="inline-flex items-center rounded-lg border border-border bg-background shadow-xs p-0.5">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 rounded"
+                            onClick={() => handleQuantityChange(product.id, -1, remainingStock)}
+                            disabled={selectedQty <= 1}
+                            aria-label="Diminuer la quantité"
+                          >
+                            <Minus className="size-3.5" />
+                          </Button>
+                          <span className="w-8 text-center text-xs font-semibold font-mono">
+                            {selectedQty}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 rounded"
+                            onClick={() => handleQuantityChange(product.id, 1, remainingStock)}
+                            disabled={selectedQty >= remainingStock}
+                            aria-label="Augmenter la quantité"
+                          >
+                            <Plus className="size-3.5" />
+                          </Button>
+                        </div>
+
+                        <Button
+                          type="button"
+                          onClick={() => handleAddToCart(product, remainingStock)}
+                          className={`flex-1 h-8 text-xs gap-1.5 shadow-xs transition-all ${
+                            justAddedId === product.id
+                              ? 'bg-emerald-600 hover:bg-emerald-600 text-white'
+                              : ''
+                          }`}
+                        >
+                          {justAddedId === product.id ? (
+                            <>
+                              <Check className="size-3.5 animate-in zoom-in-50" />
+                              <span>Ajouté !</span>
+                            </>
+                          ) : (
+                            <>
+                              <ShoppingBag className="size-3.5" />
+                              <span>Ajouter ({(product.price * selectedQty).toFixed(2)} €)</span>
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      {inCartQty > 0 && (
+                        <p className="text-[10px] text-muted-foreground flex items-center justify-between px-0.5">
+                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                            ✓ {inCartQty} déjà au panier
+                          </span>
+                          <span>Reste {remainingStock} dispo</span>
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               </Card>
