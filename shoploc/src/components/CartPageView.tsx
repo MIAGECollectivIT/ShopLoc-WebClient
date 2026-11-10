@@ -498,7 +498,7 @@ export function CartPageView() {
               </div>
             </CardContent>
 
-            <CardFooter className="p-5 pt-0 flex flex-col gap-3">
+            <CardFooter className="p-5 pt-4 flex flex-col gap-3.5">
               <Button
                 type="button"
                 className="w-full gap-2 text-sm h-10 shadow-xs"
