@@ -29,7 +29,7 @@ interface ClientProductCatalogProps {
 }
 
 export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalogProps) {
-  const { addItem } = useCart();
+  const { addItem, items: cartItems } = useCart();
   const [products, setProducts] = React.useState<Product[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -43,6 +43,9 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
 
   // Selected quantities for cart per product id
   const [quantities, setQuantities] = React.useState<Record<number, number>>({});
+
+  // Visual feedback for freshly added product
+  const [justAddedId, setJustAddedId] = React.useState<number | null>(null);
 
   // Toast notification
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
@@ -86,8 +89,8 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
     });
   };
 
-  const handleAddToCart = (product: Product) => {
-    const qty = quantities[product.id] || 1;
+  const handleAddToCart = (product: Product, remainingStock: number) => {
+    const qty = Math.min(remainingStock, quantities[product.id] || 1);
     if (qty <= 0 || product.stockQuantity <= 0) return;
 
     const res = addItem({
@@ -102,7 +105,10 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
     });
 
     if (res.success) {
-      setToastMessage(`${qty} × "${product.name}" ajouté au panier !`);
+      setJustAddedId(product.id);
+      setTimeout(() => setJustAddedId(null), 1200);
+      setQuantities((prev) => ({ ...prev, [product.id]: 1 }));
+      setToastMessage(`${res.quantityAdded ?? qty} × "${product.name}" ajouté au panier !`);
     } else {
       setToastMessage(res.message || 'Article ajouté au panier !');
     }
@@ -253,8 +259,14 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredProducts.map((product) => {
             const status = getStockStatus(product.stockQuantity);
+            const inCartItem = cartItems.find(
+              (i) => i.productId === product.id && i.storeId === storeId
+            );
+            const inCartQty = inCartItem?.quantity || 0;
+            const remainingStock = Math.max(0, product.stockQuantity - inCartQty);
             const isAvailable = product.stockQuantity > 0;
-            const selectedQty = quantities[product.id] || 1;
+            const isMaxInCart = isAvailable && remainingStock === 0;
+            const selectedQty = Math.min(remainingStock || 1, quantities[product.id] || 1);
 
             return (
               <Card
@@ -314,51 +326,8 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
                 </div>
 
                 {/* Footer: Quantity selector and Add to Cart */}
-                <div className="p-4 pt-2 border-t border-border/50 bg-muted/20 space-y-2.5">
-                  {isAvailable ? (
-                    <div className="flex items-center gap-2">
-                      {/* Quantity decrement / increment */}
-                      <div className="inline-flex items-center rounded-lg border border-border bg-background shadow-xs p-0.5">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 rounded"
-                          onClick={() =>
-                            handleQuantityChange(product.id, -1, product.stockQuantity)
-                          }
-                          disabled={selectedQty <= 1}
-                          aria-label="Diminuer la quantité"
-                        >
-                          <Minus className="size-3.5" />
-                        </Button>
-                        <span className="w-8 text-center text-xs font-semibold font-mono">
-                          {selectedQty}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 rounded"
-                          onClick={() => handleQuantityChange(product.id, 1, product.stockQuantity)}
-                          disabled={selectedQty >= product.stockQuantity}
-                          aria-label="Augmenter la quantité"
-                        >
-                          <Plus className="size-3.5" />
-                        </Button>
-                      </div>
-
-                      {/* Add to cart action */}
-                      <Button
-                        type="button"
-                        onClick={() => handleAddToCart(product)}
-                        className="flex-1 h-8 text-xs gap-1.5 shadow-xs"
-                      >
-                        <ShoppingBag className="size-3.5" />
-                        <span>Commander ({(product.price * selectedQty).toFixed(2)} €)</span>
-                      </Button>
-                    </div>
-                  ) : (
+                <div className="p-4 pt-2 border-t border-border/50 bg-muted/20 space-y-2">
+                  {!isAvailable ? (
                     <Button
                       type="button"
                       variant="secondary"
@@ -367,6 +336,85 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
                     >
                       Victime de son succès (Rupture)
                     </Button>
+                  ) : isMaxInCart ? (
+                    <div className="space-y-1">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled
+                        className="w-full h-8 text-xs opacity-80 cursor-not-allowed gap-1.5 font-medium border border-border"
+                      >
+                        <Check className="size-3.5 text-emerald-600" />
+                        <span>Stock max au panier ({inCartQty})</span>
+                      </Button>
+                      <p className="text-[10px] text-center text-muted-foreground">
+                        Tout le stock disponible est dans votre panier
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        {/* Quantity decrement / increment */}
+                        <div className="inline-flex items-center rounded-lg border border-border bg-background shadow-xs p-0.5">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 rounded"
+                            onClick={() => handleQuantityChange(product.id, -1, remainingStock)}
+                            disabled={selectedQty <= 1}
+                            aria-label="Diminuer la quantité"
+                          >
+                            <Minus className="size-3.5" />
+                          </Button>
+                          <span className="w-8 text-center text-xs font-semibold font-mono">
+                            {selectedQty}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 rounded"
+                            onClick={() => handleQuantityChange(product.id, 1, remainingStock)}
+                            disabled={selectedQty >= remainingStock}
+                            aria-label="Augmenter la quantité"
+                          >
+                            <Plus className="size-3.5" />
+                          </Button>
+                        </div>
+
+                        {/* Add to cart action */}
+                        <Button
+                          type="button"
+                          onClick={() => handleAddToCart(product, remainingStock)}
+                          className={`flex-1 h-8 text-xs gap-1.5 shadow-xs transition-all ${
+                            justAddedId === product.id
+                              ? 'bg-emerald-600 hover:bg-emerald-600 text-white'
+                              : ''
+                          }`}
+                        >
+                          {justAddedId === product.id ? (
+                            <>
+                              <Check className="size-3.5 animate-in zoom-in-50" />
+                              <span>Ajouté !</span>
+                            </>
+                          ) : (
+                            <>
+                              <ShoppingBag className="size-3.5" />
+                              <span>Ajouter ({(product.price * selectedQty).toFixed(2)} €)</span>
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      {inCartQty > 0 && (
+                        <p className="text-[10px] text-muted-foreground flex items-center justify-between px-0.5">
+                          <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                            ✓ {inCartQty} déjà au panier
+                          </span>
+                          <span>Reste {remainingStock} dispo</span>
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               </Card>

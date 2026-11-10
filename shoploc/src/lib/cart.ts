@@ -108,11 +108,12 @@ export function subscribeCart(callback: () => void): () => void {
 }
 
 /**
- * Ajoute un article dans le panier (avec contrôle du stock max si fourni).
+ * Ajoute un article dans le panier (avec contrôle strict du stock max si fourni).
  */
 export function addToCart(payload: AddToCartPayload): {
   success: boolean;
   item?: CartItem;
+  quantityAdded?: number;
   message?: string;
 } {
   const current = [...getCartItems()];
@@ -127,13 +128,22 @@ export function addToCart(payload: AddToCartPayload): {
   );
 
   let updatedItem: CartItem;
+  let quantityAdded = quantityToAdd;
 
   if (existingIndex >= 0) {
     const existing = current[existingIndex];
-    let newQuantity = existing.quantity + quantityToAdd;
     const maxStock = payload.maxStock ?? existing.maxStock;
 
+    if (maxStock !== undefined && existing.quantity >= maxStock) {
+      return {
+        success: false,
+        message: `Stock maximum (${maxStock}) déjà atteint dans votre panier.`,
+      };
+    }
+
+    let newQuantity = existing.quantity + quantityToAdd;
     if (maxStock !== undefined && newQuantity > maxStock) {
+      quantityAdded = maxStock - existing.quantity;
       newQuantity = maxStock;
     }
 
@@ -150,6 +160,7 @@ export function addToCart(payload: AddToCartPayload): {
   } else {
     let finalQty = quantityToAdd;
     if (payload.maxStock !== undefined && finalQty > payload.maxStock) {
+      quantityAdded = payload.maxStock;
       finalQty = payload.maxStock;
     }
     updatedItem = {
@@ -167,7 +178,7 @@ export function addToCart(payload: AddToCartPayload): {
   }
 
   setCartItems(current);
-  return { success: true, item: updatedItem };
+  return { success: true, item: updatedItem, quantityAdded };
 }
 
 /**
