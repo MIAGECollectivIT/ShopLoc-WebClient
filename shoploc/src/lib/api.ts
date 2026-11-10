@@ -15,6 +15,7 @@ import type {
   AuthResponse,
   UserRole,
   VehicleResponse,
+  CustomerIdentificationResponse,
 } from '@/types/user';
 import {
   getAuthToken,
@@ -68,7 +69,7 @@ export async function fetchWithTimeout(
 }
 
 export function getApiEndpoint(path: string, _serviceUrl?: string): string {
-  const cleanPath = path.toLowerCase().replace(/^\/+/, '');
+  const cleanPath = path.toLowerCase().replace(/^\/+/, '').replace(/^v1\//, '');
 
   let serviceBase: string | undefined;
   if (
@@ -452,7 +453,7 @@ export async function createStore(
       if (errorJson.message) errorDetail = errorJson.message;
       else if (errorJson.error) errorDetail = errorJson.error;
     } catch {
-      // Ignorer l'erreur de parsing JSON
+      // Ignore JSON parsing error
     }
     throw new Error(errorDetail);
   }
@@ -539,7 +540,7 @@ export async function loginUser(credentials: UserLoginRequest): Promise<UserResp
       if (errorJson.message) errorDetail = errorJson.message;
       else if (errorJson.detail) errorDetail = errorJson.detail;
     } catch {
-      // Ignorer l'erreur de parsing JSON
+      // Ignore JSON parsing error
     }
     throw new Error(errorDetail);
   }
@@ -562,7 +563,7 @@ export async function loginUser(credentials: UserLoginRequest): Promise<UserResp
     licensePlates: userObj.licensePlates,
   };
 
-  // 1. Définir le cookie HttpOnly côté SSR via l'endpoint dédié
+  // 1. Set the SSR HttpOnly cookie via the dedicated endpoint
   if (typeof window !== 'undefined') {
     try {
       await fetch('/api/auth/session', {
@@ -576,7 +577,7 @@ export async function loginUser(credentials: UserLoginRequest): Promise<UserResp
     }
   }
 
-  // 2. Mettre à jour la session dans localStorage et notifier les composants
+  // 2. Update the session in localStorage and notify components
   setAuthSession(sessionData);
 
   return {
@@ -740,9 +741,9 @@ export async function createProduct(
   if (imageFile) {
     const formData = new FormData();
     const productBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-    formData.append('product', productBlob);
-    formData.append('image', imageFile);
-    formData.append('file', imageFile);
+    formData.append('product', productBlob, 'product.json');
+    formData.append('image', imageFile, imageFile.name);
+    formData.append('file', imageFile, imageFile.name);
     body = formData;
   } else {
     headers['Content-Type'] = 'application/json';
@@ -788,9 +789,9 @@ export async function updateProduct(
   if (imageFile) {
     const formData = new FormData();
     const productBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-    formData.append('product', productBlob);
-    formData.append('image', imageFile);
-    formData.append('file', imageFile);
+    formData.append('product', productBlob, 'product.json');
+    formData.append('image', imageFile, imageFile.name);
+    formData.append('file', imageFile, imageFile.name);
     body = formData;
   } else {
     headers['Content-Type'] = 'application/json';
@@ -1023,7 +1024,7 @@ export async function addVehicle(licensePlate: string): Promise<VehicleResponse>
 
   const createdVehicle = (await res.json()) as VehicleResponse;
 
-  // Synchronisation de la session utilisateur locale
+  // Synchronize local user session
   const currentUser = getAuthUser();
   if (currentUser) {
     const currentPlates = currentUser.licensePlates || [];
@@ -1080,7 +1081,7 @@ export async function updateVehicle(oldPlate: string, newPlate: string): Promise
 
   const updatedVehicle = (await res.json()) as VehicleResponse;
 
-  // Synchronisation de la session utilisateur locale
+  // Synchronize local user session
   const currentUser = getAuthUser();
   if (currentUser) {
     const currentPlates = currentUser.licensePlates || [];
@@ -1123,7 +1124,7 @@ export async function deleteVehicle(licensePlate: string): Promise<void> {
     throw new Error(errorDetail);
   }
 
-  // Synchronisation de la session utilisateur locale
+  // Synchronize local user session
   const currentUser = getAuthUser();
   if (currentUser) {
     const currentPlates = currentUser.licensePlates || [];
@@ -1137,8 +1138,8 @@ export async function deleteVehicle(licensePlate: string): Promise<void> {
 }
 
 /**
- * Récupère le barème de fidélité configuré pour un commerce (ou le barème par défaut 1 € = 1 pt).
- * Accessible publiquement pour les clients et commerçants.
+ * Retrieves the configured loyalty rate for a store (or the default rate 1 € = 1 pt).
+ * Publicly accessible for customers and merchants.
  */
 export async function getStoreLoyaltyRate(storeId: number | string): Promise<MerchantLoyaltyRate> {
   const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${storeId}/rates`);
@@ -1165,19 +1166,21 @@ export async function getStoreLoyaltyRate(storeId: number | string): Promise<Mer
 }
 
 /**
- * Configure ou met à jour le barème de fidélité d'un commerce.
- * Réservé au commerçant propriétaire du magasin ou aux administrateurs.
+ * Configures or updates a store's loyalty rate.
+ * Restricted to the store's merchant owner or administrators.
  */
 export async function updateStoreLoyaltyRate(
   storeId: number | string,
   data: MerchantLoyaltyRateRequest
 ): Promise<MerchantLoyaltyRate> {
   const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${storeId}/rates`);
+  const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(data),
   });
@@ -1248,4 +1251,50 @@ export async function getPaymentByReference(
   }
 
   return (await res.json()) as PaymentAuthorizationResponse;
+}
+
+/**
+ * Identifies a customer by their 7-character loyalty code or scanned QR code (SLE-56).
+ * Restricted to authenticated merchants and administrators.
+ * Returns masked customer profile (GDPR compliant).
+ */
+export async function identifyCustomerByCardNumber(
+  clientCode: string
+): Promise<CustomerIdentificationResponse> {
+  const normalizedCode = clientCode.trim().toUpperCase();
+  const endpoint = getUsersApiEndpoint(
+    `/v1/users/loyalty-cards/${encodeURIComponent(normalizedCode)}`
+  );
+  const token = getAuthToken();
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise pour identifier un client.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès réservé aux commerçants partenaires et administrateurs.');
+  }
+  if (res.status === 404) {
+    throw new Error(`Aucun compte client trouvé pour le code fidélité "${normalizedCode}".`);
+  }
+  if (!res.ok) {
+    let detail = `Erreur lors de l'identification du client (${res.status})`;
+    try {
+      const err = await res.json();
+      if (err.message) detail = err.message;
+      else if (err.detail) detail = err.detail;
+    } catch {
+      // Ignore JSON parse error
+    }
+    throw new Error(detail);
+  }
+
+  return (await res.json()) as CustomerIdentificationResponse;
 }

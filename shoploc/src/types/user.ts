@@ -46,6 +46,7 @@ export interface AuthResponse {
 
 export interface AuthUser {
   id: string;
+  dbId?: number;
   email: string;
   role: UserRole;
   firstName?: string;
@@ -59,4 +60,14 @@ export interface AuthUser {
 export interface VehicleResponse {
   vehicleId: string;
   licensePlate: string;
+}
+
+export interface CustomerIdentificationResponse {
+  publicId: string;
+  clientCode: string;
+  firstName: string;
+  lastNameMasked: string;
+  emailMasked: string;
+  recognized: boolean;
+  memberSinceYear?: number;
 }

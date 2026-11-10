@@ -63,8 +63,16 @@ export function parseUserFromToken(token: string): AuthUser | null {
     const jsonString = decodeBase64(parts[1]);
     const payload = JSON.parse(jsonString);
 
+    let parsedDbId: number | undefined;
+    if (typeof payload.dbId === 'number') {
+      parsedDbId = payload.dbId;
+    } else if (payload.dbId && !Number.isNaN(Number(payload.dbId))) {
+      parsedDbId = Number(payload.dbId);
+    }
+
     return {
       id: payload.userId || payload.sub,
+      dbId: parsedDbId,
       email: payload.email || '',
       role: (payload.role || payload.userRole || 'CLIENT') as UserRole,
       firstName: payload.firstName || '',
@@ -156,8 +164,11 @@ export function setAuthSession(auth: AuthResponse): void {
     return;
   }
 
+  const parsedFromToken = parseUserFromToken(auth.token);
+
   const user: AuthUser = {
-    id: auth.userId,
+    id: auth.userId || parsedFromToken?.id || '',
+    dbId: parsedFromToken?.dbId,
     email: auth.email,
     role: auth.role,
     firstName: auth.firstName,
@@ -236,7 +247,7 @@ export function clearAuthSession(): void {
     document.cookie = `${TOKEN_STORAGE_KEY}=; path=/; max-age=0; SameSite=Lax`;
   }
 
-  // Purge immédiate du cookie serveur HttpOnly
+  // Immediately purge the HttpOnly server cookie
   try {
     fetch('/api/auth/logout', {
       method: 'POST',

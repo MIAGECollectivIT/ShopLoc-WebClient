@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
 /**
- * Schéma de validation Zod pour le barème de fidélité commerçant.
- * Règles :
- * - Montant en euros : strictement positif (> 0), 2 décimales au maximum.
- * - Nombre de points : multiple de 0.5 supérieur ou égal à 0.5 (gestion des demi-points).
+ * Zod validation schema for the merchant loyalty rate.
+ * Rules:
+ * - Euro amount: strictly positive (> 0), up to 2 decimal places.
+ * - Points reward: multiple of 0.5 greater than or equal to 0.5 (supports half-points).
  */
 export const loyaltyRateSchema = z.object({
   euroAmount: z
@@ -46,7 +46,7 @@ export const loyaltyRateSchema = z.object({
         .max(10000, 'Le nombre de points ne peut pas dépasser 10 000 points')
         .refine(
           (val) => {
-            // Doit être un multiple de 0.5 (ex: 0.5, 1, 1.5, 2, 2.5...)
+            // Must be a multiple of 0.5 (e.g., 0.5, 1, 1.5, 2, 2.5...)
             const doubled = val * 2;
             return Math.abs(doubled - Math.round(doubled)) < 1e-9;
           },
@@ -58,9 +58,9 @@ export const loyaltyRateSchema = z.object({
 export type LoyaltyRateFormValues = z.infer<typeof loyaltyRateSchema>;
 
 /**
- * Calcule le nombre de points attribués pour un montant d'achat donné selon le barème configuré.
- * Règle métier : calcul proportionnel avec prise en compte des demi-points (pas de 0.5 point).
- * Ex: 25 € avec un barème de 2.00 € = 1 pt donne 12.5 points (et non 12).
+ * Calculates the number of points awarded for a given purchase amount based on the configured rate.
+ * Business rule: proportional calculation supporting half-points (0.5 point steps).
+ * Example: 25 € with a rate of 2.00 € = 1 pt yields 12.5 points (not 12).
  */
 export function calculateSimulatedPoints(
   euroAmount: number,
@@ -71,7 +71,7 @@ export function calculateSimulatedPoints(
     return 0;
   }
   const rawPoints = (purchaseAmount / euroAmount) * pointsReward;
-  // Prise en compte des demi-points (arrondi au demi-point inférieur)
+  // Support half-points (rounded down to the nearest half-point)
   const halfPoints = Math.floor(rawPoints * 2) / 2;
   return halfPoints;
 }

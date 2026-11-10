@@ -620,7 +620,7 @@ export function AdminPartnerDetailView({
         {!loadingStores && stores.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {stores.map((store) => {
-              const imageUrl = resolveStoreImageUrl(store.url);
+              const imageUrl = resolveStoreImageUrl(store.url, store.uid || store.id);
               return (
                 <Card
                   key={store.id}
@@ -681,11 +681,11 @@ export function AdminPartnerDetailView({
                         <span>Désaffecter</span>
                       </Button>
 
-                      {store.id && (
+                      {(store.uid || store.id) && (
                         <Button
                           variant="outline"
                           size="sm"
-                          render={<a href={ROUTES.storeDetail(store.id)} />}
+                          render={<a href={ROUTES.storeDetail(store.uid || store.id!)} />}
                           className="gap-1 text-xs h-7 px-2"
                         >
                           <span>Consulter</span>

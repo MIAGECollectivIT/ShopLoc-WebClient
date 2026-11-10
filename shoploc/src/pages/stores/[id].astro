@@ -2,8 +2,7 @@
 export const prerender = false;
 
 import Layout from '../../layouts/Layout.astro';
-import { Badge } from '../../components/ui/badge';
-import { Card, CardHeader, CardTitle, CardDescription, CardAction } from '../../components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { buttonVariants } from '../../components/ui/button';
 import { getStoreById } from '../../lib/api';
 import { resolveStoreImageUrl } from '../../lib/image';
@@ -29,9 +28,9 @@ const store = initialStore ?? (id ? await getStoreById(id).catch(() => null) : n
       <div class="space-y-6">
         {/* Store Banner Card */}
         <Card className="overflow-hidden border-border bg-card">
-          {resolveStoreImageUrl(store.url) ? (
+          {resolveStoreImageUrl(store.url, store.uid || store.id) ? (
             <img
-              src={resolveStoreImageUrl(store.url)}
+              src={resolveStoreImageUrl(store.url, store.uid || store.id)}
               alt={store.name}
               class="h-64 sm:h-72 w-full object-cover"
             />
@@ -48,18 +47,11 @@ const store = initialStore ?? (id ? await getStoreById(id).catch(() => null) : n
               <MapPin className="size-4 shrink-0 text-primary" />
               <span>{store.address}</span>
             </CardDescription>
-            {store.id && (
-              <CardAction>
-                <Badge variant="outline" className="font-mono text-xs">
-                  Commerce #{store.id}
-                </Badge>
-              </CardAction>
-            )}
           </CardHeader>
         </Card>
 
         {/* Dynamic Catalog Section (Merchant Dashboard or Customer Storefront) */}
-        <StoreProductsView client:load store={store} />
+        <StoreProductsView client:only="react" store={store} />
       </div>
     )}
 

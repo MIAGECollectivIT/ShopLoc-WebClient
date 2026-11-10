@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { MainNav } from './MainNav';
 import { ModeToggle } from './ModeToggle';
+import { CartDrawer } from './CartDrawer';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -127,6 +128,7 @@ export function Header({ currentPath }: HeaderProps) {
             </>
           )}
 
+          <CartDrawer />
           <ModeToggle />
         </div>
       </div>

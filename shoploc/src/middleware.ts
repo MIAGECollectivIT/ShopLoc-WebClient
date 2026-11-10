@@ -99,6 +99,7 @@ interface JwtTokenPayload {
   exp?: number;
   jti?: string;
   userId?: string;
+  dbId?: number;
   sub?: string;
   email?: string;
   role?: UserRole | string;
@@ -160,8 +161,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
         const revoked = await isTokenRevoked(payload.jti);
         if (!revoked) {
           context.locals.token = token;
+          let parsedDbId: number | undefined;
+          if (typeof payload.dbId === 'number') {
+            parsedDbId = payload.dbId;
+          } else if (payload.dbId && !Number.isNaN(Number(payload.dbId))) {
+            parsedDbId = Number(payload.dbId);
+          }
+
           context.locals.user = {
             id: payload.userId || payload.sub || '',
+            dbId: parsedDbId,
             email: payload.email || '',
             role: (payload.role || payload.userRole || 'CLIENT') as UserRole,
             firstName: payload.firstName || '',
@@ -208,7 +217,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const pathname = context.url.pathname;
 
-  // Déconnexion explicite ou paramètre logout : purge immédiate du cookie serveur
+  // Explicit logout or logout query parameter: immediately purge server cookie
   if (context.url.searchParams.has('logout') || pathname === '/logout') {
     context.cookies.delete(TOKEN_STORAGE_KEY, { path: '/' });
     context.locals.user = null;

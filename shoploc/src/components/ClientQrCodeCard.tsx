@@ -113,7 +113,7 @@ export function ClientQrCodeCard({ clientCode, userName, className }: ClientQrCo
         </CardHeader>
 
         <CardContent className="flex flex-col items-center gap-4 pt-2">
-          {/* Conteneur QR Code à fort contraste (cliquable pour agrandir) */}
+          {/* High-contrast QR Code container (clickable to zoom) */}
           {isLoading ? (
             <div className="relative p-3 bg-white rounded-2xl border border-neutral-200 shadow-sm flex items-center justify-center">
               <div className="size-52 sm:size-60 flex flex-col items-center justify-center gap-2">
@@ -157,7 +157,7 @@ export function ClientQrCodeCard({ clientCode, userName, className }: ClientQrCo
             </div>
           )}
 
-          {/* Affichage du code alphanumérique et bouton de copie */}
+          {/* Alphanumeric code display and copy button */}
           <div className="w-full max-w-xs flex flex-col items-center gap-2">
             <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
               Code client alphanumérique

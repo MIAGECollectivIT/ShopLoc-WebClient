@@ -3,11 +3,12 @@ import { useAuth } from '@/lib/auth';
 import type { Store } from '@/types/store';
 import { MerchantCatalogDashboard } from '@/components/MerchantCatalogDashboard';
 import { MerchantLoyaltyRateCard } from '@/components/MerchantLoyaltyRateCard';
+import { MerchantLoyaltyScanner } from '@/components/MerchantLoyaltyScanner';
 import { ClientProductCatalog } from '@/components/ClientProductCatalog';
 import { StoreLoyaltyBanner } from '@/components/StoreLoyaltyBanner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShieldCheck, Eye, Coins, Package } from 'lucide-react';
+import { ShieldCheck, Eye, Coins, Package, QrCode } from 'lucide-react';
 
 interface StoreProductsViewProps {
   store: Store;
@@ -15,7 +16,14 @@ interface StoreProductsViewProps {
 
 export function StoreProductsView({ store }: StoreProductsViewProps) {
   const { user, role, isAuthenticated, isLoading } = useAuth();
-  const [viewMode, setViewMode] = React.useState<'merchant' | 'loyalty' | 'client'>('merchant');
+  const [mounted, setMounted] = React.useState(false);
+  const [viewMode, setViewMode] = React.useState<'merchant' | 'loyalty' | 'scan' | 'client'>(
+    'merchant'
+  );
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Check if current user is either an ADMIN or the MERCHANT owner of this store
   const isOwnerOrAdmin = React.useMemo(() => {
@@ -23,9 +31,15 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
     if (role === 'ADMIN') return true;
 
     if (role === 'MERCHANT') {
-      // Compare user.id with store.userId (both as strings to prevent type mismatch)
-      if (store.userId && String(user.id) === String(store.userId)) {
-        return true;
+      if (store.userId != null) {
+        // Compare numeric dbId from JWT claims with store.userId (Long/int in DB)
+        if (user.dbId != null && String(user.dbId) === String(store.userId)) {
+          return true;
+        }
+        // Fallback: compare public ID string in case store.userId was stored as UUID/string
+        if (user.id && String(user.id) === String(store.userId)) {
+          return true;
+        }
       }
     }
     return false;
@@ -33,7 +47,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
 
   const storeIdNumber = Number(store.id);
 
-  if (isLoading) {
+  if (!mounted || isLoading) {
     return (
       <div className="py-8 space-y-4 animate-pulse">
         <div className="h-8 bg-muted rounded w-1/4" />
@@ -93,6 +107,17 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
 
           <Button
             type="button"
+            variant={viewMode === 'scan' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('scan')}
+            className="h-7 text-xs gap-1.5 px-3"
+          >
+            <QrCode className="size-3.5" />
+            <span>Pass Caisse & Scan</span>
+          </Button>
+
+          <Button
+            type="button"
             variant={viewMode === 'client' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setViewMode('client')}
@@ -111,6 +136,10 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
 
       {viewMode === 'loyalty' && (
         <MerchantLoyaltyRateCard storeId={storeIdNumber} storeName={store.name} />
+      )}
+
+      {viewMode === 'scan' && (
+        <MerchantLoyaltyScanner storeId={storeIdNumber} storeName={store.name} />
       )}
 
       {viewMode === 'client' && (
