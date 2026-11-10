@@ -1,4 +1,14 @@
-import { Home, Store, BookOpen, ShoppingCart, UserPlus, LogIn, User, Users } from 'lucide-react';
+import {
+  Home,
+  Store,
+  BookOpen,
+  ShoppingCart,
+  UserPlus,
+  LogIn,
+  User,
+  Users,
+  CreditCard,
+} from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react';
 
@@ -34,6 +44,18 @@ export const ROUTES = {
   cart: {
     path: '/cart',
     label: 'Panier',
+    icon: ShoppingCart,
+  },
+  checkout: {
+    path: '/checkout',
+    detail: (id: string | number) => `/checkout/${id}`,
+    label: 'Règlement',
+    icon: CreditCard,
+  },
+  orderConfirmation: {
+    path: '/order-confirmation',
+    detail: (id: string | number) => `/order-confirmation/${id}`,
+    label: 'Confirmation de commande',
     icon: ShoppingCart,
   },
   login: {

@@ -1,0 +1,21 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import PageContainer from '../../components/PageContainer.astro';
+import { CheckoutPageView } from '../../components/CheckoutPageView';
+import { ROUTES } from '../../config/routes';
+---
+
+<Layout
+  title="Passage au paiement — ShopLoc"
+  description="Sélectionnez votre mode de règlement (carte bancaire ou points de fidélité) et validez votre paiement sécurisé."
+>
+  <PageContainer
+    title="Passage au paiement"
+    description="Sélection du mode de règlement et validation sécurisée."
+    icon={ROUTES.checkout.icon}
+  >
+    <CheckoutPageView client:load />
+  </PageContainer>
+</Layout>
