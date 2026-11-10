@@ -1,8 +1,10 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import PageContainer from '../components/PageContainer.astro';
-import { OrderConfirmationPageView } from '../components/OrderConfirmationPageView';
-import { ROUTES } from '../config/routes';
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import PageContainer from '../../components/PageContainer.astro';
+import { OrderConfirmationPageView } from '../../components/OrderConfirmationPageView';
+import { ROUTES } from '../../config/routes';
 ---
 
 <Layout

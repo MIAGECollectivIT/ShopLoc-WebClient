@@ -47,11 +47,13 @@ export const ROUTES = {
   },
   checkout: {
     path: '/checkout',
+    detail: (id: string | number) => `/checkout/${id}`,
     label: 'Règlement',
     icon: CreditCard,
   },
   orderConfirmation: {
     path: '/order-confirmation',
+    detail: (id: string | number) => `/order-confirmation/${id}`,
     label: 'Confirmation de commande',
     icon: ShoppingCart,
   },

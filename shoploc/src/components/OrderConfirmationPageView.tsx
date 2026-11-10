@@ -27,11 +27,19 @@ interface SettlementBreakdown {
   eurosPaid: number;
 }
 
-export function OrderConfirmationPageView() {
+export interface OrderConfirmationPageViewProps {
+  initialOrderReference?: string;
+}
+
+export function OrderConfirmationPageView({
+  initialOrderReference,
+}: OrderConfirmationPageViewProps = {}) {
   const [mounted, setMounted] = React.useState(false);
   const { isAuthenticated, token, isLoading: authLoading } = useAuth();
 
-  const [orderReference, setOrderReference] = React.useState<string | null>(null);
+  const [orderReference, setOrderReference] = React.useState<string | null>(
+    initialOrderReference || null
+  );
   const [order, setOrder] = React.useState<OrderResponse | null>(null);
   const [loadingOrder, setLoadingOrder] = React.useState(true);
   const [orderError, setOrderError] = React.useState<string | null>(null);
@@ -44,8 +52,21 @@ export function OrderConfirmationPageView() {
 
   React.useEffect(() => {
     setMounted(true);
+    // Resolve reference from prop, path /order-confirmation/:id or fallback query params
+    const pathname = window.location.pathname;
+    const parts = pathname.split('/').filter(Boolean);
+    let refFromPath: string | null = null;
+    if (parts.length >= 2 && parts[0] === 'order-confirmation') {
+      refFromPath = decodeURIComponent(parts[1]);
+    }
+
     const params = new URLSearchParams(window.location.search);
-    const ref = params.get('uid') || params.get('orderRef');
+    const ref =
+      initialOrderReference ||
+      refFromPath ||
+      params.get('uid') ||
+      params.get('orderRef') ||
+      params.get('id');
     setOrderReference(ref);
 
     if (ref) {
@@ -62,7 +83,7 @@ export function OrderConfirmationPageView() {
         // Ignore sessionStorage parse errors
       }
     }
-  }, []);
+  }, [initialOrderReference]);
 
   React.useEffect(() => {
     if (!mounted || !orderReference) {
@@ -123,7 +144,10 @@ export function OrderConfirmationPageView() {
         </p>
         <Button
           onClick={() => {
-            window.location.href = `${ROUTES.login.path}?redirect=${encodeURIComponent(ROUTES.orderConfirmation.path + (orderReference ? `?uid=${encodeURIComponent(orderReference)}` : ''))}`;
+            const confirmationTarget = orderReference
+              ? ROUTES.orderConfirmation.detail(orderReference)
+              : ROUTES.orderConfirmation.path;
+            window.location.href = `${ROUTES.login.path}?redirect=${encodeURIComponent(confirmationTarget)}`;
           }}
           className="w-full gap-2"
         >

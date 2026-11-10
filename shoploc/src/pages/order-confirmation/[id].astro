@@ -1,0 +1,23 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import PageContainer from '../../components/PageContainer.astro';
+import { OrderConfirmationPageView } from '../../components/OrderConfirmationPageView';
+import { ROUTES } from '../../config/routes';
+
+const { id } = Astro.params;
+---
+
+<Layout
+  title="Confirmation de commande — ShopLoc"
+  description="Récapitulatif final de votre commande Click & Collect, détail des commerces partenaires et reçu de l'opération."
+>
+  <PageContainer
+    title="Récapitulatif de commande"
+    description="Détail complet de l'opération, retraits Click & Collect et reçu financier."
+    icon={ROUTES.orderConfirmation.icon}
+  >
+    <OrderConfirmationPageView client:load initialOrderReference={id} />
+  </PageContainer>
+</Layout>

@@ -29,12 +29,18 @@ import {
 
 type SettlementMode = 'EUROS' | 'POINTS' | 'MIXED';
 
-export function CheckoutPageView() {
+export interface CheckoutPageViewProps {
+  initialOrderReference?: string;
+}
+
+export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProps = {}) {
   const [mounted, setMounted] = React.useState(false);
   const { isAuthenticated, user, token, isLoading: authLoading } = useAuth();
   const { clear } = useCart();
 
-  const [orderReference, setOrderReference] = React.useState<string | null>(null);
+  const [orderReference, setOrderReference] = React.useState<string | null>(
+    initialOrderReference || null
+  );
   const [order, setOrder] = React.useState<OrderResponse | null>(null);
   const [loadingOrder, setLoadingOrder] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
@@ -48,10 +54,23 @@ export function CheckoutPageView() {
 
   React.useEffect(() => {
     setMounted(true);
+    if (initialOrderReference) {
+      setOrderReference(initialOrderReference);
+      return;
+    }
+
+    // Resolve reference from path /checkout/:id or query parameters (?uid= or ?orderRef=)
+    const pathname = window.location.pathname;
+    const parts = pathname.split('/').filter(Boolean);
+    let refFromPath: string | null = null;
+    if (parts.length >= 2 && parts[0] === 'checkout') {
+      refFromPath = decodeURIComponent(parts[1]);
+    }
+
     const params = new URLSearchParams(window.location.search);
-    const ref = params.get('uid') || params.get('orderRef');
+    const ref = refFromPath || params.get('uid') || params.get('orderRef') || params.get('id');
     setOrderReference(ref);
-  }, []);
+  }, [initialOrderReference]);
 
   // Fetch order and loyalty balance
   React.useEffect(() => {
@@ -72,7 +91,7 @@ export function CheckoutPageView() {
         // If order is already PAID, redirect directly to confirmation screen
         if (fetchedOrder.status === 'PAID') {
           const orderUid = fetchedOrder.uid || fetchedOrder.orderReference;
-          window.location.href = `${ROUTES.orderConfirmation.path}?uid=${encodeURIComponent(orderUid)}`;
+          window.location.href = ROUTES.orderConfirmation.detail(orderUid);
           return;
         }
 
@@ -146,7 +165,7 @@ export function CheckoutPageView() {
 
       // 4. Redirect to the final order confirmation & recap view
       const orderUid = order.uid || order.orderReference;
-      window.location.href = `${ROUTES.orderConfirmation.path}?uid=${encodeURIComponent(orderUid)}`;
+      window.location.href = ROUTES.orderConfirmation.detail(orderUid);
     } catch (err: unknown) {
       setPaymentError(
         err instanceof Error ? err.message : 'Erreur lors de la validation finale de la commande'
@@ -178,7 +197,10 @@ export function CheckoutPageView() {
         </p>
         <Button
           onClick={() => {
-            window.location.href = `${ROUTES.login.path}?redirect=${encodeURIComponent(ROUTES.checkout.path + (orderReference ? `?uid=${encodeURIComponent(orderReference)}` : ''))}`;
+            const checkoutTarget = orderReference
+              ? ROUTES.checkout.detail(orderReference)
+              : ROUTES.checkout.path;
+            window.location.href = `${ROUTES.login.path}?redirect=${encodeURIComponent(checkoutTarget)}`;
           }}
           className="w-full gap-2"
         >

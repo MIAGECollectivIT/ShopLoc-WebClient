@@ -185,10 +185,10 @@ export function CartPageView() {
 
       setValidatedSuccess(true);
 
-      // Forward to checkout summary & payment screen using order UID (SLE-185 & SLE-187)
+      // Forward to checkout summary & payment screen using route path /checkout/:id (like /stores/:id)
       setTimeout(() => {
         const orderUid = createdOrder.uid || createdOrder.orderReference;
-        window.location.href = `${ROUTES.checkout.path}?uid=${encodeURIComponent(orderUid)}`;
+        window.location.href = ROUTES.checkout.detail(orderUid);
       }, 1000);
     } catch (err: unknown) {
       setValidatedSuccess(false);
