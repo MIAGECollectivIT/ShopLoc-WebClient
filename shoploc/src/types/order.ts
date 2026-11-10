@@ -37,6 +37,7 @@ export interface OrderStoreSummaryResponse {
 export interface OrderResponse {
   id: number;
   orderReference: string;
+  uid?: string;
   customerId: string;
   customerEmail: string;
   clientCode?: string | null;

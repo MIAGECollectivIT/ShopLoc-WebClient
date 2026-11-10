@@ -45,7 +45,7 @@ export function OrderConfirmationPageView() {
   React.useEffect(() => {
     setMounted(true);
     const params = new URLSearchParams(window.location.search);
-    const ref = params.get('orderRef');
+    const ref = params.get('uid') || params.get('orderRef');
     setOrderReference(ref);
 
     if (ref) {
@@ -123,7 +123,7 @@ export function OrderConfirmationPageView() {
         </p>
         <Button
           onClick={() => {
-            window.location.href = `${ROUTES.login.path}?redirect=${encodeURIComponent(ROUTES.orderConfirmation.path + (orderReference ? `?orderRef=${orderReference}` : ''))}`;
+            window.location.href = `${ROUTES.login.path}?redirect=${encodeURIComponent(ROUTES.orderConfirmation.path + (orderReference ? `?uid=${encodeURIComponent(orderReference)}` : ''))}`;
           }}
           className="w-full gap-2"
         >

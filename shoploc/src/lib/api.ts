@@ -1283,7 +1283,9 @@ export async function createOrder(
     throw new Error(errorDetail);
   }
 
-  return (await res.json()) as OrderResponse;
+  const data = (await res.json()) as OrderResponse;
+  data.uid = data.uid || data.orderReference;
+  return data;
 }
 
 export async function getOrderByReference(
@@ -1308,7 +1310,9 @@ export async function getOrderByReference(
     throw new Error(`Order not found (HTTP ${res.status})`);
   }
 
-  return (await res.json()) as OrderResponse;
+  const data = (await res.json()) as OrderResponse;
+  data.uid = data.uid || data.orderReference;
+  return data;
 }
 
 export async function updateOrderStatus(
@@ -1341,7 +1345,9 @@ export async function updateOrderStatus(
     throw new Error(errorDetail);
   }
 
-  return (await res.json()) as OrderResponse;
+  const data = (await res.json()) as OrderResponse;
+  data.uid = data.uid || data.orderReference;
+  return data;
 }
 
 export async function getCustomerLoyaltyPoints(

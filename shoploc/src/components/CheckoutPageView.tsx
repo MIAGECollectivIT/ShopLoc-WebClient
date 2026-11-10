@@ -49,7 +49,7 @@ export function CheckoutPageView() {
   React.useEffect(() => {
     setMounted(true);
     const params = new URLSearchParams(window.location.search);
-    const ref = params.get('orderRef');
+    const ref = params.get('uid') || params.get('orderRef');
     setOrderReference(ref);
   }, []);
 
@@ -71,7 +71,8 @@ export function CheckoutPageView() {
 
         // If order is already PAID, redirect directly to confirmation screen
         if (fetchedOrder.status === 'PAID') {
-          window.location.href = `${ROUTES.orderConfirmation.path}?orderRef=${encodeURIComponent(fetchedOrder.orderReference)}`;
+          const orderUid = fetchedOrder.uid || fetchedOrder.orderReference;
+          window.location.href = `${ROUTES.orderConfirmation.path}?uid=${encodeURIComponent(orderUid)}`;
           return;
         }
 
@@ -144,7 +145,8 @@ export function CheckoutPageView() {
       );
 
       // 4. Redirect to the final order confirmation & recap view
-      window.location.href = `${ROUTES.orderConfirmation.path}?orderRef=${encodeURIComponent(order.orderReference)}`;
+      const orderUid = order.uid || order.orderReference;
+      window.location.href = `${ROUTES.orderConfirmation.path}?uid=${encodeURIComponent(orderUid)}`;
     } catch (err: unknown) {
       setPaymentError(
         err instanceof Error ? err.message : 'Erreur lors de la validation finale de la commande'
@@ -176,7 +178,7 @@ export function CheckoutPageView() {
         </p>
         <Button
           onClick={() => {
-            window.location.href = `${ROUTES.login.path}?redirect=${encodeURIComponent(ROUTES.checkout.path + (orderReference ? `?orderRef=${orderReference}` : ''))}`;
+            window.location.href = `${ROUTES.login.path}?redirect=${encodeURIComponent(ROUTES.checkout.path + (orderReference ? `?uid=${encodeURIComponent(orderReference)}` : ''))}`;
           }}
           className="w-full gap-2"
         >
@@ -394,8 +396,9 @@ export function CheckoutPageView() {
         <PaymentSimulatorCard
           hidePresets={true}
           hideReceipt={true}
+          hideReference={true}
           initialAmount={remainingEurosToPay.toFixed(2)}
-          initialReference={order.orderReference}
+          initialReference={order.uid || order.orderReference}
           onPaymentSuccess={handlePaymentApproved}
         />
       ) : (

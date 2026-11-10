@@ -48,6 +48,7 @@ export interface PaymentSimulatorCardProps {
   onPaymentSuccess?: (receipt: PaymentAuthorizationResponse) => void;
   hidePresets?: boolean;
   hideReceipt?: boolean;
+  hideReference?: boolean;
 }
 
 export function PaymentSimulatorCard({
@@ -56,6 +57,7 @@ export function PaymentSimulatorCard({
   onPaymentSuccess,
   hidePresets = false,
   hideReceipt = false,
+  hideReference = true,
 }: PaymentSimulatorCardProps = {}) {
   const [amount, setAmount] = React.useState(
     initialAmount !== undefined ? String(initialAmount) : '42.50'
@@ -65,6 +67,18 @@ export function PaymentSimulatorCard({
   const [cardNumber, setCardNumber] = React.useState('4111 2222 3333 4444');
   const [expiryDate, setExpiryDate] = React.useState('12/28');
   const [cvc, setCvc] = React.useState('421');
+
+  React.useEffect(() => {
+    if (initialReference) {
+      setReference(initialReference);
+    }
+  }, [initialReference]);
+
+  React.useEffect(() => {
+    if (initialAmount !== undefined) {
+      setAmount(String(initialAmount));
+    }
+  }, [initialAmount]);
 
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -229,9 +243,9 @@ export function PaymentSimulatorCard({
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {hideReference ? (
             <div className="space-y-1.5">
-              <Label htmlFor="payment-amount">Montant (€)</Label>
+              <Label htmlFor="payment-amount">Montant à régler (€)</Label>
               <Input
                 id="payment-amount"
                 type="text"
@@ -239,30 +253,50 @@ export function PaymentSimulatorCard({
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => handleAmountChange(e.target.value)}
-                disabled={isSubmitting}
+                disabled={isSubmitting || initialAmount !== undefined}
+                className={initialAmount !== undefined ? 'bg-muted/50 font-semibold' : ''}
               />
               {fieldErrors.amount && (
                 <p className="text-xs text-destructive">{fieldErrors.amount}</p>
               )}
             </div>
-
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="payment-reference">Référence commande</Label>
-                <span className="text-[11px] text-muted-foreground">Auto-générée</span>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="payment-amount">Montant (€)</Label>
+                <Input
+                  id="payment-amount"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => handleAmountChange(e.target.value)}
+                  disabled={isSubmitting || initialAmount !== undefined}
+                  className={initialAmount !== undefined ? 'bg-muted/50 font-semibold' : ''}
+                />
+                {fieldErrors.amount && (
+                  <p className="text-xs text-destructive">{fieldErrors.amount}</p>
+                )}
               </div>
-              <Input
-                id="payment-reference"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                disabled={isSubmitting}
-                className="font-mono text-xs bg-muted/30"
-              />
-              {fieldErrors.reference && (
-                <p className="text-xs text-destructive">{fieldErrors.reference}</p>
-              )}
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="payment-reference">Référence commande</Label>
+                  <span className="text-[11px] text-muted-foreground">Auto-générée</span>
+                </div>
+                <Input
+                  id="payment-reference"
+                  value={reference}
+                  readOnly
+                  disabled={isSubmitting}
+                  className="font-mono text-xs bg-muted/50 cursor-not-allowed"
+                />
+                {fieldErrors.reference && (
+                  <p className="text-xs text-destructive">{fieldErrors.reference}</p>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="card-holder">Titulaire de la carte</Label>
