@@ -1,0 +1,368 @@
+import * as React from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/lib/auth';
+import { getOrderByReference, getStoreById } from '@/lib/api';
+import { ROUTES } from '@/config/routes';
+import type { OrderResponse } from '@/types/order';
+import type { Store } from '@/types/store';
+import type { PaymentAuthorizationResponse } from '@/types/payment';
+import {
+  CheckCircle2,
+  MapPin,
+  Store as StoreIcon,
+  AlertTriangle,
+  Receipt,
+  ArrowRight,
+  ShoppingBag,
+  Printer,
+  Home,
+} from 'lucide-react';
+
+interface SettlementBreakdown {
+  settlementMode: string;
+  pointsUsed: number;
+  pointsDeductionEuro: number;
+  eurosPaid: number;
+}
+
+export function OrderConfirmationPageView() {
+  const [mounted, setMounted] = React.useState(false);
+  const { isAuthenticated, token, isLoading: authLoading } = useAuth();
+
+  const [orderReference, setOrderReference] = React.useState<string | null>(null);
+  const [order, setOrder] = React.useState<OrderResponse | null>(null);
+  const [loadingOrder, setLoadingOrder] = React.useState(true);
+  const [orderError, setOrderError] = React.useState<string | null>(null);
+
+  const [storeAddresses, setStoreAddresses] = React.useState<Record<number, string>>({});
+  const [paymentReceipt, setPaymentReceipt] = React.useState<PaymentAuthorizationResponse | null>(
+    null
+  );
+  const [settlementInfo, setSettlementInfo] = React.useState<SettlementBreakdown | null>(null);
+
+  React.useEffect(() => {
+    setMounted(true);
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('orderRef');
+    setOrderReference(ref);
+
+    if (ref) {
+      try {
+        const storedReceipt = sessionStorage.getItem(`order_receipt_${ref}`);
+        if (storedReceipt) {
+          setPaymentReceipt(JSON.parse(storedReceipt));
+        }
+        const storedSettlement = sessionStorage.getItem(`order_settlement_${ref}`);
+        if (storedSettlement) {
+          setSettlementInfo(JSON.parse(storedSettlement));
+        }
+      } catch {
+        // Ignore sessionStorage parse errors
+      }
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (!mounted || !orderReference) {
+      if (mounted && !orderReference) {
+        setLoadingOrder(false);
+      }
+      return;
+    }
+
+    setLoadingOrder(true);
+    setOrderError(null);
+
+    getOrderByReference(orderReference, token || undefined)
+      .then(async (fetchedOrder) => {
+        setOrder(fetchedOrder);
+
+        // Fetch store addresses for Click & Collect pickup
+        const addresses: Record<number, string> = {};
+        for (const summary of fetchedOrder.storeSummaries) {
+          try {
+            const store: Store = await getStoreById(summary.storeId);
+            if (store.address) {
+              addresses[summary.storeId] = store.address;
+            }
+          } catch {
+            addresses[summary.storeId] = 'Adresse communiquée sur le ticket de caisse';
+          }
+        }
+        setStoreAddresses(addresses);
+      })
+      .catch((err: unknown) => {
+        setOrderError(err instanceof Error ? err.message : 'Impossible de récupérer la commande');
+      })
+      .finally(() => {
+        setLoadingOrder(false);
+      });
+  }, [mounted, orderReference, token]);
+
+  if (!mounted || authLoading || loadingOrder) {
+    return (
+      <div className="space-y-6 max-w-3xl mx-auto py-10 animate-pulse">
+        <div className="h-20 bg-muted rounded-xl" />
+        <div className="h-64 bg-muted rounded-xl" />
+      </div>
+    );
+  }
+
+  // Not logged in gate
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-md mx-auto py-16 text-center space-y-4">
+        <div className="size-16 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto">
+          <AlertTriangle className="size-8" />
+        </div>
+        <h2 className="text-xl font-bold">Connexion requise</h2>
+        <p className="text-sm text-muted-foreground">
+          Vous devez être connecté pour consulter le récapitulatif de votre commande.
+        </p>
+        <Button
+          onClick={() => {
+            window.location.href = `${ROUTES.login.path}?redirect=${encodeURIComponent(ROUTES.orderConfirmation.path + (orderReference ? `?orderRef=${orderReference}` : ''))}`;
+          }}
+          className="w-full gap-2"
+        >
+          Se connecter
+        </Button>
+      </div>
+    );
+  }
+
+  // Missing order reference or not found
+  if (!orderReference || orderError || !order) {
+    return (
+      <div className="max-w-md mx-auto py-16 text-center space-y-4">
+        <div className="size-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto">
+          <AlertTriangle className="size-8" />
+        </div>
+        <h2 className="text-xl font-bold">Commande introuvable</h2>
+        <p className="text-sm text-muted-foreground">
+          {orderError || 'Aucune référence de commande valide n’a été fournie.'}
+        </p>
+        <Button
+          variant="outline"
+          onClick={() => {
+            window.location.href = ROUTES.catalog.path;
+          }}
+          className="w-full gap-2"
+        >
+          <ShoppingBag className="size-4" />
+          <span>Retourner au catalogue</span>
+        </Button>
+      </div>
+    );
+  }
+
+  const orderDate = new Date(order.createdAt).toLocaleString('fr-FR', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+  });
+
+  return (
+    <div className="max-w-3xl mx-auto py-6 space-y-6">
+      {/* 1. Hero Confirmation Card */}
+      <Card className="border-emerald-500/40 bg-card shadow-sm overflow-hidden">
+        <div className="p-6 text-center border-b border-border bg-emerald-500/5">
+          <div className="size-16 rounded-full bg-emerald-500/20 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+            <CheckCircle2 className="size-9 stroke-[2.5]" />
+          </div>
+          <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
+            Commande confirmée et réglée !
+          </h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            Passée le {orderDate} • Réf :{' '}
+            <span className="font-mono font-bold text-primary">{order.orderReference}</span>
+          </p>
+          <div className="mt-3 flex items-center justify-center gap-2">
+            <Badge className="bg-emerald-600 text-white font-semibold">
+              Statut : {order.status === 'PAID' ? 'PAYÉE' : order.status}
+            </Badge>
+            <Badge variant="outline" className="font-mono">
+              Click & Collect
+            </Badge>
+          </div>
+        </div>
+
+        {/* 2. Détail financier de l'opération */}
+        <CardContent className="p-6 space-y-4">
+          <div className="flex items-center gap-2 font-semibold text-sm text-foreground">
+            <Receipt className="size-4 text-primary" />
+            <span>Détail financier de l’opération</span>
+          </div>
+
+          <div className="p-4 bg-muted/40 rounded-xl space-y-2.5 text-xs border border-border/60">
+            <div className="flex justify-between font-semibold text-sm">
+              <span>Montant total de la commande</span>
+              <span className="font-mono text-primary font-bold">
+                {order.totalAmount.toFixed(2)} €
+              </span>
+            </div>
+
+            {settlementInfo && (
+              <>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Mode de règlement</span>
+                  <span className="font-semibold text-foreground">
+                    {settlementInfo.settlementMode === 'POINTS'
+                      ? '100% Points de fidélité'
+                      : settlementInfo.settlementMode === 'MIXED'
+                        ? 'Mixte (CB + Points)'
+                        : 'Carte Bancaire'}
+                  </span>
+                </div>
+
+                {settlementInfo.pointsUsed > 0 && (
+                  <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                    <span>Points de fidélité débités</span>
+                    <span className="font-mono font-medium">
+                      -{settlementInfo.pointsUsed} pts (
+                      {settlementInfo.pointsDeductionEuro.toFixed(2)} €)
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Montant réglé par Carte Bancaire</span>
+                  <span className="font-mono font-semibold text-foreground">
+                    {settlementInfo.eurosPaid.toFixed(2)} €
+                  </span>
+                </div>
+              </>
+            )}
+
+            {paymentReceipt && (
+              <div className="pt-2 border-t border-border/60 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                <div>
+                  <span className="block text-[10px] uppercase font-bold text-muted-foreground/80">
+                    Autorisation bancaire
+                  </span>
+                  <span className="font-mono font-semibold text-foreground">
+                    {paymentReceipt.authorizationCode}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-[10px] uppercase font-bold text-muted-foreground/80">
+                    ID Transaction
+                  </span>
+                  <span className="font-mono text-foreground">{paymentReceipt.transactionId}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 3. Détail complet par commerce & Retrait Click & Collect */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <StoreIcon className="size-4 text-primary" />
+            <h2 className="text-base font-bold text-foreground">
+              Détail de l’opération par commerce ({order.storeSummaries.length})
+            </h2>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {order.items.length} article{order.items.length > 1 ? 's' : ''} au total
+          </span>
+        </div>
+
+        {order.storeSummaries.map((summary) => {
+          const storeItems = order.items.filter((item) => item.storeId === summary.storeId);
+          const address =
+            storeAddresses[summary.storeId] || 'Adresse disponible chez le commerçant';
+
+          return (
+            <Card key={summary.storeId} className="border-border shadow-xs">
+              <CardHeader className="p-4 pb-3 border-b border-border/50 bg-muted/20">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <StoreIcon className="size-4 text-primary shrink-0" />
+                      <span>{summary.storeName}</span>
+                    </CardTitle>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <MapPin className="size-3.5 text-rose-500 shrink-0" />
+                      <span>Point de retrait : {address}</span>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="font-mono font-bold text-xs shrink-0">
+                    {summary.subtotal.toFixed(2)} €
+                  </Badge>
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-4 pt-3">
+                <div className="divide-y divide-border/40 text-xs">
+                  {storeItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="py-2 flex items-center justify-between gap-3 first:pt-0 last:pb-0"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="size-5 rounded-md bg-muted flex items-center justify-center font-mono font-semibold text-[11px] shrink-0">
+                          {item.quantity}×
+                        </span>
+                        <span className="font-medium text-foreground">{item.productName}</span>
+                      </div>
+                      <div className="text-right font-mono shrink-0">
+                        <span className="font-bold text-foreground">
+                          {item.totalPrice.toFixed(2)} €
+                        </span>
+                        <span className="block text-[10px] text-muted-foreground">
+                          ({item.unitPrice.toFixed(2)} € / u)
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* 4. Actions bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => window.print()}
+          className="gap-2 text-xs w-full sm:w-auto"
+        >
+          <Printer className="size-3.5" />
+          <span>Imprimer le récapitulatif</span>
+        </Button>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              window.location.href = ROUTES.home.path;
+            }}
+            className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <Home className="size-3.5" />
+            <span>Accueil</span>
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => {
+              window.location.href = ROUTES.catalog.path;
+            }}
+            className="gap-1.5 text-xs font-semibold"
+          >
+            <span>Continuer mes achats</span>
+            <ArrowRight className="size-3.5" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

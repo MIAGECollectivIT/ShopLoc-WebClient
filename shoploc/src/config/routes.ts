@@ -50,6 +50,11 @@ export const ROUTES = {
     label: 'Règlement',
     icon: CreditCard,
   },
+  orderConfirmation: {
+    path: '/order-confirmation',
+    label: 'Confirmation de commande',
+    icon: ShoppingCart,
+  },
   login: {
     path: '/login',
     label: 'Connexion',
