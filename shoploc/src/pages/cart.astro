@@ -1,19 +1,19 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import PageContainer from '../components/PageContainer.astro';
-import { PaymentSimulatorCard } from '../components/PaymentSimulatorCard';
+import { CartPageView } from '../components/CartPageView';
 import { ROUTES } from '../config/routes';
 ---
 
 <Layout
-  title="Mon Panier & Paiement — ShopLoc"
-  description="Validez vos commandes locales et simulez vos paiements bancaires ShopLoc."
+  title="Mon Panier — ShopLoc"
+  description="Consultez et validez vos articles Click & Collect regroupés par commerce partenaire."
 >
   <PageContainer
-    title="Mon Panier & Paiement"
-    description="Réglez vos achats Click & Collect, recharges ou sessions de stationnement via la passerelle bancaire émulée."
+    title="Mon Panier"
+    description="Vérifiez les articles sélectionnés dans vos commerces de proximité et validez votre commande."
     icon={ROUTES.cart.icon}
   >
-    <PaymentSimulatorCard client:load />
+    <CartPageView client:load />
   </PageContainer>
 </Layout>
