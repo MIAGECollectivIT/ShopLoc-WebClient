@@ -6,7 +6,7 @@ import { ProductImage } from '@/components/ProductImage';
 import { getStores, getStoreProducts } from '@/lib/api';
 import type { Store } from '@/types/store';
 import { type Product, getStockStatus } from '@/types/product';
-import { CART_STORAGE_KEY, type CartItem } from '@/components/ClientProductCatalog';
+import { useCart } from '@/hooks/useCart';
 import { ROUTES } from '@/config/routes';
 import {
   ShoppingBag,
@@ -28,6 +28,7 @@ interface ProductWithStore extends Product {
 }
 
 export function GlobalProductCatalog() {
+  const { addItem } = useCart();
   const [stores, setStores] = React.useState<Store[]>([]);
   const [products, setProducts] = React.useState<ProductWithStore[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -111,40 +112,24 @@ export function GlobalProductCatalog() {
     const qty = quantities[product.id] || 1;
     if (qty <= 0 || product.stockQuantity <= 0) return;
 
-    try {
-      const rawCart = localStorage.getItem(CART_STORAGE_KEY);
-      const cart: CartItem[] = rawCart ? JSON.parse(rawCart) : [];
+    const res = addItem({
+      productId: product.id,
+      storeId: product.storeId,
+      storeUid: product.storeUid,
+      storeName: product.storeName,
+      name: product.name,
+      price: product.price,
+      imageUrl: product.imageUrl,
+      quantity: qty,
+      maxStock: product.stockQuantity,
+    });
 
-      const existingIndex = cart.findIndex(
-        (item) => item.productId === product.id && item.storeId === product.storeId
-      );
-
-      if (existingIndex >= 0) {
-        cart[existingIndex].quantity = Math.min(
-          product.stockQuantity,
-          cart[existingIndex].quantity + qty
-        );
-      } else {
-        cart.push({
-          productId: product.id,
-          storeId: product.storeId,
-          storeName: product.storeName,
-          name: product.name,
-          price: product.price,
-          imageUrl: product.imageUrl,
-          quantity: qty,
-        });
-      }
-
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-      window.dispatchEvent(new Event('shoploc-cart-updated'));
-
+    if (res.success) {
       setToastMessage(`${qty} × "${product.name}" ajouté au panier !`);
-      setTimeout(() => setToastMessage(null), 3500);
-    } catch {
-      setToastMessage('Article ajouté au panier !');
-      setTimeout(() => setToastMessage(null), 3500);
+    } else {
+      setToastMessage(res.message || 'Article ajouté au panier !');
     }
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
   // Filtered & sorted

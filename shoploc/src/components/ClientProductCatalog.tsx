@@ -16,25 +16,20 @@ import {
   Minus,
   Check,
 } from 'lucide-react';
+import { useCart } from '@/hooks/useCart';
+import type { CartItem } from '@/types/cart';
+import { CART_STORAGE_KEY } from '@/lib/cart';
+
+export type { CartItem };
+export { CART_STORAGE_KEY };
 
 interface ClientProductCatalogProps {
   storeId: number;
   storeName?: string;
 }
 
-export interface CartItem {
-  productId: number;
-  storeId: number;
-  storeName?: string;
-  name: string;
-  price: number;
-  imageUrl?: string | null;
-  quantity: number;
-}
-
-export const CART_STORAGE_KEY = 'shoploc_cart';
-
 export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalogProps) {
+  const { addItem } = useCart();
   const [products, setProducts] = React.useState<Product[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -95,40 +90,23 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
     const qty = quantities[product.id] || 1;
     if (qty <= 0 || product.stockQuantity <= 0) return;
 
-    try {
-      const rawCart = localStorage.getItem(CART_STORAGE_KEY);
-      const cart: CartItem[] = rawCart ? JSON.parse(rawCart) : [];
+    const res = addItem({
+      productId: product.id,
+      storeId,
+      storeName: storeName || 'Boutique',
+      name: product.name,
+      price: product.price,
+      imageUrl: product.imageUrl,
+      quantity: qty,
+      maxStock: product.stockQuantity,
+    });
 
-      const existingIndex = cart.findIndex(
-        (item) => item.productId === product.id && item.storeId === storeId
-      );
-
-      if (existingIndex >= 0) {
-        cart[existingIndex].quantity = Math.min(
-          product.stockQuantity,
-          cart[existingIndex].quantity + qty
-        );
-      } else {
-        cart.push({
-          productId: product.id,
-          storeId,
-          storeName: storeName || 'Boutique',
-          name: product.name,
-          price: product.price,
-          imageUrl: product.imageUrl,
-          quantity: qty,
-        });
-      }
-
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-      window.dispatchEvent(new Event('shoploc-cart-updated'));
-
+    if (res.success) {
       setToastMessage(`${qty} × "${product.name}" ajouté au panier !`);
-      setTimeout(() => setToastMessage(null), 3500);
-    } catch {
-      setToastMessage(`Article ajouté au panier !`);
-      setTimeout(() => setToastMessage(null), 3500);
+    } else {
+      setToastMessage(res.message || 'Article ajouté au panier !');
     }
+    setTimeout(() => setToastMessage(null), 3500);
   };
 
   // Filtered & Sorted products
