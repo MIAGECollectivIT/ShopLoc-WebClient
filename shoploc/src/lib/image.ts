@@ -87,15 +87,22 @@ const LOCALHOST_MINIO = 'localhost:9000';
  *
  * Supported formats:
  * - Local in-memory blob previews (`blob:...`) or Base64 data URIs (`data:...`)
- * - Internal Docker / K8s hostnames (`http://minio:9000/store-images/...`) converted to host-accessible endpoint
+ * - Internal Docker / K8s hostnames (`http://minio:9000/store-images/...`) converted to backend streaming endpoint
  * - Remote / mobile device resolution for local dev
  * - Absolute public URLs (`https://...`) or relative paths (`/...`)
  *
  * @param imageUrl Raw image URL or path stored in the database
+ * @param storeId Optional numeric or string store identifier for streaming route
  * @returns Fully qualified, browser-accessible image URL or null if invalid/empty
  */
-export function resolveStoreImageUrl(imageUrl?: string | null): string | null {
+export function resolveStoreImageUrl(
+  imageUrl?: string | null,
+  storeId?: number | string | null
+): string | null {
   if (!imageUrl) {
+    if (storeId) {
+      return null;
+    }
     return null;
   }
 
@@ -110,7 +117,11 @@ export function resolveStoreImageUrl(imageUrl?: string | null): string | null {
   }
 
   // 2. MinIO internal docker/k8s address (unreachable directly from browser)
-  if (INTERNAL_MINIO_REGEX.test(trimmed)) {
+  // Divert through backend streaming endpoint if storeId is present
+  if (INTERNAL_MINIO_REGEX.test(trimmed) || trimmed.includes('minio-shoploc-dev')) {
+    if (storeId) {
+      return getApiEndpoint(`/v1/stores/${storeId}/image`);
+    }
     const hostname =
       typeof window !== 'undefined' && window.location.hostname
         ? window.location.hostname
@@ -125,6 +136,9 @@ export function resolveStoreImageUrl(imageUrl?: string | null): string | null {
     window.location.hostname !== 'localhost' &&
     window.location.hostname !== '127.0.0.1'
   ) {
+    if (storeId) {
+      return getApiEndpoint(`/v1/stores/${storeId}/image`);
+    }
     return trimmed.replace(LOCALHOST_MINIO, `${window.location.hostname}:9000`);
   }
 

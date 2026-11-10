@@ -13,7 +13,7 @@ interface StoreCardProps {
 
 export function StoreCard({ store }: StoreCardProps) {
   const { user, role } = useAuth();
-  const resolvedImageUrl = resolveStoreImageUrl(store.url);
+  const resolvedImageUrl = resolveStoreImageUrl(store.url, store.id);
 
   const isMyStore =
     role === 'MERCHANT' &&
