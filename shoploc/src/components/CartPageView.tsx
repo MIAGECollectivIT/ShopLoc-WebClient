@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ProductImage } from '@/components/ProductImage';
 import { useCart } from '@/hooks/useCart';
-import { getStoreById, getStoreProducts } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import { getStoreById, getStoreProducts, createOrder } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 import type { Store } from '@/types/store';
 import {
@@ -28,6 +29,8 @@ import {
   ArrowLeft,
   ShieldCheck,
   RefreshCw,
+  LogIn,
+  Lock,
 } from 'lucide-react';
 
 interface StoreInfoMap {
@@ -47,6 +50,7 @@ interface StockIssue {
 
 export function CartPageView() {
   const [mounted, setMounted] = React.useState(false);
+  const { isAuthenticated, user, token } = useAuth();
   const {
     groupedByStore,
     totalItemCount,
@@ -63,6 +67,8 @@ export function CartPageView() {
   const [isValidating, setIsValidating] = React.useState(false);
   const [stockIssues, setStockIssues] = React.useState<StockIssue[]>([]);
   const [validatedSuccess, setValidatedSuccess] = React.useState(false);
+  const [authRequiredPrompt, setAuthRequiredPrompt] = React.useState(false);
+  const [orderCreationError, setOrderCreationError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setMounted(true);
@@ -102,8 +108,16 @@ export function CartPageView() {
     });
   }, [mounted, groupedByStore]);
 
-  // Real-time stock validation check (SLE-184)
+  // Real-time stock validation check & order lock creation (SLE-184 & SLE-186)
   const handleValidateCart = async () => {
+    // 1. Enforce authentication: user must be logged in to order (RBAC)
+    if (!isAuthenticated || !token) {
+      setAuthRequiredPrompt(true);
+      return;
+    }
+
+    setAuthRequiredPrompt(false);
+    setOrderCreationError(null);
     setIsValidating(true);
     setStockIssues([]);
 
@@ -145,13 +159,43 @@ export function CartPageView() {
       if (issues.length > 0) {
         setStockIssues(issues);
         setValidatedSuccess(false);
-      } else {
-        setValidatedSuccess(true);
-        // Seamlessly forward to checkout step (Story SLE-20 / SLE-185)
-        setTimeout(() => {
-          // Will navigate to checkout when checkout page is implemented in SLE-20
-        }, 1500);
+        return;
       }
+
+      // Stock is validated! Now create the order in Sales Service to lock amounts (SLE-186)
+      const orderPayloadItems = groupedByStore.flatMap((group) =>
+        group.items.map((item) => ({
+          storeId: item.storeId,
+          storeName: item.storeName || `Commerce #${item.storeId}`,
+          productId: item.productId,
+          productName: item.name,
+          unitPrice: item.price,
+          quantity: item.quantity,
+        }))
+      );
+
+      const createdOrder = await createOrder(
+        {
+          items: orderPayloadItems,
+          clientCode: user?.clientCode || null,
+          customerEmail: user?.email || null,
+        },
+        token
+      );
+
+      setValidatedSuccess(true);
+
+      // Forward to checkout summary & payment screen (SLE-185 & SLE-187)
+      setTimeout(() => {
+        window.location.href = `${ROUTES.checkout.path}?orderRef=${encodeURIComponent(createdOrder.orderReference)}`;
+      }, 1000);
+    } catch (err: unknown) {
+      setValidatedSuccess(false);
+      setOrderCreationError(
+        err instanceof Error
+          ? err.message
+          : 'Impossible de créer la commande. Veuillez vérifier votre connexion et réessayer.'
+      );
     } finally {
       setIsValidating(false);
     }
@@ -496,27 +540,90 @@ export function CartPageView() {
                   {totalPrice.toFixed(2)} €
                 </span>
               </div>
+
+              {/* Authentication gate warning */}
+              {(!isAuthenticated || authRequiredPrompt) && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-2">
+                  <div className="flex items-start gap-2 text-amber-700 dark:text-amber-400 font-medium">
+                    <Lock className="size-4 shrink-0 mt-0.5" />
+                    <span>Connexion obligatoire</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Vous devez vous connecter à votre compte client pour valider la commande et
+                    réserver vos produits.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1.5 text-xs h-8 border-amber-500/40 text-amber-800 dark:text-amber-300 hover:bg-amber-500/10"
+                    onClick={() => {
+                      window.location.href = `${ROUTES.login.path}?redirect=${encodeURIComponent(ROUTES.cart.path)}`;
+                    }}
+                  >
+                    <LogIn className="size-3.5" />
+                    <span>Se connecter pour commander</span>
+                  </Button>
+                </div>
+              )}
+
+              {/* Order creation error */}
+              {orderCreationError && (
+                <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg text-destructive text-xs space-y-1">
+                  <div className="flex items-center gap-1.5 font-semibold">
+                    <AlertTriangle className="size-3.5" />
+                    <span>Erreur de validation</span>
+                  </div>
+                  <p>{orderCreationError}</p>
+                </div>
+              )}
+
+              {/* Order creation success */}
+              {validatedSuccess && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="size-4 shrink-0 text-emerald-600 animate-pulse" />
+                  <span>Commande créée avec succès ! Redirection vers le règlement...</span>
+                </div>
+              )}
             </CardContent>
 
             <CardFooter className="p-5 pt-4 flex flex-col gap-3.5">
-              <Button
-                type="button"
-                className="w-full gap-2 text-sm h-10 shadow-xs"
-                onClick={handleValidateCart}
-                disabled={isValidating}
-              >
-                {isValidating ? (
-                  <>
-                    <RefreshCw className="size-4 animate-spin" />
-                    <span>Contrôle des stocks...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Valider mon panier</span>
-                    <ArrowRight className="size-4" />
-                  </>
-                )}
-              </Button>
+              {!isAuthenticated ? (
+                <Button
+                  type="button"
+                  className="w-full gap-2 text-sm h-10 shadow-xs"
+                  onClick={() => {
+                    window.location.href = `${ROUTES.login.path}?redirect=${encodeURIComponent(ROUTES.cart.path)}`;
+                  }}
+                >
+                  <LogIn className="size-4" />
+                  <span>Se connecter pour valider</span>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  className="w-full gap-2 text-sm h-10 shadow-xs"
+                  onClick={handleValidateCart}
+                  disabled={isValidating || validatedSuccess}
+                >
+                  {isValidating ? (
+                    <>
+                      <RefreshCw className="size-4 animate-spin" />
+                      <span>Validation & réservation...</span>
+                    </>
+                  ) : validatedSuccess ? (
+                    <>
+                      <CheckCircle2 className="size-4 text-emerald-500" />
+                      <span>Commande validée</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Valider mon panier</span>
+                      <ArrowRight className="size-4" />
+                    </>
+                  )}
+                </Button>
+              )}
 
               <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground text-center">
                 <ShieldCheck className="size-3.5 text-emerald-500" />

@@ -1,0 +1,19 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PageContainer from '../components/PageContainer.astro';
+import { CheckoutPageView } from '../components/CheckoutPageView';
+import { ROUTES } from '../config/routes';
+---
+
+<Layout
+  title="Règlement de commande — ShopLoc"
+  description="Finalisez votre commande Click & Collect, choisissez votre mode de règlement et simulez l'autorisation bancaire."
+>
+  <PageContainer
+    title="Règlement de votre commande"
+    description="Récapitulatif multi-boutiques, sélection du mode de paiement et validation bancaire sécurisée."
+    icon={ROUTES.checkout.icon}
+  >
+    <CheckoutPageView client:load />
+  </PageContainer>
+</Layout>

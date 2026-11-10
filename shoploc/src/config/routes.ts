@@ -1,4 +1,14 @@
-import { Home, Store, BookOpen, ShoppingCart, UserPlus, LogIn, User, Users } from 'lucide-react';
+import {
+  Home,
+  Store,
+  BookOpen,
+  ShoppingCart,
+  UserPlus,
+  LogIn,
+  User,
+  Users,
+  CreditCard,
+} from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react';
 
@@ -34,6 +44,11 @@ export const ROUTES = {
     path: '/cart',
     label: 'Panier',
     icon: ShoppingCart,
+  },
+  checkout: {
+    path: '/checkout',
+    label: 'Règlement',
+    icon: CreditCard,
   },
   login: {
     path: '/login',

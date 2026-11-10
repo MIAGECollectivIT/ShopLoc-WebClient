@@ -8,6 +8,7 @@ import type {
 } from '@/types/product';
 import type { MerchantLoyaltyRate, MerchantLoyaltyRateRequest } from '@/types/loyalty';
 import type { PaymentAuthorizationRequest, PaymentAuthorizationResponse } from '@/types/payment';
+import type { CreateOrderRequest, OrderResponse } from '@/types/order';
 import type {
   UserRegistrationRequest,
   UserLoginRequest,
@@ -1250,4 +1251,125 @@ export async function getPaymentByReference(
   }
 
   return (await res.json()) as PaymentAuthorizationResponse;
+}
+
+export async function createOrder(
+  payload: CreateOrderRequest,
+  token?: string
+): Promise<OrderResponse> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint('/v1/sales/orders');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Order creation failed (HTTP ${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as OrderResponse;
+}
+
+export async function getOrderByReference(
+  reference: string,
+  token?: string
+): Promise<OrderResponse> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint(`/v1/sales/orders/${encodeURIComponent(reference)}`);
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Order not found (HTTP ${res.status})`);
+  }
+
+  return (await res.json()) as OrderResponse;
+}
+
+export async function updateOrderStatus(
+  reference: string,
+  status: string,
+  token?: string
+): Promise<OrderResponse> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint(`/v1/sales/orders/${encodeURIComponent(reference)}/status`);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ status }),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Failed to update order status (HTTP ${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as OrderResponse;
+}
+
+export async function getCustomerLoyaltyPoints(
+  customerId: string | number,
+  token?: string
+): Promise<number> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint(
+    `/v1/loyalty/customers/${encodeURIComponent(String(customerId))}/points`
+  );
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  try {
+    const res = await fetchWithTimeout(endpoint, {
+      method: 'GET',
+      headers,
+    });
+    if (!res.ok) {
+      return 0;
+    }
+    const data = await res.json();
+    return typeof data.points === 'number' ? data.points : 0;
+  } catch {
+    return 0;
+  }
 }
