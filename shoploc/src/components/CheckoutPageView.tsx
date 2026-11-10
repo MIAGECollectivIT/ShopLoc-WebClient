@@ -37,7 +37,8 @@ export function CheckoutPageView() {
   const [orderReference, setOrderReference] = React.useState<string | null>(null);
   const [order, setOrder] = React.useState<OrderResponse | null>(null);
   const [loadingOrder, setLoadingOrder] = React.useState(true);
-  const [orderError, setOrderError] = React.useState<string | null>(null);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [paymentError, setPaymentError] = React.useState<string | null>(null);
 
   const [loyaltyPoints, setLoyaltyPoints] = React.useState<number>(0);
   const [settlementMode, setSettlementMode] = React.useState<SettlementMode>('EUROS');
@@ -62,7 +63,7 @@ export function CheckoutPageView() {
     }
 
     setLoadingOrder(true);
-    setOrderError(null);
+    setLoadError(null);
 
     getOrderByReference(orderReference, token || undefined)
       .then(async (fetchedOrder) => {
@@ -85,7 +86,7 @@ export function CheckoutPageView() {
         }
       })
       .catch((err: unknown) => {
-        setOrderError(err instanceof Error ? err.message : 'Impossible de récupérer la commande');
+        setLoadError(err instanceof Error ? err.message : 'Impossible de récupérer la commande');
       })
       .finally(() => {
         setLoadingOrder(false);
@@ -145,7 +146,7 @@ export function CheckoutPageView() {
       // 4. Redirect to the final order confirmation & recap view
       window.location.href = `${ROUTES.orderConfirmation.path}?orderRef=${encodeURIComponent(order.orderReference)}`;
     } catch (err: unknown) {
-      setOrderError(
+      setPaymentError(
         err instanceof Error ? err.message : 'Erreur lors de la validation finale de la commande'
       );
       setIsProcessingPayment(false);
@@ -185,8 +186,8 @@ export function CheckoutPageView() {
     );
   }
 
-  // Missing order reference or not found
-  if (!orderReference || orderError || !order) {
+  // Missing order reference or load failure
+  if (!orderReference || (!order && loadError)) {
     return (
       <div className="max-w-md mx-auto py-16 text-center space-y-4">
         <div className="size-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto">
@@ -194,7 +195,7 @@ export function CheckoutPageView() {
         </div>
         <h2 className="text-xl font-bold">Commande introuvable</h2>
         <p className="text-sm text-muted-foreground">
-          {orderError || 'Aucune référence de commande valide n’a été fournie.'}
+          {loadError || 'Aucune référence de commande valide n’a été fournie.'}
         </p>
         <Button
           variant="outline"
@@ -208,6 +209,10 @@ export function CheckoutPageView() {
         </Button>
       </div>
     );
+  }
+
+  if (!order) {
+    return null;
   }
 
   const canUseFullPoints = maxPointsWorthInEuros >= totalAmount;
@@ -242,10 +247,10 @@ export function CheckoutPageView() {
         </Button>
       </div>
 
-      {orderError && (
+      {paymentError && (
         <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive flex items-center gap-2 text-sm">
           <AlertTriangle className="size-4 shrink-0" />
-          <span>{orderError}</span>
+          <span>{paymentError}</span>
         </div>
       )}
 
