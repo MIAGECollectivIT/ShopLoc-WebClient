@@ -123,7 +123,7 @@ interface StoreCreationSuccessCardProps {
 }
 
 function StoreCreationSuccessCard({ store, onReset }: StoreCreationSuccessCardProps) {
-  const resolvedImageUrl = resolveStoreImageUrl(store.url);
+  const resolvedImageUrl = resolveStoreImageUrl(store.url, store.id);
 
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-md border-primary/20">
