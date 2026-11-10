@@ -8,6 +8,7 @@ import type {
 } from '@/types/product';
 import type { MerchantLoyaltyRate, MerchantLoyaltyRateRequest } from '@/types/loyalty';
 import type { PaymentAuthorizationRequest, PaymentAuthorizationResponse } from '@/types/payment';
+import type { PhysicalSaleRequest, PhysicalSaleResponse } from '@/types/sales';
 import type {
   UserRegistrationRequest,
   UserLoginRequest,
@@ -1233,6 +1234,70 @@ export async function authorizePayment(
   }
 
   return (await res.json()) as PaymentAuthorizationResponse;
+}
+
+/**
+ * Records an in-store physical sale checkout for an identified customer and attributes loyalty points.
+ * Restricted to authenticated merchants and administrators.
+ */
+export async function recordPhysicalSale(
+  payload: PhysicalSaleRequest
+): Promise<PhysicalSaleResponse> {
+  const endpoint = getApiEndpoint('/v1/sales/physical');
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `L'enregistrement de la vente a échoué (HTTP ${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+      else if (errorJson.details) {
+        errorDetail = Object.values(errorJson.details).join(', ');
+      }
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as PhysicalSaleResponse;
+}
+
+/**
+ * Retrieves a physical sale transaction audit record by reference.
+ */
+export async function getPhysicalSaleByReference(reference: string): Promise<PhysicalSaleResponse> {
+  const endpoint = getApiEndpoint(`/v1/sales/physical/${encodeURIComponent(reference)}`);
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Transaction de vente physique introuvable (HTTP ${res.status})`);
+  }
+
+  return (await res.json()) as PhysicalSaleResponse;
 }
 
 export async function getPaymentByReference(

@@ -18,6 +18,7 @@ import { cn } from 'cn';
 export interface RecognizedCustomerCardProps {
   customer: CustomerIdentificationResponse;
   onReset: () => void;
+  onStartCheckout?: () => void;
   className?: string;
 }
 
@@ -28,6 +29,7 @@ export interface RecognizedCustomerCardProps {
 export function RecognizedCustomerCard({
   customer,
   onReset,
+  onStartCheckout,
   className,
 }: RecognizedCustomerCardProps) {
   const displayName = `${customer.firstName} ${customer.lastNameMasked}`.trim();
@@ -103,18 +105,19 @@ export function RecognizedCustomerCard({
           )}
         </div>
 
-        {/* Future Action Shortcuts */}
+        {/* Action Shortcuts */}
         <div className="grid grid-cols-2 gap-2 pt-1">
           <Button
             type="button"
-            variant="outline"
+            variant="default"
             size="sm"
-            disabled
-            className="h-9 text-xs gap-1.5 border-dashed"
-            title="Fonctionnalité disponible dans la prochaine étape"
+            onClick={onStartCheckout}
+            disabled={!onStartCheckout}
+            className="h-9 text-xs gap-1.5 font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+            title="Saisir le montant payé en boutique et créditer des points"
           >
-            <Coins className="size-3.5 text-amber-500" />
-            <span>Créditer points</span>
+            <Coins className="size-3.5" />
+            <span>Encaisser & Créditer</span>
           </Button>
 
           <Button
@@ -133,11 +136,11 @@ export function RecognizedCustomerCard({
         {/* Reset / New Scan Button */}
         <Button
           type="button"
-          variant="default"
+          variant="ghost"
           onClick={onReset}
-          className="w-full h-10 gap-2 mt-2 font-medium"
+          className="w-full h-9 gap-2 text-xs text-muted-foreground hover:text-foreground"
         >
-          <RotateCcw className="size-4" />
+          <RotateCcw className="size-3.5" />
           <span>Scanner ou saisir un autre client</span>
         </Button>
       </CardContent>
