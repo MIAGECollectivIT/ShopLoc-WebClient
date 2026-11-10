@@ -5,8 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { ClientCameraScanner } from '@/components/ClientCameraScanner';
 import { ManualClientCodeForm } from '@/components/ManualClientCodeForm';
 import { RecognizedCustomerCard } from '@/components/RecognizedCustomerCard';
+import { PhysicalCheckoutForm } from '@/components/PhysicalCheckoutForm';
+import { PhysicalSaleSuccessCard } from '@/components/PhysicalSaleSuccessCard';
 import { identifyCustomerByCardNumber } from '@/lib/api';
 import type { CustomerIdentificationResponse } from '@/types/user';
+import type { PhysicalSaleResponse } from '@/types/sales';
 import { QrCode, Keyboard, Camera, AlertCircle, Sparkles, Store } from 'lucide-react';
 import { cn } from 'cn';
 
@@ -16,18 +19,27 @@ export interface MerchantLoyaltyScannerProps {
   className?: string;
 }
 
+type CashierStep = 'scan' | 'customer' | 'checkout' | 'success';
+
 /**
- * Main merchant cashier component for scanning loyalty QR codes or entering 7-char client codes.
- * Coordinates camera scan, manual input fallback, API verification, and secure display.
+ * Main merchant cashier component.
+ * Coordinates:
+ * 1. Customer loyalty card scanning (camera QR or manual 7-char code).
+ * 2. GDPR-masked customer verification & recognition.
+ * 3. In-store physical checkout amount entry with decimal validation and live points simulation.
+ * 4. Confirmation receipt displaying total amount and awarded loyalty points.
  */
 export function MerchantLoyaltyScanner({
-  storeId,
+  storeId = 1,
   storeName,
   className,
 }: MerchantLoyaltyScannerProps) {
   const [activeTab, setActiveTab] = React.useState<'camera' | 'manual'>('camera');
   const [identifiedCustomer, setIdentifiedCustomer] =
     React.useState<CustomerIdentificationResponse | null>(null);
+  const [cashierStep, setCashierStep] = React.useState<CashierStep>('scan');
+  const [lastReceipt, setLastReceipt] = React.useState<PhysicalSaleResponse | null>(null);
+
   const [isLoading, setIsLoading] = React.useState(false);
   const [apiError, setApiError] = React.useState<string | null>(null);
 
@@ -41,6 +53,7 @@ export function MerchantLoyaltyScanner({
     try {
       const customer = await identifyCustomerByCardNumber(cleanCode);
       setIdentifiedCustomer(customer);
+      setCashierStep('customer');
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error
@@ -52,23 +65,66 @@ export function MerchantLoyaltyScanner({
     }
   };
 
+  const handleStartCheckout = () => {
+    setCashierStep('checkout');
+  };
+
+  const handleCheckoutSuccess = (receipt: PhysicalSaleResponse) => {
+    setLastReceipt(receipt);
+    setCashierStep('success');
+  };
+
+  const handleNewSaleForCustomer = () => {
+    setLastReceipt(null);
+    setCashierStep('checkout');
+  };
+
   const handleReset = () => {
     setIdentifiedCustomer(null);
+    setLastReceipt(null);
+    setCashierStep('scan');
     setApiError(null);
     setIsLoading(false);
   };
 
   return (
     <div className={cn('flex flex-col items-center gap-6 w-full max-w-2xl mx-auto', className)}>
-      {/* If customer is successfully identified, show the recognized card */}
-      {identifiedCustomer ? (
-        <RecognizedCustomerCard
+      {/* STEP 4: Success confirmation receipt */}
+      {cashierStep === 'success' && lastReceipt && identifiedCustomer && (
+        <PhysicalSaleSuccessCard
+          receipt={lastReceipt}
           customer={identifiedCustomer}
+          storeName={storeName}
+          onNewSale={handleNewSaleForCustomer}
           onReset={handleReset}
           className="animate-in fade-in zoom-in-95 duration-200"
         />
-      ) : (
-        /* Otherwise, show scanner controls and input methods */
+      )}
+
+      {/* STEP 3: Physical checkout form with decimal validation & live points simulation */}
+      {cashierStep === 'checkout' && identifiedCustomer && (
+        <PhysicalCheckoutForm
+          storeId={storeId}
+          storeName={storeName}
+          customer={identifiedCustomer}
+          onCancel={() => setCashierStep('customer')}
+          onSuccess={handleCheckoutSuccess}
+          className="animate-in fade-in zoom-in-95 duration-200"
+        />
+      )}
+
+      {/* STEP 2: Customer recognized card with action shortcuts */}
+      {cashierStep === 'customer' && identifiedCustomer && (
+        <RecognizedCustomerCard
+          customer={identifiedCustomer}
+          onReset={handleReset}
+          onStartCheckout={handleStartCheckout}
+          className="animate-in fade-in zoom-in-95 duration-200"
+        />
+      )}
+
+      {/* STEP 1: Scan controls and camera / manual input */}
+      {cashierStep === 'scan' && (
         <Card className="w-full border-border bg-card shadow-md">
           <CardHeader className="text-center pb-4">
             <div className="flex items-center justify-between gap-2 mb-2">
