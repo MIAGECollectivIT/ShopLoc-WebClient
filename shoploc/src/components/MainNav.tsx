@@ -1,3 +1,4 @@
+import * as React from 'react';
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -5,13 +6,23 @@ import {
   NavigationMenuList,
   navigationMenuTriggerStyle,
 } from '@/components/ui/navigation-menu';
-import { NAV_ROUTES } from '@/config/routes';
+import { NAV_ROUTES, ROUTES } from '@/config/routes';
+import { useCart } from '@/hooks/useCart';
 
 interface NavMenuProps {
   currentPath?: string;
 }
 
 export function MainNav({ currentPath = '/' }: NavMenuProps) {
+  const { totalItemCount } = useCart();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const displayCount = mounted ? totalItemCount : 0;
+
   return (
     <NavigationMenu>
       <NavigationMenuList className="gap-1">
@@ -19,6 +30,7 @@ export function MainNav({ currentPath = '/' }: NavMenuProps) {
           const Icon = item.icon;
           const isActive =
             item.path === '/' ? currentPath === '/' : currentPath.startsWith(item.path);
+          const isCart = item.path === ROUTES.cart.path;
 
           return (
             <NavigationMenuItem key={item.path}>
@@ -34,6 +46,11 @@ export function MainNav({ currentPath = '/' }: NavMenuProps) {
               >
                 <Icon className="size-4 shrink-0" />
                 <span>{item.label}</span>
+                {isCart && displayCount > 0 && (
+                  <span className="ml-1 px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-primary/15 text-primary">
+                    {displayCount}
+                  </span>
+                )}
               </NavigationMenuLink>
             </NavigationMenuItem>
           );
