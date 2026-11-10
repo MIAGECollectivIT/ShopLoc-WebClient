@@ -9,6 +9,7 @@ import type {
 import type { MerchantLoyaltyRate, MerchantLoyaltyRateRequest } from '@/types/loyalty';
 import type { PaymentAuthorizationRequest, PaymentAuthorizationResponse } from '@/types/payment';
 import type { CreateOrderRequest, OrderResponse } from '@/types/order';
+import type { PhysicalSaleRequest, PhysicalSaleResponse } from '@/types/sales';
 import type {
   UserRegistrationRequest,
   UserLoginRequest,
@@ -16,6 +17,7 @@ import type {
   AuthResponse,
   UserRole,
   VehicleResponse,
+  CustomerIdentificationResponse,
 } from '@/types/user';
 import {
   getAuthToken,
@@ -69,7 +71,7 @@ export async function fetchWithTimeout(
 }
 
 export function getApiEndpoint(path: string, _serviceUrl?: string): string {
-  const cleanPath = path.toLowerCase().replace(/^\/+/, '');
+  const cleanPath = path.toLowerCase().replace(/^\/+/, '').replace(/^v1\//, '');
 
   let serviceBase: string | undefined;
   if (
@@ -1235,6 +1237,70 @@ export async function authorizePayment(
   return (await res.json()) as PaymentAuthorizationResponse;
 }
 
+/**
+ * Records an in-store physical sale checkout for an identified customer and attributes loyalty points.
+ * Restricted to authenticated merchants and administrators.
+ */
+export async function recordPhysicalSale(
+  payload: PhysicalSaleRequest
+): Promise<PhysicalSaleResponse> {
+  const endpoint = getApiEndpoint('/v1/sales/physical');
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `L'enregistrement de la vente a échoué (HTTP ${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+      else if (errorJson.details) {
+        errorDetail = Object.values(errorJson.details).join(', ');
+      }
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as PhysicalSaleResponse;
+}
+
+/**
+ * Retrieves a physical sale transaction audit record by reference.
+ */
+export async function getPhysicalSaleByReference(reference: string): Promise<PhysicalSaleResponse> {
+  const endpoint = getApiEndpoint(`/v1/sales/physical/${encodeURIComponent(reference)}`);
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Transaction de vente physique introuvable (HTTP ${res.status})`);
+  }
+
+  return (await res.json()) as PhysicalSaleResponse;
+}
+
 export async function getPaymentByReference(
   reference: string
 ): Promise<PaymentAuthorizationResponse> {
@@ -1251,6 +1317,52 @@ export async function getPaymentByReference(
   }
 
   return (await res.json()) as PaymentAuthorizationResponse;
+}
+
+/**
+ * Identifies a customer by their 7-character loyalty code or scanned QR code (SLE-56).
+ * Restricted to authenticated merchants and administrators.
+ * Returns masked customer profile (GDPR compliant).
+ */
+export async function identifyCustomerByCardNumber(
+  clientCode: string
+): Promise<CustomerIdentificationResponse> {
+  const normalizedCode = clientCode.trim().toUpperCase();
+  const endpoint = getUsersApiEndpoint(
+    `/v1/users/loyalty-cards/${encodeURIComponent(normalizedCode)}`
+  );
+  const token = getAuthToken();
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise pour identifier un client.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès réservé aux commerçants partenaires et administrateurs.');
+  }
+  if (res.status === 404) {
+    throw new Error(`Aucun compte client trouvé pour le code fidélité "${normalizedCode}".`);
+  }
+  if (!res.ok) {
+    let detail = `Erreur lors de l'identification du client (${res.status})`;
+    try {
+      const err = await res.json();
+      if (err.message) detail = err.message;
+      else if (err.detail) detail = err.detail;
+    } catch {
+      // Ignore JSON parse error
+    }
+    throw new Error(detail);
+  }
+
+  return (await res.json()) as CustomerIdentificationResponse;
 }
 
 export async function createOrder(

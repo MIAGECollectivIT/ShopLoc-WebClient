@@ -28,9 +28,9 @@ const store = initialStore ?? (id ? await getStoreById(id).catch(() => null) : n
       <div class="space-y-6">
         {/* Store Banner Card */}
         <Card className="overflow-hidden border-border bg-card">
-          {resolveStoreImageUrl(store.url) ? (
+          {resolveStoreImageUrl(store.url, store.uid || store.id) ? (
             <img
-              src={resolveStoreImageUrl(store.url)}
+              src={resolveStoreImageUrl(store.url, store.uid || store.id)}
               alt={store.name}
               class="h-64 sm:h-72 w-full object-cover"
             />
@@ -51,7 +51,7 @@ const store = initialStore ?? (id ? await getStoreById(id).catch(() => null) : n
         </Card>
 
         {/* Dynamic Catalog Section (Merchant Dashboard or Customer Storefront) */}
-        <StoreProductsView client:load store={store} />
+        <StoreProductsView client:only="react" store={store} />
       </div>
     )}
 
