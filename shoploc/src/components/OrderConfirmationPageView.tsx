@@ -3,7 +3,12 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
-import { getOrderByReference, getStoreById } from '@/lib/api';
+import {
+  getOrderByReference,
+  getStoreById,
+  downloadOrderReceiptPdf,
+  triggerBlobDownload,
+} from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 import type { OrderResponse } from '@/types/order';
 import type { Store } from '@/types/store';
@@ -18,6 +23,9 @@ import {
   ShoppingBag,
   Printer,
   Home,
+  FileDown,
+  Mail,
+  Loader2,
 } from 'lucide-react';
 
 interface SettlementBreakdown {
@@ -49,6 +57,26 @@ export function OrderConfirmationPageView({
     null
   );
   const [settlementInfo, setSettlementInfo] = React.useState<SettlementBreakdown | null>(null);
+  const [isDownloading, setIsDownloading] = React.useState(false);
+  const [downloadError, setDownloadError] = React.useState<string | null>(null);
+
+  const handleDownloadPdf = async () => {
+    if (!order) return;
+    const targetId = order.uid || order.orderReference;
+    try {
+      setIsDownloading(true);
+      setDownloadError(null);
+      const { blob, filename } = await downloadOrderReceiptPdf(targetId, token || undefined);
+      triggerBlobDownload(blob, filename);
+    } catch (err) {
+      console.error('Erreur téléchargement PDF:', err);
+      setDownloadError(
+        err instanceof Error ? err.message : 'Impossible de télécharger la preuve d’achat.'
+      );
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   React.useEffect(() => {
     setMounted(true);
@@ -210,6 +238,22 @@ export function OrderConfirmationPageView({
               Click & Collect
             </Badge>
           </div>
+
+          {/* Notice email & preuve d'achat (SLE-21) */}
+          <div className="mt-4 p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 text-left flex items-start gap-3">
+            <Mail className="size-4 mt-0.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <div className="space-y-1">
+              <p className="font-semibold text-emerald-900 dark:text-emerald-200">
+                Preuve d'achat envoyée par email
+              </p>
+              <p className="text-emerald-700 dark:text-emerald-300 leading-relaxed">
+                Un email de confirmation avec votre{' '}
+                <strong>preuve d'achat officielle en pièce jointe (PDF)</strong>
+                {order.customerEmail ? ` a été envoyé à ${order.customerEmail}` : ' a été généré'}.
+                Présentez votre QR Code ou votre carte physique pour le retrait en boutique.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* 2. Détail financier de l'opération */}
@@ -350,17 +394,41 @@ export function OrderConfirmationPageView({
         })}
       </div>
 
+      {/* Error alert if download fails */}
+      {downloadError && (
+        <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
+          <AlertTriangle className="size-4 shrink-0" />
+          <span>{downloadError}</span>
+        </div>
+      )}
+
       {/* 4. Actions bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => window.print()}
-          className="gap-2 text-xs w-full sm:w-auto"
-        >
-          <Printer className="size-3.5" />
-          <span>Imprimer le récapitulatif</span>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <Button
+            size="sm"
+            disabled={isDownloading}
+            onClick={handleDownloadPdf}
+            className="gap-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs w-full sm:w-auto"
+          >
+            {isDownloading ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <FileDown className="size-3.5" />
+            )}
+            <span>Télécharger la preuve d'achat (PDF)</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.print()}
+            className="gap-2 text-xs w-full sm:w-auto"
+          >
+            <Printer className="size-3.5" />
+            <span>Imprimer</span>
+          </Button>
+        </div>
 
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <Button
