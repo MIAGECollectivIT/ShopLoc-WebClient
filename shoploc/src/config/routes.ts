@@ -3,6 +3,7 @@ import {
   Store,
   BookOpen,
   ShoppingCart,
+  ShoppingBag,
   UserPlus,
   LogIn,
   User,
@@ -45,6 +46,11 @@ export const ROUTES = {
     path: '/cart',
     label: 'Panier',
     icon: ShoppingCart,
+  },
+  orders: {
+    path: '/orders',
+    label: 'Mes commandes',
+    icon: ShoppingBag,
   },
   checkout: {
     path: '/checkout',

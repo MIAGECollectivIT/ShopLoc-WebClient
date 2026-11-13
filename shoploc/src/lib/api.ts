@@ -1520,7 +1520,9 @@ export async function getCustomerOrders(token?: string): Promise<OrderResponse[]
 
 export async function downloadOrderReceiptPdf(
   identifier: string,
-  token?: string
+  token?: string,
+  orderReference?: string,
+  orderStatus?: string
 ): Promise<{ blob: Blob; filename: string }> {
   const authToken = token || getAuthToken();
   const endpoint = getApiEndpoint(`/v1/sales/orders/${encodeURIComponent(identifier)}/receipt`);
@@ -1537,7 +1539,10 @@ export async function downloadOrderReceiptPdf(
   });
 
   if (!res.ok) {
-    let errorDetail = `Échec du téléchargement de la preuve d'achat (HTTP ${res.status})`;
+    const isCompleted = orderStatus && orderStatus.toUpperCase() === 'COMPLETED';
+    let errorDetail = isCompleted
+      ? `Échec du téléchargement de la facture (HTTP ${res.status})`
+      : `Échec du téléchargement du bon de retrait (HTTP ${res.status})`;
     try {
       const errJson = await res.json();
       if (errJson.message) errorDetail = errJson.message;
@@ -1552,7 +1557,24 @@ export async function downloadOrderReceiptPdf(
   }
 
   const blob = await res.blob();
-  const filename = `preuve-achat-${identifier}.pdf`;
+
+  // Prefer filename from Content-Disposition header if provided by backend
+  let filename = '';
+  const disposition = res.headers.get('content-disposition');
+  if (disposition) {
+    const filenameMatch = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+    if (filenameMatch && filenameMatch[1]) {
+      filename = filenameMatch[1].replace(/['"]/g, '').trim();
+    }
+  }
+
+  // Fallback to orderReference if provided, or identifier
+  if (!filename) {
+    const ref = orderReference || identifier;
+    const isCompleted = orderStatus && orderStatus.toUpperCase() === 'COMPLETED';
+    filename = isCompleted ? `facture-${ref}.pdf` : `bon-de-retrait-${ref}.pdf`;
+  }
+
   return { blob, filename };
 }
 

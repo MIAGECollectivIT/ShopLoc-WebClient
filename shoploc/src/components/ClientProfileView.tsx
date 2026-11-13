@@ -6,7 +6,6 @@ import type { UserResponse } from '@/types/user';
 import { ClientQrCodeCard } from './ClientQrCodeCard';
 import { FrenchLicensePlateBadge } from './FrenchLicensePlateBadge';
 import { ManageVehiclesDialog } from './ManageVehiclesDialog';
-import { CustomerOrdersSection } from './CustomerOrdersSection';
 import {
   Card,
   CardContent,
@@ -486,11 +485,11 @@ export function ClientProfileView() {
             </a>
 
             <a
-              href={ROUTES.cart.path}
+              href={ROUTES.orders.path}
               className={buttonVariants({
                 variant: 'outline',
                 size: 'default',
-                className: 'flex-1 gap-2',
+                className: 'flex-1 gap-2 cursor-pointer',
               })}
             >
               <ShoppingBag className="size-4 text-primary" />
@@ -532,13 +531,6 @@ export function ClientProfileView() {
           </div>
         )}
       </div>
-
-      {/* Customer Click & Collect Orders Section */}
-      {isClient && (
-        <div className="mt-8">
-          <CustomerOrdersSection />
-        </div>
-      )}
     </div>
   );
 }

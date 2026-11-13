@@ -21,7 +21,6 @@ import {
   Receipt,
   ArrowRight,
   ShoppingBag,
-  Printer,
   Home,
   FileDown,
   Mail,
@@ -62,16 +61,25 @@ export function OrderConfirmationPageView({
 
   const handleDownloadPdf = async () => {
     if (!order) return;
-    const targetId = order.uid || order.orderReference;
+    const targetId = order.orderReference || order.uid;
     try {
       setIsDownloading(true);
       setDownloadError(null);
-      const { blob, filename } = await downloadOrderReceiptPdf(targetId, token || undefined);
+      const { blob, filename } = await downloadOrderReceiptPdf(
+        targetId,
+        token || undefined,
+        order.orderReference,
+        order.status
+      );
       triggerBlobDownload(blob, filename);
     } catch (err) {
       console.error('Erreur téléchargement PDF:', err);
       setDownloadError(
-        err instanceof Error ? err.message : 'Impossible de télécharger la preuve d’achat.'
+        err instanceof Error
+          ? err.message
+          : order.status === 'COMPLETED'
+            ? 'Impossible de télécharger la facture.'
+            : 'Impossible de télécharger le bon de retrait.'
       );
     } finally {
       setIsDownloading(false);
@@ -224,33 +232,71 @@ export function OrderConfirmationPageView({
             <CheckCircle2 className="size-9 stroke-[2.5]" />
           </div>
           <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
-            Commande confirmée et réglée !
+            {order.status === 'COMPLETED'
+              ? 'Articles récupérés en boutique !'
+              : 'Commande confirmée et réglée !'}
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
             Passée le {orderDate} • Réf :{' '}
             <span className="font-mono font-bold text-primary">{order.orderReference}</span>
           </p>
           <div className="mt-3 flex items-center justify-center gap-2">
-            <Badge className="bg-emerald-600 text-white font-semibold">
-              Statut : {order.status === 'PAID' ? 'PAYÉE' : order.status}
+            <Badge
+              className={
+                order.status === 'COMPLETED'
+                  ? 'bg-blue-600 text-white font-semibold'
+                  : 'bg-emerald-600 text-white font-semibold'
+              }
+            >
+              Statut :{' '}
+              {order.status === 'PAID'
+                ? 'PAYÉE'
+                : order.status === 'COMPLETED'
+                  ? 'ARTICLES RÉCUPÉRÉS'
+                  : order.status}
             </Badge>
             <Badge variant="outline" className="font-mono">
               Click & Collect
             </Badge>
           </div>
+          {order.status === 'COMPLETED' && order.updatedAt && (
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 font-medium">
+              Articles récupérés le{' '}
+              {new Date(order.updatedAt).toLocaleString('fr-FR', {
+                dateStyle: 'long',
+                timeStyle: 'short',
+              })}
+            </p>
+          )}
 
-          {/* Notice email & preuve d'achat (SLE-21) */}
+          {/* Notice email & preuve d'achat / facture (SLE-21) */}
           <div className="mt-4 p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 text-left flex items-start gap-3">
             <Mail className="size-4 mt-0.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <div className="space-y-1">
               <p className="font-semibold text-emerald-900 dark:text-emerald-200">
-                Preuve d'achat envoyée par email
+                {order.status === 'COMPLETED'
+                  ? 'Facture d’achat disponible'
+                  : 'Bon de retrait envoyé par email'}
               </p>
               <p className="text-emerald-700 dark:text-emerald-300 leading-relaxed">
-                Un email de confirmation avec votre{' '}
-                <strong>preuve d'achat officielle en pièce jointe (PDF)</strong>
-                {order.customerEmail ? ` a été envoyé à ${order.customerEmail}` : ' a été généré'}.
-                Présentez votre QR Code ou votre carte physique pour le retrait en boutique.
+                {order.status === 'COMPLETED' ? (
+                  <>
+                    Votre <strong>facture officielle d’achat (PDF)</strong>
+                    {order.customerEmail
+                      ? ` a été transmise à ${order.customerEmail}`
+                      : ' est disponible'}
+                    . Vos articles ont déjà été récupérés auprès de nos commerçants partenaires.
+                  </>
+                ) : (
+                  <>
+                    Un email de confirmation avec votre{' '}
+                    <strong>bon de retrait officiel en pièce jointe (PDF)</strong>
+                    {order.customerEmail
+                      ? ` a été envoyé à ${order.customerEmail}`
+                      : ' a été généré'}
+                    . Présentez votre QR Code ou votre carte physique pour le retrait en boutique.
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -409,24 +455,18 @@ export function OrderConfirmationPageView({
             size="sm"
             disabled={isDownloading}
             onClick={handleDownloadPdf}
-            className="gap-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-xs w-full sm:w-auto"
+            className="cursor-pointer gap-2 text-xs !bg-emerald-600 hover:!bg-emerald-700 !text-white font-medium shadow-xs w-full sm:w-auto"
           >
             {isDownloading ? (
               <Loader2 className="size-3.5 animate-spin" />
             ) : (
               <FileDown className="size-3.5" />
             )}
-            <span>Télécharger la preuve d'achat (PDF)</span>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.print()}
-            className="gap-2 text-xs w-full sm:w-auto"
-          >
-            <Printer className="size-3.5" />
-            <span>Imprimer</span>
+            <span>
+              {order.status === 'COMPLETED'
+                ? 'Télécharger la facture (PDF)'
+                : 'Télécharger le bon de retrait (PDF)'}
+            </span>
           </Button>
         </div>
 
@@ -437,7 +477,7 @@ export function OrderConfirmationPageView({
             onClick={() => {
               window.location.href = ROUTES.home.path;
             }}
-            className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            className="cursor-pointer gap-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
             <Home className="size-3.5" />
             <span>Accueil</span>

@@ -1,4 +1,5 @@
-export type OrderStatus = 'PENDING_PAYMENT' | 'PAID' | 'CANCELLED' | 'DELIVERED';
+export type OrderStatus =
+  'PENDING_PAYMENT' | 'PAID' | 'CANCELLED' | 'DELIVERED' | 'COMPLETED' | 'EXPIRED';
 
 export interface CreateOrderItemRequest {
   storeId: number;
@@ -48,4 +49,6 @@ export interface OrderResponse {
   createdAt: string;
   storeSummaries: OrderStoreSummaryResponse[];
   items: OrderItemResponse[];
+  receiptSentAt?: string | null;
+  updatedAt?: string | null;
 }
