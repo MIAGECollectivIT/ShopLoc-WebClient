@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { updateUserProfile } from '@/lib/api';
+import { ROUTES } from '@/config/routes';
 
 interface AppSidebarProps {
   currentPath?: string;
@@ -255,7 +256,7 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                 </SidebarMenuItem>
 
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<a href="/cart" />}>
+                  <SidebarMenuButton render={<a href={ROUTES.orders.path} />}>
                     <ShoppingBag className="size-4 text-muted-foreground" />
                     <span>Mes commandes</span>
                   </SidebarMenuButton>

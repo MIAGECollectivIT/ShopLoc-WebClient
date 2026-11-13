@@ -485,11 +485,11 @@ export function ClientProfileView() {
             </a>
 
             <a
-              href={ROUTES.cart.path}
+              href={ROUTES.orders.path}
               className={buttonVariants({
                 variant: 'outline',
                 size: 'default',
-                className: 'flex-1 gap-2',
+                className: 'flex-1 gap-2 cursor-pointer',
               })}
             >
               <ShoppingBag className="size-4 text-primary" />

@@ -1491,3 +1491,132 @@ export async function getCustomerLoyaltyPoints(
     return 0;
   }
 }
+
+export async function getCustomerOrders(token?: string): Promise<OrderResponse[]> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint('/v1/sales/orders');
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Erreur lors de la récupération des commandes (HTTP ${res.status})`);
+  }
+
+  const list = (await res.json()) as OrderResponse[];
+  return list.map((item) => {
+    item.uid = item.uid || item.orderReference;
+    return item;
+  });
+}
+
+export async function downloadOrderReceiptPdf(
+  identifier: string,
+  token?: string,
+  orderReference?: string,
+  orderStatus?: string
+): Promise<{ blob: Blob; filename: string }> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint(`/v1/sales/orders/${encodeURIComponent(identifier)}/receipt`);
+  const headers: Record<string, string> = {
+    Accept: 'application/pdf, application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    const isCompleted = orderStatus && orderStatus.toUpperCase() === 'COMPLETED';
+    let errorDetail = isCompleted
+      ? `Échec du téléchargement de la facture (HTTP ${res.status})`
+      : `Échec du téléchargement du bon de retrait (HTTP ${res.status})`;
+    try {
+      const errJson = await res.json();
+      if (errJson.message) errorDetail = errJson.message;
+      else if (errJson.error) errorDetail = errJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/pdf')) {
+    throw new Error("Le serveur n'a pas renvoyé un fichier PDF valide.");
+  }
+
+  const blob = await res.blob();
+
+  // Prefer filename from Content-Disposition header if provided by backend
+  let filename = '';
+  const disposition = res.headers.get('content-disposition');
+  if (disposition) {
+    const filenameMatch = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+    if (filenameMatch && filenameMatch[1]) {
+      filename = filenameMatch[1].replace(/['"]/g, '').trim();
+    }
+  }
+
+  // Fallback to orderReference if provided, or identifier
+  if (!filename) {
+    const ref = orderReference || identifier;
+    const isCompleted = orderStatus && orderStatus.toUpperCase() === 'COMPLETED';
+    filename = isCompleted ? `facture-${ref}.pdf` : `bon-de-retrait-${ref}.pdf`;
+  }
+
+  return { blob, filename };
+}
+
+export async function resendOrderReceiptEmail(
+  identifier: string,
+  token?: string
+): Promise<{ success: boolean; orderReference: string }> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint(
+    `/v1/sales/orders/${encodeURIComponent(identifier)}/resend-receipt`
+  );
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Échec de l'envoi de l'email (HTTP ${res.status})`;
+    try {
+      const errJson = await res.json();
+      if (errJson.message) errorDetail = errJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as { success: boolean; orderReference: string };
+}
+
+export function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
