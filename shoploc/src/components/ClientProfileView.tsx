@@ -6,6 +6,7 @@ import type { UserResponse } from '@/types/user';
 import { ClientQrCodeCard } from './ClientQrCodeCard';
 import { FrenchLicensePlateBadge } from './FrenchLicensePlateBadge';
 import { ManageVehiclesDialog } from './ManageVehiclesDialog';
+import { UserActivityGaugeCard } from './UserActivityGaugeCard';
 import {
   Card,
   CardContent,
@@ -528,6 +529,9 @@ export function ClientProfileView() {
                 </CardHeader>
               </Card>
             )}
+
+            {/* Dynamic Activity Gauge & VFP Status (SLE-44 / SLE-164) */}
+            <UserActivityGaugeCard userId={effectiveUser.id} />
 
             {/* Security & benefits reminder */}
             <div className="p-4 rounded-xl border bg-muted/30 text-xs text-muted-foreground space-y-2">

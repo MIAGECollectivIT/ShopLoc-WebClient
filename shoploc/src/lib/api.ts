@@ -6,7 +6,11 @@ import type {
   ProductUpdateRequest,
   StockUpdateRequest,
 } from '@/types/product';
-import type { MerchantLoyaltyRate, MerchantLoyaltyRateRequest } from '@/types/loyalty';
+import type {
+  MerchantLoyaltyRate,
+  MerchantLoyaltyRateRequest,
+  UserActivityEvaluation,
+} from '@/types/loyalty';
 import type { PaymentAuthorizationRequest, PaymentAuthorizationResponse } from '@/types/payment';
 import type { CreateOrderRequest, OrderResponse } from '@/types/order';
 import type { PhysicalSaleRequest, PhysicalSaleResponse } from '@/types/sales';
@@ -1209,6 +1213,44 @@ export async function updateStoreLoyaltyRate(
   }
 
   return (await res.json()) as MerchantLoyaltyRate;
+}
+
+/**
+ * Retrieves the 15-day sliding window activity evaluation and VFP status for a user (SLE-44 / SLE-164).
+ * Restricted to the user themselves or administrators.
+ */
+export async function getUserActivityEvaluation(
+  userId: string | number
+): Promise<UserActivityEvaluation> {
+  const endpoint = getApiEndpoint(
+    `/v1/loyalty/users/${encodeURIComponent(String(userId))}/activity-evaluation`
+  );
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour consulter votre activité.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès refusé : vous ne pouvez consulter que votre propre activité.');
+  }
+  if (!res.ok) {
+    let errorDetail = `Impossible de récupérer l'évaluation d'activité (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as UserActivityEvaluation;
 }
 
 export async function authorizePayment(
