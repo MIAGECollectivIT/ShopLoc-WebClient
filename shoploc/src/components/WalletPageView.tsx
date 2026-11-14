@@ -172,16 +172,18 @@ export function WalletPageView() {
     return `${val.toFixed(2).replace('.', ',')} €`;
   };
 
-  // Format date
+  // Format date with European municipal timezone enforcement
   const formatDate = (isoStr: string) => {
     try {
       const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return isoStr;
       return new Intl.DateTimeFormat('fr-FR', {
         day: '2-digit',
         month: 'short',
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'Europe/Paris',
       }).format(d);
     } catch {
       return isoStr;
@@ -683,23 +685,30 @@ export function WalletPageView() {
           ) : (
             <div className="divide-y divide-border/50">
               {filteredTransactions.map((tx) => {
+                const isFailed = tx.status === 'FAILED';
                 const isTopup = tx.type === 'TOPUP';
 
                 return (
                   <div
                     key={tx.id || tx.transactionReference}
-                    className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/15 transition-colors"
+                    className={`p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-muted/15 transition-colors ${
+                      isFailed ? 'bg-destructive/5' : ''
+                    }`}
                   >
                     {/* Left: Icon, Type, Merchant Name & Meta */}
                     <div className="flex items-start gap-3.5">
                       <div
                         className={`size-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                          isTopup
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                            : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
+                          isFailed
+                            ? 'bg-destructive/10 text-destructive border border-destructive/20'
+                            : isTopup
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
                         }`}
                       >
-                        {isTopup ? (
+                        {isFailed ? (
+                          <AlertTriangle className="size-5" />
+                        ) : isTopup ? (
                           <ArrowUpRight className="size-5" />
                         ) : (
                           <ArrowDownLeft className="size-5" />
@@ -709,22 +718,28 @@ export function WalletPageView() {
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-sm font-bold text-foreground">
-                            {isTopup ? 'Rechargement Carte Bancaire' : 'Paiement en commerce'}
+                            {isFailed
+                              ? 'Rechargement échoué'
+                              : isTopup
+                                ? 'Rechargement Carte Bancaire'
+                                : 'Paiement en commerce'}
                           </span>
                           <Badge
-                            variant={isTopup ? 'outline' : 'secondary'}
+                            variant={isFailed ? 'destructive' : isTopup ? 'outline' : 'secondary'}
                             className={`text-[10px] px-1.5 py-0 font-medium ${
-                              isTopup
-                                ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-                                : 'text-indigo-600 dark:text-indigo-400 border-indigo-500/30 bg-indigo-500/10'
+                              isFailed
+                                ? 'bg-destructive/15 text-destructive border-destructive/30'
+                                : isTopup
+                                  ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                                  : 'text-indigo-600 dark:text-indigo-400 border-indigo-500/30 bg-indigo-500/10'
                             }`}
                           >
-                            {isTopup ? '+ TOPUP' : '- DÉBIT'}
+                            {isFailed ? 'ÉCHEC' : isTopup ? '+ TOPUP' : '- DÉBIT'}
                           </Badge>
                         </div>
 
                         {/* Store name display (mandatory requirement for SLE-18 on debits) */}
-                        {!isTopup && (
+                        {!isTopup && !isFailed && (
                           <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground bg-muted/40 px-2 py-0.5 rounded-md w-fit border border-border/40">
                             <Store className="size-3.5 text-primary shrink-0" />
                             <span>Commerce : {tx.storeName || 'Commerce partenaire ShopLoc'}</span>
@@ -746,6 +761,12 @@ export function WalletPageView() {
                               </span>
                             </>
                           )}
+                          {isFailed && (
+                            <>
+                              <span>•</span>
+                              <span className="text-destructive font-medium">{tx.description}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -754,15 +775,19 @@ export function WalletPageView() {
                     <div className="sm:text-right flex sm:flex-col items-center sm:items-end justify-between sm:justify-center border-t sm:border-t-0 pt-2 sm:pt-0 border-border/30">
                       <div
                         className={`text-base sm:text-lg font-extrabold ${
-                          isTopup
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : 'text-foreground font-semibold'
+                          isFailed
+                            ? 'text-muted-foreground line-through'
+                            : isTopup
+                              ? 'text-emerald-600 dark:text-emerald-400'
+                              : 'text-foreground font-semibold'
                         }`}
                       >
-                        {isTopup ? '+' : '-'} {formatMoney(tx.amount)}
+                        {isFailed ? '' : isTopup ? '+' : '-'} {formatMoney(tx.amount)}
                       </div>
                       <div className="text-[11px] text-muted-foreground font-mono">
-                        Solde après : {formatMoney(tx.balanceAfter)}
+                        {isFailed
+                          ? 'Solde inchangé'
+                          : `Solde après : ${formatMoney(tx.balanceAfter)}`}
                       </div>
                     </div>
                   </div>
