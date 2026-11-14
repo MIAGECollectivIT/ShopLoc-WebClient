@@ -9,6 +9,7 @@ import {
   User,
   Users,
   CreditCard,
+  Wallet,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react';
@@ -51,6 +52,11 @@ export const ROUTES = {
     path: '/orders',
     label: 'Mes commandes',
     icon: ShoppingBag,
+  },
+  wallet: {
+    path: '/wallet',
+    label: 'Portefeuille',
+    icon: Wallet,
   },
   checkout: {
     path: '/checkout',

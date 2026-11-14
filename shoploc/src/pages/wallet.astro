@@ -1,0 +1,19 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PageContainer from '../components/PageContainer.astro';
+import { WalletPageView } from '../components/WalletPageView';
+import { ROUTES } from '../config/routes';
+---
+
+<Layout
+  title="Portefeuille & Solde Citoyen — ShopLoc"
+  description="Consultez votre solde en temps réel, rechargez votre porte-monnaie en ligne par carte bancaire et suivez vos transactions locales."
+>
+  <PageContainer
+    title="Portefeuille & Solde Citoyen"
+    description="Gérez votre solde disponible en temps réel, rechargez par carte bancaire de 5 € à 100 € et consultez l'historique complet de vos dépenses locales."
+    icon={ROUTES.wallet.icon}
+  >
+    <WalletPageView client:only="react" />
+  </PageContainer>
+</Layout>

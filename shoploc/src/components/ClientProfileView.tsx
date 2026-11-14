@@ -32,6 +32,7 @@ import {
   IdCard,
   Plus,
   Settings2,
+  Wallet,
 } from 'lucide-react';
 
 export function ClientProfileView() {
@@ -495,6 +496,20 @@ export function ClientProfileView() {
               <ShoppingBag className="size-4 text-primary" />
               <span>Mes commandes</span>
             </a>
+
+            {isClient && (
+              <a
+                href={ROUTES.wallet.path}
+                className={buttonVariants({
+                  variant: 'outline',
+                  size: 'default',
+                  className: 'flex-1 gap-2 cursor-pointer',
+                })}
+              >
+                <Wallet className="size-4 text-primary" />
+                <span>Mon portefeuille</span>
+              </a>
+            )}
           </div>
         </div>
 
