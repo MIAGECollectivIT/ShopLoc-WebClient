@@ -1,12 +1,20 @@
 import * as React from 'react';
 import { useAuth } from '@/lib/auth';
-import { getCurrentUserProfile, addVehicle, updateVehicle, deleteVehicle } from '@/lib/api';
+import {
+  getCurrentUserProfile,
+  addVehicle,
+  updateVehicle,
+  deleteVehicle,
+  getUserVfpStatus,
+} from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 import type { UserResponse } from '@/types/user';
+import type { UserVfpStatus } from '@/types/loyalty';
 import { ClientQrCodeCard } from './ClientQrCodeCard';
 import { FrenchLicensePlateBadge } from './FrenchLicensePlateBadge';
 import { ManageVehiclesDialog } from './ManageVehiclesDialog';
 import { UserActivityGaugeCard } from './UserActivityGaugeCard';
+import { VfpBadge } from './VfpBadge';
 import {
   Card,
   CardContent,
@@ -44,6 +52,7 @@ export function ClientProfileView() {
     setMounted(true);
   }, []);
   const [profile, setProfile] = React.useState<UserResponse | null>(null);
+  const [vfpStatus, setVfpStatus] = React.useState<UserVfpStatus | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [isManageVehiclesOpen, setIsManageVehiclesOpen] = React.useState(false);
@@ -62,6 +71,13 @@ export function ClientProfileView() {
         const data = await getCurrentUserProfile();
         if (isMounted) {
           setProfile(data);
+          if (data?.id) {
+            getUserVfpStatus(data.id)
+              .then((vfp) => {
+                if (isMounted) setVfpStatus(vfp);
+              })
+              .catch(() => {});
+          }
         }
       } catch (err) {
         console.warn('Impossible de charger le profil via API, fallback sur la session:', err);
@@ -259,6 +275,7 @@ export function ClientProfileView() {
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                 {fullName}
               </h2>
+              {vfpStatus?.isVfp && <VfpBadge isVfp={true} size="md" />}
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
               <Mail className="size-3.5" />
@@ -530,8 +547,8 @@ export function ClientProfileView() {
               </Card>
             )}
 
-            {/* Dynamic Activity Gauge & VFP Status (SLE-44 / SLE-164) */}
-            <UserActivityGaugeCard userId={effectiveUser.id} />
+            {/* Dynamic Activity Gauge & VFP Status (SLE-44 / SLE-45 / SLE-164) */}
+            <UserActivityGaugeCard userId={effectiveUser.id} initialVfpStatus={vfpStatus} />
 
             {/* Security & benefits reminder */}
             <div className="p-4 rounded-xl border bg-muted/30 text-xs text-muted-foreground space-y-2">
