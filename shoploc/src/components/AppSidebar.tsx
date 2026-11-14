@@ -267,15 +267,8 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                     <SidebarMenuButton
                       render={<a href={ROUTES.wallet.path} data-astro-reload="" />}
                     >
-                      <Wallet className="size-4 text-primary" />
-                      <div className="flex items-center justify-between flex-1">
-                        <span className="font-medium">Portefeuille & Solde</span>
-                        {user?.clientCode && (
-                          <span className="text-[10px] font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                            {user.clientCode}
-                          </span>
-                        )}
-                      </div>
+                      <Wallet className="size-4 text-muted-foreground" />
+                      <span>Portefeuille & Solde</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
