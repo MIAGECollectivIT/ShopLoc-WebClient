@@ -130,7 +130,7 @@ export function WalletPageView() {
   }
 
   // Handle reload submission (SLE-15)
-  const handleReload = async (e: React.FormEvent) => {
+  const handleReload = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!isAmountValid) return;
 
