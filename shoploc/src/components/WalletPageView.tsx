@@ -385,7 +385,7 @@ export function WalletPageView() {
 
         {/* Right Column: Online Reload Form (SLE-15) */}
         <div className="lg:col-span-7">
-          <Card className="border-border bg-card rounded-2xl shadow-sm">
+          <Card className="border-border bg-card rounded-2xl shadow-sm overflow-hidden">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -406,7 +406,7 @@ export function WalletPageView() {
             </CardHeader>
 
             <form onSubmit={handleReload}>
-              <CardContent className="space-y-5">
+              <CardContent className="space-y-5 pb-6">
                 {/* Success alert */}
                 {reloadSuccessMessage && (
                   <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 flex items-start gap-3">
@@ -572,7 +572,7 @@ export function WalletPageView() {
                 </div>
               </CardContent>
 
-              <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+              <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 pb-6 px-6 border-t border-border/50 bg-muted/15">
                 <div className="text-xs text-muted-foreground flex items-center gap-1.5 order-2 sm:order-1">
                   <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
                   Paiement sécurisé via passerelle bancaire
