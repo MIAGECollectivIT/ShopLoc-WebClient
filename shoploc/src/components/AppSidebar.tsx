@@ -262,7 +262,7 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
-                {role === 'CLIENT' && (
+                {isAuthenticated && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       render={<a href={ROUTES.wallet.path} data-astro-reload="" />}
