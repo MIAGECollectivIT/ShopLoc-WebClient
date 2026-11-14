@@ -38,3 +38,16 @@ export interface UserActivityEvaluation {
   windowStart: string;
   windowEnd: string;
 }
+
+/**
+ * Very Faithful Person (VFP) qualification status and audit timestamps (SLE-45 / SLE-204).
+ */
+export interface UserVfpStatus {
+  userId: string;
+  isVfp: boolean;
+  grantedAt?: string | null;
+  revokedAt?: string | null;
+  currentTransactionCount: number;
+  threshold: number;
+  lastEvaluatedAt?: string | null;
+}

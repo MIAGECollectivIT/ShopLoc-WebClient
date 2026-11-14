@@ -10,6 +10,7 @@ import type {
   MerchantLoyaltyRate,
   MerchantLoyaltyRateRequest,
   UserActivityEvaluation,
+  UserVfpStatus,
 } from '@/types/loyalty';
 import type { PaymentAuthorizationRequest, PaymentAuthorizationResponse } from '@/types/payment';
 import type { CreateOrderRequest, OrderResponse } from '@/types/order';
@@ -1251,6 +1252,42 @@ export async function getUserActivityEvaluation(
   }
 
   return (await res.json()) as UserActivityEvaluation;
+}
+
+/**
+ * Retrieves the Very Faithful Person (VFP) qualification status and metrics for a user (SLE-45 / SLE-204).
+ * Restricted to the user themselves or administrators.
+ */
+export async function getUserVfpStatus(userId: string | number): Promise<UserVfpStatus> {
+  const endpoint = getApiEndpoint(
+    `/v1/loyalty/users/${encodeURIComponent(String(userId))}/vfp-status`
+  );
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour consulter votre statut VFP.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès refusé : vous ne pouvez consulter que votre propre statut VFP.');
+  }
+  if (!res.ok) {
+    let errorDetail = `Impossible de récupérer le statut VFP (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as UserVfpStatus;
 }
 
 export async function authorizePayment(

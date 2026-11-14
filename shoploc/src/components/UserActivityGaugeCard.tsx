@@ -1,21 +1,36 @@
 import * as React from 'react';
-import type { UserActivityEvaluation } from '@/types/loyalty';
-import { getUserActivityEvaluation } from '@/lib/api';
+import type { UserActivityEvaluation, UserVfpStatus } from '@/types/loyalty';
+import { getUserActivityEvaluation, getUserVfpStatus } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Award, Sparkles, Info, TrendingUp, CheckCircle2, Clock } from 'lucide-react';
+import { VfpBadge } from './VfpBadge';
+import {
+  Award,
+  Sparkles,
+  Info,
+  TrendingUp,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+} from 'lucide-react';
 
 interface UserActivityGaugeCardProps {
   userId: string;
   initialData?: UserActivityEvaluation | null;
+  initialVfpStatus?: UserVfpStatus | null;
 }
 
-export function UserActivityGaugeCard({ userId, initialData }: UserActivityGaugeCardProps) {
+export function UserActivityGaugeCard({
+  userId,
+  initialData,
+  initialVfpStatus,
+}: UserActivityGaugeCardProps) {
   const [evaluation, setEvaluation] = React.useState<UserActivityEvaluation | null>(
     initialData || null
   );
+  const [vfpStatus, setVfpStatus] = React.useState<UserVfpStatus | null>(initialVfpStatus || null);
   const [isLoading, setIsLoading] = React.useState(!initialData);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -30,9 +45,18 @@ export function UserActivityGaugeCard({ userId, initialData }: UserActivityGauge
 
       try {
         setError(null);
-        const data = await getUserActivityEvaluation(userId);
+        const [evalData, statusData] = await Promise.all([
+          getUserActivityEvaluation(userId).catch(() => null),
+          getUserVfpStatus(userId).catch(() => null),
+        ]);
+
         if (isMounted) {
-          setEvaluation(data);
+          if (evalData) {
+            setEvaluation(evalData);
+          }
+          if (statusData) {
+            setVfpStatus(statusData);
+          }
         }
       } catch (err) {
         if (isMounted) {
@@ -89,13 +113,14 @@ export function UserActivityGaugeCard({ userId, initialData }: UserActivityGauge
   }
 
   const { transactionCount, threshold, isEligibleVfp, windowStart, windowEnd } = evaluation;
+  const isVfpActive = vfpStatus?.isVfp ?? isEligibleVfp;
   const progressPercent = Math.min(
     100,
     Math.max(0, Math.round((transactionCount / threshold) * 100))
   );
   const remaining = Math.max(0, threshold - transactionCount);
 
-  const formatDate = (isoString?: string) => {
+  const formatDate = (isoString?: string | null) => {
     if (!isoString) return '—';
     try {
       const date = new Date(isoString);
@@ -112,7 +137,7 @@ export function UserActivityGaugeCard({ userId, initialData }: UserActivityGauge
   return (
     <Card
       className={`shadow-xs transition-all overflow-hidden ${
-        isEligibleVfp
+        isVfpActive
           ? 'border-amber-500/40 bg-gradient-to-br from-amber-500/5 via-background to-emerald-500/5'
           : 'border-border/80'
       }`}
@@ -123,19 +148,16 @@ export function UserActivityGaugeCard({ userId, initialData }: UserActivityGauge
             <div className="flex items-center gap-2">
               <div
                 className={`size-8 rounded-lg flex items-center justify-center ${
-                  isEligibleVfp
+                  isVfpActive
                     ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
                     : 'bg-primary/10 text-primary'
                 }`}
               >
-                {isEligibleVfp ? (
-                  <Sparkles className="size-4" />
-                ) : (
-                  <TrendingUp className="size-4" />
-                )}
+                {isVfpActive ? <Sparkles className="size-4" /> : <TrendingUp className="size-4" />}
               </div>
               <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                 <span>Activité & Statut VFP</span>
+                <VfpBadge isVfp={isVfpActive} size="sm" showInactive={false} />
               </CardTitle>
             </div>
             <CardDescription className="text-xs">
@@ -167,10 +189,10 @@ export function UserActivityGaugeCard({ userId, initialData }: UserActivityGauge
         {/* Status banner */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">
-            {isEligibleVfp ? (
+            {isVfpActive ? (
               <Badge className="bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs gap-1.5 px-2.5 py-1">
                 <CheckCircle2 className="size-3.5" />
-                <span>Statut VFP Qualifié</span>
+                <span>Statut VFP Actif</span>
               </Badge>
             ) : (
               <Badge variant="secondary" className="font-medium text-xs gap-1 px-2 py-0.5">
@@ -195,7 +217,7 @@ export function UserActivityGaugeCard({ userId, initialData }: UserActivityGauge
           <div className="w-full h-3 rounded-full bg-muted/60 overflow-hidden p-0.5">
             <div
               className={`h-full rounded-full transition-all duration-700 ease-out ${
-                isEligibleVfp
+                isVfpActive
                   ? 'bg-gradient-to-r from-amber-500 to-emerald-500 shadow-xs'
                   : 'bg-primary'
               }`}
@@ -214,24 +236,43 @@ export function UserActivityGaugeCard({ userId, initialData }: UserActivityGauge
         </div>
 
         {/* Informative text & Window interval */}
-        <div className="p-3 rounded-xl border bg-muted/20 text-xs space-y-1.5">
-          {isEligibleVfp ? (
-            <p className="text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1.5">
-              <Sparkles className="size-3.5 shrink-0" />
-              <span>
-                Félicitations ! Vous avez atteint le seuil d'éligibilité pour les avantages Very
-                Faithful Person.
-              </span>
-            </p>
+        <div className="p-3 rounded-xl border bg-muted/20 text-xs space-y-2">
+          {isVfpActive ? (
+            <div className="space-y-1">
+              <p className="text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1.5">
+                <Sparkles className="size-3.5 shrink-0" />
+                <span>Félicitations ! Vous bénéficiez du statut Very Faithful Person (VFP).</span>
+              </p>
+              <p className="text-muted-foreground text-[11px]">
+                Vous profitez de la gratuité sur les transports en commun urbains et les places de
+                stationnement partenaires.
+                {vfpStatus?.grantedAt && (
+                  <span className="block mt-0.5">
+                    Statut accordé le <strong>{formatDate(vfpStatus.grantedAt)}</strong>.
+                  </span>
+                )}
+              </p>
+            </div>
           ) : (
-            <p className="text-muted-foreground">
-              Plus que <strong className="text-foreground font-semibold">{remaining}</strong>{' '}
-              transaction{remaining > 1 ? 's' : ''} sur les 15 prochains jours pour débloquer le
-              statut VFP.
-            </p>
+            <div className="space-y-1">
+              <p className="text-muted-foreground">
+                Plus que <strong className="text-foreground font-semibold">{remaining}</strong>{' '}
+                transaction{remaining > 1 ? 's' : ''} sur les 15 prochains jours pour débloquer le
+                statut VFP.
+              </p>
+              {vfpStatus?.revokedAt && !vfpStatus.isVfp && (
+                <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 text-[11px] font-medium pt-0.5">
+                  <AlertTriangle className="size-3.5 shrink-0" />
+                  <span>
+                    Statut VFP révoqué le {formatDate(vfpStatus.revokedAt)} (inactivité sur les 15
+                    derniers jours).
+                  </span>
+                </div>
+              )}
+            </div>
           )}
 
-          <div className="text-[11px] text-muted-foreground/80 pt-1 border-t border-border/40 flex flex-wrap items-center justify-between gap-1">
+          <div className="text-[11px] text-muted-foreground/80 pt-1.5 border-t border-border/40 flex flex-wrap items-center justify-between gap-1">
             <span>Fenêtre glissante (J-15 à J) :</span>
             <span className="font-medium text-foreground/90">
               {formatDate(windowStart)} — {formatDate(windowEnd)}
