@@ -1664,14 +1664,22 @@ export async function getWallet(token?: string): Promise<Wallet> {
 
 /**
  * Reloads the citizen's wallet with a custom amount between 5.00 € and 100.00 € via bank gateway (SLE-15).
+ * Supports automatic client-generated idempotency key to prevent double charge on retries.
  */
 export async function reloadWallet(
   amount: number,
   paymentToken = 'tok_visa_4242',
-  token?: string
+  token?: string,
+  idempotencyKey?: string
 ): Promise<Wallet> {
   const authToken = token || getAuthToken();
   const endpoint = getApiEndpoint('/v1/sales/wallet/reload');
+  const effectiveIdempotencyKey =
+    idempotencyKey ||
+    (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : undefined);
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -1679,10 +1687,14 @@ export async function reloadWallet(
   if (authToken) {
     headers.Authorization = `Bearer ${authToken}`;
   }
+  if (effectiveIdempotencyKey) {
+    headers['X-Idempotency-Key'] = effectiveIdempotencyKey;
+  }
 
   const payload: WalletReloadRequest = {
     amount,
     paymentToken,
+    idempotencyKey: effectiveIdempotencyKey,
   };
 
   const res = await fetchWithTimeout(endpoint, {

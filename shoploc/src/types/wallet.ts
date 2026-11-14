@@ -7,6 +7,7 @@ export interface Wallet {
   currency: string;
   createdAt: string;
   updatedAt: string;
+  weeklyReloadRemaining?: number | null;
 }
 
 export interface WalletTransaction {
@@ -21,12 +22,14 @@ export interface WalletTransaction {
   orderReference?: string | null;
   description: string;
   balanceAfter: number;
+  idempotencyKey?: string | null;
   createdAt: string;
 }
 
 export interface WalletReloadRequest {
   amount: number;
   paymentToken?: string;
+  idempotencyKey?: string;
 }
 
 export interface WalletDebitRequest {

@@ -127,6 +127,12 @@ export function WalletPageView() {
     amountValidationMessage = `Le montant minimum de rechargement est de ${MIN_RELOAD_AMOUNT.toFixed(2)} €.`;
   } else if (parsedAmount > MAX_RELOAD_AMOUNT) {
     amountValidationMessage = `Le montant maximum de rechargement par opération est de ${MAX_RELOAD_AMOUNT.toFixed(2)} €.`;
+  } else if (
+    wallet?.weeklyReloadRemaining !== undefined &&
+    wallet?.weeklyReloadRemaining !== null &&
+    parsedAmount > wallet.weeklyReloadRemaining
+  ) {
+    amountValidationMessage = `Plafond 7 jours glissants dépassé : il vous reste ${wallet.weeklyReloadRemaining.toFixed(2)} € disponibles sur 250,00 €.`;
   }
 
   // Handle reload submission (SLE-15)
@@ -283,6 +289,32 @@ export function WalletPageView() {
                 </div>
               )}
 
+              {wallet?.weeklyReloadRemaining !== undefined &&
+                wallet?.weeklyReloadRemaining !== null && (
+                  <div className="rounded-xl border bg-muted/20 p-3 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <ShieldCheck className="size-3.5 text-primary" />
+                        Plafond 7j glissants disponible
+                      </span>
+                      <span className="font-semibold text-foreground">
+                        {formatMoney(wallet.weeklyReloadRemaining)} / 250,00 €
+                      </span>
+                    </div>
+                    <div className="w-full bg-muted/60 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-primary h-1.5 rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            Math.max(0, (wallet.weeklyReloadRemaining / 250) * 100)
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
               <Separator className="my-2" />
 
               {/* Citizen Card Meta */}
@@ -332,6 +364,13 @@ export function WalletPageView() {
               <li>
                 Rechargement en ligne sécurisé par carte bancaire de{' '}
                 <strong>5,00 € à 100,00 €</strong>.
+              </li>
+              <li>
+                Plafond anti-blanchiment / sécurité :{' '}
+                <strong>250,00 € maximum sur 7 jours glissants</strong>.
+              </li>
+              <li>
+                Protection anti-doublon idempotente (identifiant unique généré par transaction).
               </li>
               <li>
                 Utilisable pour régler vos achats Click & Collect ou directement en caisse chez les
