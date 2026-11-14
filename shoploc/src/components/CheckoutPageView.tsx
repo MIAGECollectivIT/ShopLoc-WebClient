@@ -12,7 +12,13 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/lib/auth';
-import { getOrderByReference, updateOrderStatus, getCustomerLoyaltyPoints } from '@/lib/api';
+import {
+  getOrderByReference,
+  updateOrderStatus,
+  getCustomerLoyaltyPoints,
+  getWallet,
+  debitWallet,
+} from '@/lib/api';
 import { PaymentSimulatorCard } from '@/components/PaymentSimulatorCard';
 import { ROUTES } from '@/config/routes';
 import type { OrderResponse } from '@/types/order';
@@ -20,6 +26,7 @@ import type { PaymentAuthorizationResponse } from '@/types/payment';
 import {
   CreditCard,
   Coins,
+  Wallet,
   AlertTriangle,
   ArrowLeft,
   ShieldCheck,
@@ -27,7 +34,7 @@ import {
   Clock,
 } from 'lucide-react';
 
-type SettlementMode = 'EUROS' | 'POINTS' | 'MIXED';
+type SettlementMode = 'EUROS' | 'WALLET' | 'POINTS' | 'MIXED';
 
 export interface CheckoutPageViewProps {
   initialOrderReference?: string;
@@ -47,6 +54,8 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
 
   const [loyaltyPoints, setLoyaltyPoints] = React.useState<number>(0);
+  const [walletBalance, setWalletBalance] = React.useState<number | null>(null);
+  const [loadingWallet, setLoadingWallet] = React.useState(true);
   const [settlementMode, setSettlementMode] = React.useState<SettlementMode>('EUROS');
   const [pointsToUse, setPointsToUse] = React.useState<number>(0);
 
@@ -72,11 +81,12 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
     setOrderReference(ref);
   }, [initialOrderReference]);
 
-  // Fetch order and loyalty balance
+  // Fetch order, loyalty balance and wallet balance
   React.useEffect(() => {
     if (!mounted || !orderReference) {
       if (mounted && !orderReference) {
         setLoadingOrder(false);
+        setLoadingWallet(false);
       }
       return;
     }
@@ -103,10 +113,23 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
           } catch {
             setLoyaltyPoints(0);
           }
+
+          // Fetch citizen wallet balance (SLE-17)
+          try {
+            const walletData = await getWallet(token || undefined);
+            setWalletBalance(walletData.balance);
+          } catch {
+            setWalletBalance(0);
+          } finally {
+            setLoadingWallet(false);
+          }
+        } else {
+          setLoadingWallet(false);
         }
       })
       .catch((err: unknown) => {
         setLoadError(err instanceof Error ? err.message : 'Impossible de récupérer la commande');
+        setLoadingWallet(false);
       })
       .finally(() => {
         setLoadingOrder(false);
@@ -118,11 +141,12 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
   const maxPointsWorthInEuros = loyaltyPoints / POINTS_PER_EURO;
 
   const totalAmount = order?.totalAmount ?? 0;
+  const canUseWallet = walletBalance !== null && walletBalance >= totalAmount;
   const pointsWorth = Math.min(pointsToUse / POINTS_PER_EURO, totalAmount);
-  const remainingEurosToPay = Math.max(
-    0,
-    totalAmount - (settlementMode === 'EUROS' ? 0 : pointsWorth)
-  );
+  const remainingEurosToPay =
+    settlementMode === 'WALLET'
+      ? 0
+      : Math.max(0, totalAmount - (settlementMode === 'EUROS' ? 0 : pointsWorth));
 
   // Handle mode selection
   const handleSelectMode = (mode: SettlementMode) => {
@@ -134,6 +158,73 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
       setPointsToUse(Math.min(loyaltyPoints, Math.floor((totalAmount / 2) * POINTS_PER_EURO)));
     } else {
       setPointsToUse(0);
+    }
+  };
+
+  // Finalize payment by digital wallet (SLE-18)
+  const handleWalletPayment = async () => {
+    if (!order) return;
+    setIsProcessingPayment(true);
+    setPaymentError(null);
+
+    try {
+      const primaryStore = order.storeSummaries?.[0];
+      const storeName =
+        order.storeSummaries?.length === 1
+          ? primaryStore?.storeName
+          : 'Commandes ShopLoc multi-commerces';
+
+      // 1. Debit wallet on backend (SLE-18)
+      const updatedWallet = await debitWallet(
+        {
+          amount: totalAmount,
+          storeId: primaryStore?.storeId,
+          storeName: storeName || 'Commerce ShopLoc',
+          orderReference: order.orderReference,
+          description: `Règlement commande ${order.orderReference}`,
+        },
+        token || undefined
+      );
+
+      // 2. Mark order status to PAID on backend
+      await updateOrderStatus(order.orderReference, 'PAID', token || undefined);
+
+      // 3. Clear validated cart
+      clear();
+
+      // 4. Save receipt and settlement breakdown in sessionStorage for confirmation view
+      const receipt: PaymentAuthorizationResponse = {
+        transactionId: `TX-WAL-${Date.now()}`,
+        authorizationCode: `WAL-${Date.now().toString(36).toUpperCase()}`,
+        status: 'TRANSACTION_APPROVED',
+        amount: totalAmount,
+        currency: 'EUR',
+        rule: 'WALLET_DEBIT',
+        paymentMethod: 'WALLET',
+        reference: order.orderReference,
+        timestamp: new Date().toISOString(),
+      };
+
+      sessionStorage.setItem(`order_receipt_${order.orderReference}`, JSON.stringify(receipt));
+      sessionStorage.setItem(
+        `order_settlement_${order.orderReference}`,
+        JSON.stringify({
+          settlementMode: 'WALLET',
+          pointsUsed: 0,
+          pointsDeductionEuro: 0,
+          eurosPaid: totalAmount,
+          newWalletBalance: updatedWallet.balance,
+        })
+      );
+
+      // 5. Redirect to final order confirmation view
+      const orderUid = order.uid || order.orderReference;
+      window.location.href = ROUTES.orderConfirmation.detail(orderUid);
+    } catch (err: unknown) {
+      setPaymentError(
+        err instanceof Error ? err.message : 'Erreur lors du règlement avec votre portefeuille'
+      );
+      setIsProcessingPayment(false);
     }
   };
 
@@ -299,12 +390,12 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
         </CardHeader>
 
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Mode 1 : Carte Bancaire */}
             <button
               type="button"
               onClick={() => handleSelectMode('EUROS')}
-              className={`p-3 rounded-xl border text-left transition-all ${
+              className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                 settlementMode === 'EUROS'
                   ? 'border-primary bg-primary/10 shadow-xs'
                   : 'border-border hover:bg-muted/50'
@@ -322,20 +413,50 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
               </div>
             </button>
 
-            {/* Mode 2 : Points Fidélité */}
+            {/* Mode 2 : Portefeuille ShopLoc (SLE-18) */}
+            <button
+              type="button"
+              onClick={() => canUseWallet && handleSelectMode('WALLET')}
+              disabled={!canUseWallet}
+              className={`p-3 rounded-xl border text-left transition-all ${
+                settlementMode === 'WALLET'
+                  ? 'border-emerald-500 bg-emerald-500/10 shadow-xs ring-1 ring-emerald-500'
+                  : 'border-border hover:bg-muted/50'
+              } ${!canUseWallet ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <Wallet className="size-4 text-emerald-600 dark:text-emerald-400" />
+                <Badge
+                  variant="outline"
+                  className="text-[10px] font-mono border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                >
+                  {loadingWallet
+                    ? '...'
+                    : walletBalance !== null
+                      ? `${walletBalance.toFixed(2)} €`
+                      : '0.00 €'}
+                </Badge>
+              </div>
+              <div className="font-semibold text-xs text-foreground">Portefeuille</div>
+              <div className="text-[11px] text-muted-foreground">
+                {canUseWallet ? `100% (${totalAmount.toFixed(2)} €)` : 'Solde insuffisant'}
+              </div>
+            </button>
+
+            {/* Mode 3 : Points Fidélité */}
             <button
               type="button"
               onClick={() => canUseFullPoints && handleSelectMode('POINTS')}
               disabled={!canUseFullPoints}
               className={`p-3 rounded-xl border text-left transition-all ${
                 settlementMode === 'POINTS'
-                  ? 'border-amber-500 bg-amber-500/10 shadow-xs'
+                  ? 'border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500'
                   : 'border-border hover:bg-muted/50'
-              } ${!canUseFullPoints ? 'opacity-50 cursor-not-allowed' : ''}`}
+              } ${!canUseFullPoints ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <div className="flex items-center justify-between mb-1">
                 <Coins className="size-4 text-amber-500" />
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-[10px] font-mono">
                   {loyaltyPoints} pts
                 </Badge>
               </div>
@@ -345,16 +466,16 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
               </div>
             </button>
 
-            {/* Mode 3 : Mixte */}
+            {/* Mode 4 : Mixte */}
             <button
               type="button"
               onClick={() => loyaltyPoints > 0 && handleSelectMode('MIXED')}
               disabled={loyaltyPoints <= 0}
               className={`p-3 rounded-xl border text-left transition-all ${
                 settlementMode === 'MIXED'
-                  ? 'border-indigo-500 bg-indigo-500/10 shadow-xs'
+                  ? 'border-indigo-500 bg-indigo-500/10 shadow-xs ring-1 ring-indigo-500'
                   : 'border-border hover:bg-muted/50'
-              } ${loyaltyPoints <= 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+              } ${loyaltyPoints <= 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs">🪙💳</span>
@@ -366,6 +487,27 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
               <div className="text-[11px] text-muted-foreground">Déduire une partie</div>
             </button>
           </div>
+
+          {/* Wallet insufficient balance alert with quick reload link */}
+          {walletBalance !== null && !canUseWallet && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-muted/40 border border-border/40 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <Wallet className="size-3.5 text-muted-foreground shrink-0" />
+                <span>
+                  Solde portefeuille insuffisant ({walletBalance.toFixed(2)} € disponibles pour une
+                  commande de {totalAmount.toFixed(2)} €).
+                </span>
+              </span>
+              <a
+                href={ROUTES.wallet.path}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-primary hover:underline shrink-0"
+              >
+                Recharger mon portefeuille →
+              </a>
+            </div>
+          )}
 
           {/* Slider for mixed mode */}
           {settlementMode === 'MIXED' && loyaltyPoints > 0 && (
@@ -399,7 +541,16 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
               <span>Montant commande</span>
               <span className="font-mono">{totalAmount.toFixed(2)} €</span>
             </div>
-            {settlementMode !== 'EUROS' && pointsWorth > 0 && (
+            {settlementMode === 'WALLET' && (
+              <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
+                <span>
+                  Débit du portefeuille (solde restant :{' '}
+                  {Math.max(0, (walletBalance ?? 0) - totalAmount).toFixed(2)} €)
+                </span>
+                <span className="font-mono">-{totalAmount.toFixed(2)} €</span>
+              </div>
+            )}
+            {settlementMode !== 'EUROS' && settlementMode !== 'WALLET' && pointsWorth > 0 && (
               <div className="flex justify-between text-amber-600 dark:text-amber-400 font-medium">
                 <span>Déduction fidélité ({pointsToUse} pts)</span>
                 <span className="font-mono">-{pointsWorth.toFixed(2)} €</span>
@@ -414,7 +565,54 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
       </Card>
 
       {/* Exécution du paiement */}
-      {remainingEurosToPay > 0 ? (
+      {settlementMode === 'WALLET' ? (
+        <Card className="border-emerald-500/40 bg-emerald-500/5 shadow-xs">
+          <CardHeader className="pb-3 text-center">
+            <div className="size-12 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-1">
+              <Wallet className="size-6" />
+            </div>
+            <CardTitle className="text-base font-bold">
+              Règlement par Portefeuille ShopLoc
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Votre commande de {totalAmount.toFixed(2)} € sera débitée de votre porte-monnaie
+              virtuel.
+              <span className="block mt-1 text-muted-foreground">
+                Solde actuel :{' '}
+                <strong className="font-mono">{(walletBalance ?? 0).toFixed(2)} €</strong> → Nouveau
+                solde :{' '}
+                <strong className="font-mono text-emerald-600 dark:text-emerald-400">
+                  {Math.max(0, (walletBalance ?? 0) - totalAmount).toFixed(2)} €
+                </strong>
+              </span>
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="pt-2 flex flex-col gap-2">
+            <Button
+              size="lg"
+              onClick={handleWalletPayment}
+              disabled={isProcessingPayment || !canUseWallet}
+              className="w-full gap-2 font-semibold bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+            >
+              {isProcessingPayment ? (
+                <>
+                  <RefreshCw className="size-4 animate-spin" />
+                  Débit du portefeuille en cours...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="size-4" />
+                  Payer avec mon portefeuille ({totalAmount.toFixed(2)} €)
+                </>
+              )}
+            </Button>
+            <p className="text-[11px] text-muted-foreground text-center flex items-center justify-center gap-1">
+              <ShieldCheck className="size-3.5 text-emerald-500" />
+              Paiement instantané garanti et sécurisé sans frais
+            </p>
+          </CardFooter>
+        </Card>
+      ) : remainingEurosToPay > 0 ? (
         <PaymentSimulatorCard
           hidePresets={true}
           hideReceipt={true}

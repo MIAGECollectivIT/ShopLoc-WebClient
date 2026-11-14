@@ -324,9 +324,11 @@ export function OrderConfirmationPageView({
                   <span className="font-semibold text-foreground">
                     {settlementInfo.settlementMode === 'POINTS'
                       ? '100% Points de fidélité'
-                      : settlementInfo.settlementMode === 'MIXED'
-                        ? 'Mixte (CB + Points)'
-                        : 'Carte Bancaire'}
+                      : settlementInfo.settlementMode === 'WALLET'
+                        ? '100% Portefeuille ShopLoc'
+                        : settlementInfo.settlementMode === 'MIXED'
+                          ? 'Mixte (CB + Points)'
+                          : 'Carte Bancaire'}
                   </span>
                 </div>
 
@@ -341,7 +343,11 @@ export function OrderConfirmationPageView({
                 )}
 
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Montant réglé par Carte Bancaire</span>
+                  <span>
+                    {settlementInfo.settlementMode === 'WALLET'
+                      ? 'Montant débité du portefeuille'
+                      : 'Montant réglé par Carte Bancaire'}
+                  </span>
                   <span className="font-mono font-semibold text-foreground">
                     {settlementInfo.eurosPaid.toFixed(2)} €
                   </span>
@@ -353,7 +359,9 @@ export function OrderConfirmationPageView({
               <div className="pt-2 border-t border-border/60 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-muted-foreground">
                 <div>
                   <span className="block text-[10px] uppercase font-bold text-muted-foreground/80">
-                    Autorisation bancaire
+                    {paymentReceipt.paymentMethod === 'WALLET'
+                      ? 'Référence Portefeuille'
+                      : 'Autorisation bancaire'}
                   </span>
                   <span className="font-mono font-semibold text-foreground">
                     {paymentReceipt.authorizationCode}
