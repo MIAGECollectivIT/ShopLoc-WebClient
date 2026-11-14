@@ -369,7 +369,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
         </div>
       )}
 
-      {/* Mode de règlement */}
+      {/* Payment method selection */}
       <Card className="border-border shadow-xs">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -391,7 +391,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
 
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Mode 1 : Carte Bancaire */}
+            {/* Mode 1: Credit Card */}
             <button
               type="button"
               onClick={() => handleSelectMode('EUROS')}
@@ -413,7 +413,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
               </div>
             </button>
 
-            {/* Mode 2 : Portefeuille ShopLoc (SLE-18) */}
+            {/* Mode 2: ShopLoc Digital Wallet (SLE-18) */}
             <button
               type="button"
               onClick={() => canUseWallet && handleSelectMode('WALLET')}
@@ -443,7 +443,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
               </div>
             </button>
 
-            {/* Mode 3 : Points Fidélité */}
+            {/* Mode 3: Loyalty Points */}
             <button
               type="button"
               onClick={() => canUseFullPoints && handleSelectMode('POINTS')}
@@ -466,7 +466,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
               </div>
             </button>
 
-            {/* Mode 4 : Mixte */}
+            {/* Mode 4: Mixed (Card + Points) */}
             <button
               type="button"
               onClick={() => loyaltyPoints > 0 && handleSelectMode('MIXED')}
@@ -564,7 +564,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
         </CardContent>
       </Card>
 
-      {/* Exécution du paiement */}
+      {/* Payment execution */}
       {settlementMode === 'WALLET' ? (
         <Card className="border-emerald-500/40 bg-emerald-500/5 shadow-xs">
           <CardHeader className="pb-3 text-center">

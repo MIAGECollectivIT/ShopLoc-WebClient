@@ -269,7 +269,7 @@ export function OrderConfirmationPageView({
             </p>
           )}
 
-          {/* Notice email & preuve d'achat / facture (SLE-21) */}
+          {/* Email notice & proof of purchase / invoice (SLE-21) */}
           <div className="mt-4 p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 text-left flex items-start gap-3">
             <Mail className="size-4 mt-0.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <div className="space-y-1">
@@ -302,7 +302,7 @@ export function OrderConfirmationPageView({
           </div>
         </div>
 
-        {/* 2. Détail financier de l'opération */}
+        {/* 2. Financial breakdown of the transaction */}
         <CardContent className="p-6 space-y-4">
           <div className="flex items-center gap-2 font-semibold text-sm text-foreground">
             <Receipt className="size-4 text-primary" />
@@ -379,7 +379,7 @@ export function OrderConfirmationPageView({
         </CardContent>
       </Card>
 
-      {/* 3. Détail complet par commerce & Retrait Click & Collect */}
+      {/* 3. Store breakdown & Click & Collect pickup details */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
