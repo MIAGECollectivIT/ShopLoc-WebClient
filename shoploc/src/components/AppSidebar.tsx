@@ -262,18 +262,13 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
-                {role === 'CLIENT' && (
+                {isAuthenticated && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton onClick={() => setIsWalletOpen(true)}>
+                    <SidebarMenuButton
+                      render={<a href={ROUTES.wallet.path} data-astro-reload="" />}
+                    >
                       <Wallet className="size-4 text-muted-foreground" />
-                      <div className="flex items-center justify-between flex-1">
-                        <span>Portefeuille & Fidélité</span>
-                        {user?.clientCode && (
-                          <span className="text-[10px] font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                            {user.clientCode}
-                          </span>
-                        )}
-                      </div>
+                      <span>Portefeuille & Solde</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
@@ -765,7 +760,16 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                 </p>
               </div>
 
-              <div className="pt-1">
+              <div className="pt-1 space-y-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="w-full gap-2 cursor-pointer"
+                  render={<a href={ROUTES.wallet.path} data-astro-reload="" />}
+                >
+                  <Wallet className="size-4" />
+                  Accéder à mon portefeuille en ligne
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"

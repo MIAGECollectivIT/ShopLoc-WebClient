@@ -1620,3 +1620,160 @@ export function triggerBlobDownload(blob: Blob, filename: string): void {
   document.body.removeChild(a);
   window.URL.revokeObjectURL(url);
 }
+
+// ============================================================================
+// Digital Wallet API (SLE-15, SLE-17, SLE-18)
+// ============================================================================
+
+import type {
+  Wallet,
+  WalletTransaction,
+  WalletReloadRequest,
+  WalletDebitRequest,
+} from '@/types/wallet';
+
+/**
+ * Retrieves the citizen's real-time wallet balance (SLE-17).
+ */
+export async function getWallet(token?: string): Promise<Wallet> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint('/v1/sales/wallet');
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Impossible de récupérer le solde du porte-monnaie (HTTP ${res.status})`;
+    try {
+      const errJson = await res.json();
+      if (errJson.message) errorDetail = errJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as Wallet;
+}
+
+/**
+ * Reloads the citizen's wallet with a custom amount between 5.00 € and 100.00 € via bank gateway (SLE-15).
+ * Supports automatic client-generated idempotency key to prevent double charge on retries.
+ */
+export async function reloadWallet(
+  amount: number,
+  paymentToken = 'tok_visa_4242',
+  token?: string,
+  idempotencyKey?: string
+): Promise<Wallet> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint('/v1/sales/wallet/reload');
+  const effectiveIdempotencyKey =
+    idempotencyKey ||
+    (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : undefined);
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+  if (effectiveIdempotencyKey) {
+    headers['X-Idempotency-Key'] = effectiveIdempotencyKey;
+  }
+
+  const payload: WalletReloadRequest = {
+    amount,
+    paymentToken,
+    idempotencyKey: effectiveIdempotencyKey,
+  };
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Échec du rechargement (HTTP ${res.status})`;
+    try {
+      const errJson = await res.json();
+      if (errJson.message) errorDetail = errJson.message;
+      else if (errJson.details?.amount) errorDetail = errJson.details.amount;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as Wallet;
+}
+
+/**
+ * Retrieves the ordered transaction history (newest to oldest) of the citizen's wallet (SLE-18).
+ */
+export async function getWalletTransactions(token?: string): Promise<WalletTransaction[]> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint('/v1/sales/wallet/transactions');
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Impossible de récupérer l'historique des transactions (HTTP ${res.status})`;
+    try {
+      const errJson = await res.json();
+      if (errJson.message) errorDetail = errJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as WalletTransaction[];
+}
+
+/**
+ * Debits the citizen's wallet for a purchase (SLE-18).
+ */
+export async function debitWallet(request: WalletDebitRequest, token?: string): Promise<Wallet> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint('/v1/sales/wallet/debit');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(request),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Échec du débit du porte-monnaie (HTTP ${res.status})`;
+    try {
+      const errJson = await res.json();
+      if (errJson.message) errorDetail = errJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as Wallet;
+}

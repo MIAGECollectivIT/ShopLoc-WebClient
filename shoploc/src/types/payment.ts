@@ -16,4 +16,5 @@ export interface PaymentAuthorizationResponse {
   reference: string;
   timestamp: string;
   rule: string;
+  paymentMethod?: string;
 }
