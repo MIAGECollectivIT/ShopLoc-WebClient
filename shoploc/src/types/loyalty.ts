@@ -51,3 +51,33 @@ export interface UserVfpStatus {
   threshold: number;
   lastEvaluatedAt?: string | null;
 }
+
+export type PointsTransactionType = 'EARN' | 'REDEEM';
+
+/**
+ * Loyalty points movement entry returned by Loyalty Service (SLE-38 / SLE-176).
+ */
+export interface PointsTransaction {
+  id: number;
+  transactionReference: string;
+  storeId?: number | null;
+  storeName?: string | null;
+  type: PointsTransactionType;
+  points: number;
+  balanceAfter: number;
+  sourceType?: string | null;
+  description?: string | null;
+  createdAt: string;
+}
+
+/**
+ * Customer loyalty points balance and transaction history (SLE-38 / SLE-176 / SLE-177 / SLE-178).
+ */
+export interface UserPointsBalanceResponse {
+  userId: string;
+  clientCode?: string | null;
+  balance: number;
+  points?: number;
+  updatedAt: string;
+  transactions: PointsTransaction[];
+}

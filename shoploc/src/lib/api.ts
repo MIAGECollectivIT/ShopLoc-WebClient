@@ -10,6 +10,7 @@ import type {
   MerchantLoyaltyRate,
   MerchantLoyaltyRateRequest,
   UserActivityEvaluation,
+  UserPointsBalanceResponse,
   UserVfpStatus,
 } from '@/types/loyalty';
 import type { PaymentAuthorizationRequest, PaymentAuthorizationResponse } from '@/types/payment';
@@ -1290,6 +1291,47 @@ export async function getUserVfpStatus(userId: string | number): Promise<UserVfp
   return (await res.json()) as UserVfpStatus;
 }
 
+/**
+ * Fetches a customer's loyalty points balance and movement history (SLE-38 / SLE-176 / SLE-177 / SLE-178).
+ */
+export async function getUserPointsBalance(
+  userId?: string | number,
+  token?: string
+): Promise<UserPointsBalanceResponse> {
+  const authToken = token || getAuthToken();
+  const hasUserId = userId !== undefined && userId !== null && String(userId).trim() !== '';
+  const path = hasUserId
+    ? `/v1/loyalty/users/${encodeURIComponent(String(userId).trim())}/balance`
+    : '/v1/loyalty/balance';
+  const endpoint = getApiEndpoint(path);
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    let detail = `Impossible de récupérer votre solde de points fidélité (HTTP ${res.status})`;
+    try {
+      const err = await res.json();
+      if (err.message) detail = err.message;
+      else if (err.detail) detail = err.detail;
+    } catch {
+      // Ignorer si la réponse d'erreur n'est pas en JSON
+    }
+    throw new Error(detail);
+  }
+
+  return (await res.json()) as UserPointsBalanceResponse;
+}
+
 export async function authorizePayment(
   payload: PaymentAuthorizationRequest
 ): Promise<PaymentAuthorizationResponse> {
@@ -1565,7 +1607,11 @@ export async function getCustomerLoyaltyPoints(
       return 0;
     }
     const data = await res.json();
-    return typeof data.points === 'number' ? data.points : 0;
+    return typeof data.balance === 'number'
+      ? data.balance
+      : typeof data.points === 'number'
+        ? data.points
+        : 0;
   } catch {
     return 0;
   }
