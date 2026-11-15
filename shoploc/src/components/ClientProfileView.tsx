@@ -6,10 +6,12 @@ import {
   updateVehicle,
   deleteVehicle,
   getUserVfpStatus,
+  getUserPointsBalance,
 } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
+import { formatPoints } from '@/lib/format';
 import type { UserResponse } from '@/types/user';
-import type { UserVfpStatus } from '@/types/loyalty';
+import type { UserPointsBalanceResponse, UserVfpStatus } from '@/types/loyalty';
 import { ClientQrCodeCard } from './ClientQrCodeCard';
 import { FrenchLicensePlateBadge } from './FrenchLicensePlateBadge';
 import { ManageVehiclesDialog } from './ManageVehiclesDialog';
@@ -42,6 +44,8 @@ import {
   Plus,
   Settings2,
   Wallet,
+  Award,
+  ArrowRight,
 } from 'lucide-react';
 
 export function ClientProfileView() {
@@ -53,6 +57,8 @@ export function ClientProfileView() {
   }, []);
   const [profile, setProfile] = React.useState<UserResponse | null>(null);
   const [vfpStatus, setVfpStatus] = React.useState<UserVfpStatus | null>(null);
+  const [pointsBalance, setPointsBalance] = React.useState<UserPointsBalanceResponse | null>(null);
+  const [pointsUnavailable, setPointsUnavailable] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [isManageVehiclesOpen, setIsManageVehiclesOpen] = React.useState(false);
@@ -77,6 +83,18 @@ export function ClientProfileView() {
                 if (isMounted) setVfpStatus(vfp);
               })
               .catch(() => {});
+            if (data.role === 'CLIENT') {
+              getUserPointsBalance(data.id)
+                .then((points) => {
+                  if (isMounted) {
+                    setPointsBalance(points);
+                    setPointsUnavailable(false);
+                  }
+                })
+                .catch(() => {
+                  if (isMounted) setPointsUnavailable(true);
+                });
+            }
           }
         }
       } catch (err) {
@@ -546,6 +564,40 @@ export function ClientProfileView() {
                 </CardHeader>
               </Card>
             )}
+
+            {/* Compact Loyalty Points Balance Card (SLE-38 / SLE-177) */}
+            <Card className="border-border bg-gradient-to-br from-card via-card to-emerald-500/5 rounded-2xl shadow-sm border-l-4 border-l-emerald-500">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Award className="size-4 text-emerald-600 dark:text-emerald-400" />
+                  Solde Points Fidélité
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {pointsUnavailable
+                    ? 'Service fidélité temporairement indisponible.'
+                    : 'Points cumulés chez les commerçants locaux.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-1 pb-4">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold tracking-tight text-foreground">
+                    {pointsUnavailable ? '—' : formatPoints(pointsBalance?.balance)}
+                  </span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                    PTS
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-between mt-4 text-xs cursor-pointer"
+                  render={<a href={ROUTES.wallet.path} data-astro-reload="" />}
+                >
+                  <span>Consulter le portefeuille &amp; l&apos;historique</span>
+                  <ArrowRight className="size-3.5" />
+                </Button>
+              </CardContent>
+            </Card>
 
             {/* Dynamic Activity Gauge & VFP Status (SLE-44 / SLE-45 / SLE-164) */}
             <UserActivityGaugeCard userId={effectiveUser.id} initialVfpStatus={vfpStatus} />
