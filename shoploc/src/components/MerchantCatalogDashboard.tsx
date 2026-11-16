@@ -431,7 +431,7 @@ export function MerchantCatalogDashboard({
                   {/* Product Image */}
                   <div className="relative aspect-4/3 w-full bg-muted/60 overflow-hidden flex items-center justify-center border-b border-border">
                     <ProductImage
-                      storeId={product.storeId || storeId}
+                      storeId={storeId || product.storeUid || product.storeId}
                       productId={product.id}
                       imageUrl={product.imageUrl}
                       alt={product.name}
@@ -489,7 +489,11 @@ export function MerchantCatalogDashboard({
                     <span className="text-xs font-medium text-muted-foreground">
                       Ajuster le stock :
                     </span>
-                    <StockControl product={product} onStockUpdated={handleStockUpdated} />
+                    <StockControl
+                      storeIdentifier={storeId}
+                      product={product}
+                      onStockUpdated={handleStockUpdated}
+                    />
                   </div>
 
                   <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/40">
