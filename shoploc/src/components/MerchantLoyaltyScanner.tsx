@@ -139,10 +139,7 @@ export function MerchantLoyaltyScanner({
               {storeName && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
                   <Store className="size-3.5 text-primary" />
-                  <span className="truncate max-w-[180px]">
-                    {storeName}
-                    {storeId ? ` (#${storeId})` : ''}
-                  </span>
+                  <span className="truncate max-w-[180px]">{storeName}</span>
                 </div>
               )}
             </div>
