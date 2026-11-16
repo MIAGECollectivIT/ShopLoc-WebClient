@@ -29,9 +29,11 @@ import {
 
 interface SettlementBreakdown {
   settlementMode: string;
-  pointsUsed: number;
-  pointsDeductionEuro: number;
+  walletPaid?: number;
   eurosPaid: number;
+  totalAmount?: number;
+  pointsUsed?: number;
+  pointsDeductionEuro?: number;
 }
 
 export interface OrderConfirmationPageViewProps {
@@ -322,22 +324,24 @@ export function OrderConfirmationPageView({
                 <div className="flex justify-between text-muted-foreground">
                   <span>Mode de règlement</span>
                   <span className="font-semibold text-foreground">
-                    {settlementInfo.settlementMode === 'POINTS'
-                      ? '100% Points de fidélité'
-                      : settlementInfo.settlementMode === 'WALLET'
-                        ? '100% Portefeuille ShopLoc'
-                        : settlementInfo.settlementMode === 'MIXED'
-                          ? 'Mixte (CB + Points)'
-                          : 'Carte Bancaire'}
+                    {settlementInfo.settlementMode === 'WALLET'
+                      ? '100% Portefeuille ShopLoc'
+                      : settlementInfo.settlementMode === 'MIXED'
+                        ? 'Mixte (Portefeuille + Carte Bancaire)'
+                        : 'Carte Bancaire'}
                   </span>
                 </div>
 
-                {settlementInfo.pointsUsed > 0 && (
-                  <div className="flex justify-between text-amber-600 dark:text-amber-400">
-                    <span>Points de fidélité débités</span>
-                    <span className="font-mono font-medium">
-                      -{settlementInfo.pointsUsed} pts (
-                      {settlementInfo.pointsDeductionEuro.toFixed(2)} €)
+                {settlementInfo.settlementMode === 'MIXED' && (
+                  <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
+                    <span>Part débitée du portefeuille ShopLoc</span>
+                    <span className="font-mono">
+                      -
+                      {(
+                        settlementInfo.walletPaid ??
+                        Math.max(0, order.totalAmount - settlementInfo.eurosPaid)
+                      ).toFixed(2)}{' '}
+                      €
                     </span>
                   </div>
                 )}
@@ -346,7 +350,9 @@ export function OrderConfirmationPageView({
                   <span>
                     {settlementInfo.settlementMode === 'WALLET'
                       ? 'Montant débité du portefeuille'
-                      : 'Montant réglé par Carte Bancaire'}
+                      : settlementInfo.settlementMode === 'MIXED'
+                        ? 'Complément réglé par Carte Bancaire'
+                        : 'Montant réglé par Carte Bancaire'}
                   </span>
                   <span className="font-mono font-semibold text-foreground">
                     {settlementInfo.eurosPaid.toFixed(2)} €

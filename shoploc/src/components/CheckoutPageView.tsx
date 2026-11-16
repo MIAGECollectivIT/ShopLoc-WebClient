@@ -9,32 +9,25 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/lib/auth';
-import {
-  getOrderByReference,
-  updateOrderStatus,
-  getCustomerLoyaltyPoints,
-  getWallet,
-  debitWallet,
-} from '@/lib/api';
+import { getOrderByReference, updateOrderStatus, getWallet, debitWallet } from '@/lib/api';
 import { PaymentSimulatorCard } from '@/components/PaymentSimulatorCard';
 import { ROUTES } from '@/config/routes';
 import type { OrderResponse } from '@/types/order';
 import type { PaymentAuthorizationResponse } from '@/types/payment';
 import {
   CreditCard,
-  Coins,
   Wallet,
   AlertTriangle,
   ArrowLeft,
   ShieldCheck,
   RefreshCw,
   Clock,
+  Sparkles,
 } from 'lucide-react';
 
-type SettlementMode = 'EUROS' | 'WALLET' | 'POINTS' | 'MIXED';
+type SettlementMode = 'EUROS' | 'WALLET' | 'MIXED';
 
 export interface CheckoutPageViewProps {
   initialOrderReference?: string;
@@ -53,11 +46,9 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
 
-  const [loyaltyPoints, setLoyaltyPoints] = React.useState<number>(0);
   const [walletBalance, setWalletBalance] = React.useState<number | null>(null);
   const [loadingWallet, setLoadingWallet] = React.useState(true);
   const [settlementMode, setSettlementMode] = React.useState<SettlementMode>('EUROS');
-  const [pointsToUse, setPointsToUse] = React.useState<number>(0);
 
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
 
@@ -81,7 +72,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
     setOrderReference(ref);
   }, [initialOrderReference]);
 
-  // Fetch order, loyalty balance and wallet balance
+  // Fetch order and wallet balance
   React.useEffect(() => {
     if (!mounted || !orderReference) {
       if (mounted && !orderReference) {
@@ -105,16 +96,8 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
           return;
         }
 
-        // Fetch loyalty points for current user
+        // Fetch citizen wallet balance (SLE-17)
         if (user?.id) {
-          try {
-            const points = await getCustomerLoyaltyPoints(user.id, token || undefined);
-            setLoyaltyPoints(points);
-          } catch {
-            setLoyaltyPoints(0);
-          }
-
-          // Fetch citizen wallet balance (SLE-17)
           try {
             const walletData = await getWallet(token || undefined);
             setWalletBalance(walletData.balance);
@@ -136,32 +119,33 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
       });
   }, [mounted, orderReference, token, user?.id]);
 
-  // Conversion rate: 100 points = 1.00 € (0.01 € per point)
-  const POINTS_PER_EURO = 100;
-  const maxPointsWorthInEuros = loyaltyPoints / POINTS_PER_EURO;
-
   const totalAmount = order?.totalAmount ?? 0;
-  const canUseWallet = walletBalance !== null && walletBalance >= totalAmount;
-  const pointsWorth = Math.min(pointsToUse / POINTS_PER_EURO, totalAmount);
-  const remainingEurosToPay =
+  const currentWalletBalance = walletBalance ?? 0;
+
+  // 100% wallet payment is possible if wallet balance covers entire total
+  const canUseWallet = walletBalance !== null && currentWalletBalance >= totalAmount;
+
+  // Mixed payment (wallet + credit card) is possible if wallet has positive balance but does not cover entire total (SLE-213)
+  const canUseMixed =
+    walletBalance !== null && currentWalletBalance > 0 && currentWalletBalance < totalAmount;
+
+  // Automatic calculation of wallet vs card portions (SLE-213)
+  const walletPart =
     settlementMode === 'WALLET'
-      ? 0
-      : Math.max(0, totalAmount - (settlementMode === 'EUROS' ? 0 : pointsWorth));
+      ? totalAmount
+      : settlementMode === 'MIXED'
+        ? Math.min(currentWalletBalance, totalAmount)
+        : 0;
+
+  const cardPart = Math.max(0, totalAmount - walletPart);
 
   // Handle mode selection
   const handleSelectMode = (mode: SettlementMode) => {
     setSettlementMode(mode);
-    if (mode === 'POINTS') {
-      const requiredPoints = Math.round(totalAmount * POINTS_PER_EURO);
-      setPointsToUse(Math.min(loyaltyPoints, requiredPoints));
-    } else if (mode === 'MIXED') {
-      setPointsToUse(Math.min(loyaltyPoints, Math.floor((totalAmount / 2) * POINTS_PER_EURO)));
-    } else {
-      setPointsToUse(0);
-    }
+    setPaymentError(null);
   };
 
-  // Finalize payment by digital wallet (SLE-18)
+  // Finalize payment by digital wallet (100% wallet) (SLE-18)
   const handleWalletPayment = async () => {
     if (!order) return;
     setIsProcessingPayment(true);
@@ -210,9 +194,9 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
         `order_settlement_${order.orderReference}`,
         JSON.stringify({
           settlementMode: 'WALLET',
-          pointsUsed: 0,
-          pointsDeductionEuro: 0,
-          eurosPaid: totalAmount,
+          walletPaid: totalAmount,
+          eurosPaid: 0,
+          totalAmount: totalAmount,
           newWalletBalance: updatedWallet.balance,
         })
       );
@@ -228,19 +212,43 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
     }
   };
 
-  // Finalize payment
+  // Finalize payment by credit card (100% CB) or mixed (wallet + CB) (SLE-213)
   const handlePaymentApproved = async (receipt?: PaymentAuthorizationResponse) => {
     if (!order) return;
     setIsProcessingPayment(true);
+    setPaymentError(null);
 
     try {
-      // 1. Update order status to PAID on backend
+      let updatedWalletBalance: number | undefined;
+
+      // 1. In MIXED mode, automatically debit the wallet part first (SLE-213)
+      if (settlementMode === 'MIXED' && walletPart > 0) {
+        const primaryStore = order.storeSummaries?.[0];
+        const storeName =
+          order.storeSummaries?.length === 1
+            ? primaryStore?.storeName
+            : 'Commandes ShopLoc multi-commerces';
+
+        const updatedWallet = await debitWallet(
+          {
+            amount: walletPart,
+            storeId: primaryStore?.storeId,
+            storeName: storeName || 'Commerce ShopLoc',
+            orderReference: order.orderReference,
+            description: `Règlement mixte (part portefeuille) commande ${order.orderReference}`,
+          },
+          token || undefined
+        );
+        updatedWalletBalance = updatedWallet.balance;
+      }
+
+      // 2. Update order status to PAID on backend
       await updateOrderStatus(order.orderReference, 'PAID', token || undefined);
 
-      // 2. Clear validated cart
+      // 3. Clear validated cart
       clear();
 
-      // 3. Save receipt and settlement breakdown in sessionStorage for the confirmation view
+      // 4. Save receipt and settlement breakdown in sessionStorage for the confirmation view
       if (receipt) {
         sessionStorage.setItem(`order_receipt_${order.orderReference}`, JSON.stringify(receipt));
       }
@@ -248,18 +256,19 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
         `order_settlement_${order.orderReference}`,
         JSON.stringify({
           settlementMode,
-          pointsUsed: settlementMode === 'EUROS' ? 0 : pointsToUse,
-          pointsDeductionEuro: settlementMode === 'EUROS' ? 0 : pointsWorth,
-          eurosPaid: remainingEurosToPay,
+          walletPaid: settlementMode === 'MIXED' ? walletPart : 0,
+          eurosPaid: cardPart,
+          totalAmount: totalAmount,
+          newWalletBalance: updatedWalletBalance,
         })
       );
 
-      // 4. Redirect to the final order confirmation & recap view
+      // 5. Redirect to the final order confirmation & recap view
       const orderUid = order.uid || order.orderReference;
       window.location.href = ROUTES.orderConfirmation.detail(orderUid);
     } catch (err: unknown) {
       setPaymentError(
-        err instanceof Error ? err.message : 'Erreur lors de la validation finale de la commande'
+        err instanceof Error ? err.message : 'Erreur lors de la validation finale du règlement'
       );
       setIsProcessingPayment(false);
     }
@@ -330,8 +339,6 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
     return null;
   }
 
-  const canUseFullPoints = maxPointsWorthInEuros >= totalAmount;
-
   return (
     <div className="max-w-2xl mx-auto space-y-6 py-4">
       {/* Top navigation & Order Ref */}
@@ -390,112 +397,100 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
         </CardHeader>
 
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Mode 1: Credit Card */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Mode 1: Credit Card (100% CB) */}
             <button
               type="button"
               onClick={() => handleSelectMode('EUROS')}
-              className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+              className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                 settlementMode === 'EUROS'
-                  ? 'border-primary bg-primary/10 shadow-xs'
+                  ? 'border-primary bg-primary/10 shadow-xs ring-1 ring-primary'
                   : 'border-border hover:bg-muted/50'
               }`}
             >
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-1.5">
                 <CreditCard className="size-4 text-primary" />
                 <Badge variant="outline" className="text-[10px]">
                   CB
                 </Badge>
               </div>
               <div className="font-semibold text-xs text-foreground">Carte Bancaire</div>
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-[11px] text-muted-foreground mt-0.5">
                 100% ({totalAmount.toFixed(2)} €)
               </div>
             </button>
 
-            {/* Mode 2: ShopLoc Digital Wallet (SLE-18) */}
+            {/* Mode 2: ShopLoc Digital Wallet (100% Portefeuille) */}
             <button
               type="button"
               onClick={() => canUseWallet && handleSelectMode('WALLET')}
               disabled={!canUseWallet}
-              className={`p-3 rounded-xl border text-left transition-all ${
+              className={`p-3.5 rounded-xl border text-left transition-all ${
                 settlementMode === 'WALLET'
                   ? 'border-emerald-500 bg-emerald-500/10 shadow-xs ring-1 ring-emerald-500'
                   : 'border-border hover:bg-muted/50'
               } ${!canUseWallet ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-1.5">
                 <Wallet className="size-4 text-emerald-600 dark:text-emerald-400" />
                 <Badge
                   variant="outline"
                   className="text-[10px] font-mono border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
                 >
-                  {loadingWallet
-                    ? '...'
-                    : walletBalance !== null
-                      ? `${walletBalance.toFixed(2)} €`
-                      : '0.00 €'}
+                  {loadingWallet ? '...' : `${currentWalletBalance.toFixed(2)} €`}
                 </Badge>
               </div>
-              <div className="font-semibold text-xs text-foreground">Portefeuille</div>
-              <div className="text-[11px] text-muted-foreground">
-                {canUseWallet ? `100% (${totalAmount.toFixed(2)} €)` : 'Solde insuffisant'}
+              <div className="font-semibold text-xs text-foreground">Portefeuille ShopLoc</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                {canUseWallet
+                  ? `100% (${totalAmount.toFixed(2)} €)`
+                  : 'Solde insuffisant pour 100%'}
               </div>
             </button>
 
-            {/* Mode 3: Loyalty Points */}
+            {/* Mode 3: Mixed (Portefeuille + Carte Bancaire) (SLE-213) */}
             <button
               type="button"
-              onClick={() => canUseFullPoints && handleSelectMode('POINTS')}
-              disabled={!canUseFullPoints}
-              className={`p-3 rounded-xl border text-left transition-all ${
-                settlementMode === 'POINTS'
-                  ? 'border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500'
-                  : 'border-border hover:bg-muted/50'
-              } ${!canUseFullPoints ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <Coins className="size-4 text-amber-500" />
-                <Badge variant="outline" className="text-[10px] font-mono">
-                  {loyaltyPoints} pts
-                </Badge>
-              </div>
-              <div className="font-semibold text-xs text-foreground">Points Fidélité</div>
-              <div className="text-[11px] text-muted-foreground">
-                {canUseFullPoints ? '100% en points' : 'Solde insuffisant'}
-              </div>
-            </button>
-
-            {/* Mode 4: Mixed (Card + Points) */}
-            <button
-              type="button"
-              onClick={() => loyaltyPoints > 0 && handleSelectMode('MIXED')}
-              disabled={loyaltyPoints <= 0}
-              className={`p-3 rounded-xl border text-left transition-all ${
+              onClick={() => canUseMixed && handleSelectMode('MIXED')}
+              disabled={!canUseMixed}
+              className={`p-3.5 rounded-xl border text-left transition-all ${
                 settlementMode === 'MIXED'
                   ? 'border-indigo-500 bg-indigo-500/10 shadow-xs ring-1 ring-indigo-500'
                   : 'border-border hover:bg-muted/50'
-              } ${loyaltyPoints <= 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              } ${!canUseMixed ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
             >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs">🪙💳</span>
-                <Badge variant="outline" className="text-[10px]">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+                  <Wallet className="size-3.5" />
+                  <span className="text-[10px] font-bold">+</span>
+                  <CreditCard className="size-3.5" />
+                </div>
+                <Badge
+                  variant="outline"
+                  className="text-[10px] border-indigo-500/30 text-indigo-600 dark:text-indigo-400"
+                >
                   MIXTE
                 </Badge>
               </div>
-              <div className="font-semibold text-xs text-foreground">Mixte (CB + Pts)</div>
-              <div className="text-[11px] text-muted-foreground">Déduire une partie</div>
+              <div className="font-semibold text-xs text-foreground">Mixte (Portefeuille + CB)</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                {canUseMixed
+                  ? `${currentWalletBalance.toFixed(2)} € port. + ${(totalAmount - currentWalletBalance).toFixed(2)} € CB`
+                  : currentWalletBalance === 0
+                    ? 'Solde portefeuille vide'
+                    : 'Portefeuille suffisant pour 100%'}
+              </div>
             </button>
           </div>
 
           {/* Wallet insufficient balance alert with quick reload link */}
-          {walletBalance !== null && !canUseWallet && (
+          {walletBalance !== null && !canUseWallet && !canUseMixed && (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-muted/40 border border-border/40 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5">
                 <Wallet className="size-3.5 text-muted-foreground shrink-0" />
                 <span>
-                  Solde portefeuille insuffisant ({walletBalance.toFixed(2)} € disponibles pour une
-                  commande de {totalAmount.toFixed(2)} €).
+                  Solde portefeuille insuffisant ({currentWalletBalance.toFixed(2)} € disponibles
+                  pour une commande de {totalAmount.toFixed(2)} €).
                 </span>
               </span>
               <a
@@ -509,56 +504,71 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
             </div>
           )}
 
-          {/* Slider for mixed mode */}
-          {settlementMode === 'MIXED' && loyaltyPoints > 0 && (
-            <div className="p-3.5 bg-muted/40 rounded-xl space-y-2 border border-border/60">
-              <div className="flex justify-between items-center text-xs">
-                <Label htmlFor="points-slider" className="font-medium">
-                  Points à utiliser :{' '}
-                  <span className="font-mono font-bold text-primary">{pointsToUse}</span> pts (
-                  {pointsWorth.toFixed(2)} €)
-                </Label>
-                <span className="text-[11px] text-muted-foreground">
-                  Disponibles : {loyaltyPoints} pts
-                </span>
+          {/* Automatic calculation callout for mixed mode (SLE-213) */}
+          {settlementMode === 'MIXED' && (
+            <div className="p-3.5 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-xl space-y-2 border border-indigo-200 dark:border-indigo-800 text-xs">
+              <div className="flex items-center gap-2 font-semibold text-indigo-900 dark:text-indigo-200">
+                <Sparkles className="size-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                <span>Calcul automatique du paiement mixte</span>
               </div>
-              <input
-                id="points-slider"
-                type="range"
-                min="0"
-                max={Math.min(loyaltyPoints, Math.round(totalAmount * POINTS_PER_EURO))}
-                step="10"
-                value={pointsToUse}
-                onChange={(e) => setPointsToUse(Number(e.target.value))}
-                className="w-full accent-primary cursor-pointer"
-              />
+              <p className="text-muted-foreground leading-relaxed">
+                Votre solde portefeuille disponible de{' '}
+                <strong className="font-mono text-foreground font-semibold">
+                  {walletPart.toFixed(2)} €
+                </strong>{' '}
+                est automatiquement appliqué pour régler une partie de votre commande. Le montant
+                restant de{' '}
+                <strong className="font-mono text-primary font-bold">
+                  {cardPart.toFixed(2)} €
+                </strong>{' '}
+                sera prélevé par Carte Bancaire via le module sécurisé ci-dessous.
+              </p>
             </div>
           )}
 
           {/* Breakdown summary */}
-          <div className="p-3 bg-muted/50 rounded-xl text-xs space-y-1.5 border border-border/50">
+          <div className="p-3.5 bg-muted/50 rounded-xl text-xs space-y-2 border border-border/50">
             <div className="flex justify-between text-muted-foreground">
-              <span>Montant commande</span>
-              <span className="font-mono">{totalAmount.toFixed(2)} €</span>
+              <span>Montant total commande</span>
+              <span className="font-mono font-semibold text-foreground">
+                {totalAmount.toFixed(2)} €
+              </span>
             </div>
+
             {settlementMode === 'WALLET' && (
               <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
                 <span>
-                  Débit du portefeuille (solde restant :{' '}
-                  {Math.max(0, (walletBalance ?? 0) - totalAmount).toFixed(2)} €)
+                  Débit intégral du portefeuille (solde restant :{' '}
+                  {Math.max(0, currentWalletBalance - totalAmount).toFixed(2)} €)
                 </span>
                 <span className="font-mono">-{totalAmount.toFixed(2)} €</span>
               </div>
             )}
-            {settlementMode !== 'EUROS' && settlementMode !== 'WALLET' && pointsWorth > 0 && (
-              <div className="flex justify-between text-amber-600 dark:text-amber-400 font-medium">
-                <span>Déduction fidélité ({pointsToUse} pts)</span>
-                <span className="font-mono">-{pointsWorth.toFixed(2)} €</span>
-              </div>
+
+            {settlementMode === 'MIXED' && (
+              <>
+                <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-medium">
+                  <span>Part débitée du portefeuille ShopLoc (automatique)</span>
+                  <span className="font-mono">-{walletPart.toFixed(2)} €</span>
+                </div>
+                <div className="flex justify-between text-indigo-600 dark:text-indigo-400 font-medium">
+                  <span>Part restante à régler par Carte Bancaire</span>
+                  <span className="font-mono">{cardPart.toFixed(2)} €</span>
+                </div>
+              </>
             )}
-            <div className="flex justify-between font-bold text-sm text-foreground pt-1.5 border-t border-border">
-              <span>Reste à payer</span>
-              <span className="font-mono text-primary">{remainingEurosToPay.toFixed(2)} €</span>
+
+            <div className="flex justify-between font-bold text-sm text-foreground pt-2 border-t border-border">
+              <span>
+                {settlementMode === 'WALLET'
+                  ? 'Montant à débiter'
+                  : 'Montant à régler par Carte Bancaire'}
+              </span>
+              <span className="font-mono text-primary">
+                {settlementMode === 'WALLET'
+                  ? `${totalAmount.toFixed(2)} €`
+                  : `${cardPart.toFixed(2)} €`}
+              </span>
             </div>
           </div>
         </CardContent>
@@ -579,10 +589,10 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
               virtuel.
               <span className="block mt-1 text-muted-foreground">
                 Solde actuel :{' '}
-                <strong className="font-mono">{(walletBalance ?? 0).toFixed(2)} €</strong> → Nouveau
+                <strong className="font-mono">{currentWalletBalance.toFixed(2)} €</strong> → Nouveau
                 solde :{' '}
                 <strong className="font-mono text-emerald-600 dark:text-emerald-400">
-                  {Math.max(0, (walletBalance ?? 0) - totalAmount).toFixed(2)} €
+                  {Math.max(0, currentWalletBalance - totalAmount).toFixed(2)} €
                 </strong>
               </span>
             </CardDescription>
@@ -612,50 +622,15 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
             </p>
           </CardFooter>
         </Card>
-      ) : remainingEurosToPay > 0 ? (
+      ) : (
         <PaymentSimulatorCard
           hidePresets={true}
           hideReceipt={true}
           hideReference={true}
-          initialAmount={remainingEurosToPay.toFixed(2)}
+          initialAmount={cardPart.toFixed(2)}
           initialReference={order.uid || order.orderReference}
           onPaymentSuccess={handlePaymentApproved}
         />
-      ) : (
-        <Card className="border-emerald-500/40 bg-emerald-500/5 shadow-xs">
-          <CardHeader className="pb-3 text-center">
-            <div className="size-12 rounded-full bg-emerald-500/20 text-emerald-600 flex items-center justify-center mx-auto mb-1">
-              <Coins className="size-6" />
-            </div>
-            <CardTitle className="text-base font-bold">
-              Règlement intégral en points de fidélité
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Votre commande de {totalAmount.toFixed(2)} € sera intégralement réglée avec vos{' '}
-              {pointsToUse} points de fidélité.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="pt-2">
-            <Button
-              size="lg"
-              onClick={() => handlePaymentApproved()}
-              disabled={isProcessingPayment}
-              className="w-full gap-2 font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              {isProcessingPayment ? (
-                <>
-                  <RefreshCw className="size-4 animate-spin" />
-                  Validation du règlement...
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="size-4" />
-                  Confirmer le règlement ({pointsToUse} pts)
-                </>
-              )}
-            </Button>
-          </CardFooter>
-        </Card>
       )}
     </div>
   );
