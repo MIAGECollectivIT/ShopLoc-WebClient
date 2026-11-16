@@ -1,7 +1,16 @@
 import * as React from 'react';
 import type { UserActivityEvaluation, UserVfpStatus, UserVfpProgress } from '@/types/loyalty';
-import { getUserActivityEvaluation, getUserVfpStatus, getUserVfpProgress } from '@/lib/api';
-import { formatRevocationCountdown, type VfpRevocationForecast } from '@/lib/vfp';
+import {
+  getUserActivityEvaluation,
+  getUserVfpStatus,
+  getUserVfpProgress,
+  getUserPaymentTransactions,
+} from '@/lib/api';
+import {
+  calculateVfpRevocationForecast,
+  formatRevocationCountdown,
+  type VfpRevocationForecast,
+} from '@/lib/vfp';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -66,6 +75,8 @@ export function UserActivityGaugeCard({
         ]);
 
         if (isMounted) {
+          let forecast: VfpRevocationForecast | null = null;
+
           if (progressData) {
             setVfpProgress(progressData);
             if (evalData) {
@@ -89,7 +100,7 @@ export function UserActivityGaugeCard({
               const revDate = new Date(progressData.estimatedRevocationDate);
               const days = progressData.daysRemainingBeforeRevocation ?? 0;
               const hours = progressData.hoursRemainingBeforeRevocation ?? 0;
-              const forecast: VfpRevocationForecast = {
+              forecast = {
                 revocationDate: revDate,
                 daysRemaining: days,
                 hoursRemaining: hours,
@@ -97,16 +108,29 @@ export function UserActivityGaugeCard({
                 transactionsExpiringBeforeRevocation: progressData.expiringTransactionsCount || 1,
                 criticalTransactionDate: new Date(revDate.getTime() - 15 * 24 * 60 * 60 * 1000),
               };
-              setRevocationForecast(forecast);
-              onForecastChange?.(forecast);
-            } else {
-              setRevocationForecast(null);
-              onForecastChange?.(null);
             }
           } else {
             // Fallback for older instances
             if (evalData) setEvaluation(evalData);
             if (statusData) setVfpStatus(statusData);
+          }
+
+          // Resilient fallback: calculate directly from Sales transactions if VFP is active but forecast is missing
+          const isVfpActiveMember =
+            progressData?.isVfp ?? statusData?.isVfp ?? Boolean(evalData?.isEligibleVfp);
+          if (isVfpActiveMember && !forecast) {
+            const start =
+              evalData?.windowStart || new Date(Date.now() - 15 * 86400000).toISOString();
+            const end = evalData?.windowEnd || new Date().toISOString();
+            const txList = await getUserPaymentTransactions(userId, start, end).catch(() => []);
+            if (txList.length > 0) {
+              forecast = calculateVfpRevocationForecast(txList, evalData?.threshold ?? 10);
+            }
+          }
+
+          if (isMounted) {
+            setRevocationForecast(forecast);
+            onForecastChange?.(forecast);
           }
         }
       } catch (err) {
@@ -346,12 +370,12 @@ export function UserActivityGaugeCard({
               )}
 
               {/* Revocation countdown indicator (SLE-51 / Critère d'acceptation 3) */}
-              {revocationForecast && (
+              {revocationForecast ? (
                 <div className="p-2.5 rounded-lg border bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-200 text-xs space-y-1.5">
                   <div className="flex items-center justify-between font-semibold">
                     <span className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
                       <CalendarClock className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-                      <span>Compte à rebours avant expiration</span>
+                      <span>Compte à rebours avant expiration (perte du statut)</span>
                     </span>
                     <Badge className="bg-amber-600 text-white text-[10px] px-2 py-0 font-medium">
                       Dans {formatRevocationCountdown(revocationForecast)}
@@ -365,6 +389,14 @@ export function UserActivityGaugeCard({
                     {revocationForecast.transactionsExpiringBeforeRevocation > 1 ? 's' : ''} les
                     plus anciennes sortiront de la fenêtre glissante des 15 jours).
                   </p>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-lg border bg-muted/40 text-muted-foreground text-xs flex items-center gap-2">
+                  <Clock className="size-3.5 shrink-0" />
+                  <span>
+                    Votre statut VFP est actif. Conservez au moins 10 achats sur 15 jours glissants
+                    pour maintenir vos avantages sans interruption.
+                  </span>
                 </div>
               )}
             </div>
