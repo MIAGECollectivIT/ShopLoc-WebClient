@@ -7,10 +7,12 @@ import {
   deleteVehicle,
   getUserVfpStatus,
   getUserPointsBalance,
+  getStores,
 } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 import { formatPoints } from '@/lib/format';
 import type { UserResponse } from '@/types/user';
+import type { Store as StoreModel } from '@/types/store';
 import type { UserPointsBalanceResponse, UserVfpStatus } from '@/types/loyalty';
 import { ClientQrCodeCard } from './ClientQrCodeCard';
 import { FrenchLicensePlateBadge } from './FrenchLicensePlateBadge';
@@ -59,6 +61,7 @@ export function ClientProfileView() {
   const [vfpStatus, setVfpStatus] = React.useState<UserVfpStatus | null>(null);
   const [pointsBalance, setPointsBalance] = React.useState<UserPointsBalanceResponse | null>(null);
   const [pointsUnavailable, setPointsUnavailable] = React.useState(false);
+  const [merchantStore, setMerchantStore] = React.useState<StoreModel | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [isManageVehiclesOpen, setIsManageVehiclesOpen] = React.useState(false);
@@ -94,6 +97,20 @@ export function ClientProfileView() {
                 .catch(() => {
                   if (isMounted) setPointsUnavailable(true);
                 });
+            } else if (data.role === 'MERCHANT') {
+              getStores()
+                .then((stores) => {
+                  if (isMounted) {
+                    const found = stores.find(
+                      (s) =>
+                        s.userId != null &&
+                        ((authUser?.dbId != null && String(s.userId) === String(authUser.dbId)) ||
+                          (data.id && String(s.userId) === String(data.id)))
+                    );
+                    if (found) setMerchantStore(found);
+                  }
+                })
+                .catch(() => {});
             }
           }
         }
@@ -497,7 +514,7 @@ export function ClientProfileView() {
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             {!isClient && effectiveUser.role === 'MERCHANT' && (
               <a
-                href="/stores/new"
+                href={merchantStore ? `/stores/${merchantStore.id}` : '/stores/new'}
                 className={buttonVariants({
                   variant: 'default',
                   size: 'default',
@@ -505,7 +522,7 @@ export function ClientProfileView() {
                 })}
               >
                 <Store className="size-4" />
-                <span>Nouveau commerce</span>
+                <span>{merchantStore ? 'Gérer mon commerce' : 'Nouveau commerce'}</span>
               </a>
             )}
 

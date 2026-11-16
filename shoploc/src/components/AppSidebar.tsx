@@ -48,9 +48,13 @@ import {
   Store as StoreIcon,
   QrCode,
   Users as UsersIcon,
+  Package,
+  Gift,
+  Coins,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { updateUserProfile } from '@/lib/api';
+import { updateUserProfile, getStores } from '@/lib/api';
+import type { Store } from '@/types/store';
 import { ROUTES } from '@/config/routes';
 
 interface AppSidebarProps {
@@ -63,6 +67,34 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
   const [isWalletOpen, setIsWalletOpen] = React.useState(false);
 
   const { user, isAuthenticated, role, logout } = useAuth();
+  const [merchantStore, setMerchantStore] = React.useState<Store | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    if (isAuthenticated && (role === 'MERCHANT' || role === 'ADMIN') && user) {
+      getStores()
+        .then((stores) => {
+          if (!active) return;
+          const found = stores.find(
+            (s) =>
+              s.userId != null &&
+              ((user.dbId != null && String(s.userId) === String(user.dbId)) ||
+                (user.id != null && String(s.userId) === String(user.id)))
+          );
+          if (found) {
+            setMerchantStore(found);
+          } else if (role === 'ADMIN' && stores.length > 0) {
+            setMerchantStore(stores[0]);
+          }
+        })
+        .catch(() => {
+          // ignore
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated, role, user]);
 
   // Real profile form state linked to authenticated user
   const [profileForm, setProfileForm] = React.useState({
@@ -282,6 +314,80 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+
+          {/* Merchant Management section for merchants and administrators */}
+          {isAuthenticated && (role === 'MERCHANT' || role === 'ADMIN') && (
+            <>
+              <SidebarSeparator />
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-between">
+                  <span>Espace Commerçant</span>
+                  {merchantStore && (
+                    <span className="text-[10px] font-normal text-muted-foreground truncate max-w-[110px]">
+                      {merchantStore.name}
+                    </span>
+                  )}
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {merchantStore ? (
+                      <>
+                        <SidebarMenuItem>
+                          <SidebarMenuButton render={<a href={`/stores/${merchantStore.id}`} />}>
+                            <StoreIcon className="size-4 text-emerald-600 dark:text-emerald-400" />
+                            <span className="font-medium text-foreground">Mon Établissement</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+
+                        <SidebarMenuItem>
+                          <SidebarMenuButton
+                            render={<a href={`/stores/${merchantStore.id}?tab=merchant`} />}
+                          >
+                            <Package className="size-4 text-muted-foreground" />
+                            <span>Articles & Stock</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+
+                        <SidebarMenuItem>
+                          <SidebarMenuButton
+                            render={<a href={`/stores/${merchantStore.id}?tab=gifts`} />}
+                          >
+                            <Gift className="size-4 text-amber-500" />
+                            <span className="font-medium text-foreground">Catalogue Cadeaux</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+
+                        <SidebarMenuItem>
+                          <SidebarMenuButton
+                            render={<a href={`/stores/${merchantStore.id}?tab=loyalty`} />}
+                          >
+                            <Coins className="size-4 text-primary" />
+                            <span>Barème Fidélité</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+
+                        <SidebarMenuItem>
+                          <SidebarMenuButton
+                            render={<a href={`/stores/${merchantStore.id}/scan`} />}
+                          >
+                            <QrCode className="size-4 text-emerald-600 dark:text-emerald-400" />
+                            <span className="font-medium text-foreground">Pass Caisse & Scan</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      </>
+                    ) : (
+                      <SidebarMenuItem>
+                        <SidebarMenuButton render={<a href="/stores/new" />}>
+                          <PlusCircle className="size-4 text-emerald-600 dark:text-emerald-400" />
+                          <span className="font-medium text-foreground">Créer mon commerce</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </>
+          )}
 
           {/* Administration section restricted to administrators */}
           {isAuthenticated && role === 'ADMIN' && (

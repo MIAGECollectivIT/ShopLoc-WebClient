@@ -9,7 +9,16 @@ import { ClientProductCatalog } from '@/components/ClientProductCatalog';
 import { StoreLoyaltyBanner } from '@/components/StoreLoyaltyBanner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShieldCheck, Eye, Coins, Package, QrCode, Gift } from 'lucide-react';
+import {
+  ShieldCheck,
+  Eye,
+  Coins,
+  Package,
+  QrCode,
+  Gift,
+  Store as StoreIcon,
+  Undo2,
+} from 'lucide-react';
 
 interface StoreProductsViewProps {
   store: Store;
@@ -24,7 +33,28 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
 
   React.useEffect(() => {
     setMounted(true);
+    if (typeof window !== 'undefined') {
+      const param = new URLSearchParams(window.location.search).get('tab');
+      if (
+        param === 'merchant' ||
+        param === 'gifts' ||
+        param === 'loyalty' ||
+        param === 'scan' ||
+        param === 'client'
+      ) {
+        setViewMode(param);
+      }
+    }
   }, []);
+
+  const handleTabChange = (mode: 'merchant' | 'gifts' | 'loyalty' | 'scan' | 'client') => {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', mode);
+      window.history.replaceState({}, '', url.toString());
+    }
+  };
 
   // Check if current user is either an ADMIN or the MERCHANT owner of this store
   const isOwnerOrAdmin = React.useMemo(() => {
@@ -67,83 +97,123 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
     );
   }
 
-  // If merchant owner or admin: show switcher and corresponding view
+  // If merchant owner or admin: show modern management control card & tabs
   return (
-    <div className="space-y-6 pt-6">
-      {/* Management Switcher Banner */}
-      <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 p-3 rounded-xl bg-muted/60 border border-border">
-        <div className="flex items-center gap-2 min-w-0">
-          <Badge
-            variant="outline"
-            className="gap-1 border-primary/30 text-primary bg-background shrink-0"
-          >
-            <ShieldCheck className="size-3.5 text-primary" />
-            {role === 'ADMIN' ? 'Accès Administrateur' : 'Propriétaire du commerce'}
-          </Badge>
-          <span className="text-xs text-muted-foreground hidden sm:inline truncate">
-            Gérez votre commerce : catalogue de produits, cadeaux fidélité, barème et encaissement.
-          </span>
+    <div className="space-y-6 pt-4">
+      {/* Management Control Header & Tabs */}
+      <div className="bg-card rounded-2xl border border-border/80 shadow-xs overflow-hidden">
+        {/* Top Header info */}
+        <div className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-muted/30 border-b border-border/60">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
+                <StoreIcon className="size-5 text-primary" />
+                <span>Espace Gestion Commerce</span>
+              </h2>
+              <Badge
+                variant="outline"
+                className="gap-1.5 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 text-xs py-0.5 px-2.5 font-semibold"
+              >
+                <ShieldCheck className="size-3.5" />
+                {role === 'ADMIN' ? 'Accès Administrateur' : 'Propriétaire du commerce'}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Pilotez le catalogue d'articles, les cadeaux fidélité, le barème de points et
+              l'encaissement de <span className="font-semibold text-foreground">{store.name}</span>.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              type="button"
+              variant={viewMode === 'client' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => handleTabChange(viewMode === 'client' ? 'merchant' : 'client')}
+              className="h-8 text-xs gap-1.5 cursor-pointer"
+            >
+              <Eye className="size-3.5" />
+              <span>{viewMode === 'client' ? 'Quitter aperçu' : 'Aperçu client'}</span>
+            </Button>
+
+            <a
+              href={`/stores/${storeIdNumber}/scan`}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
+            >
+              <QrCode className="size-3.5" />
+              <span>Pass Caisse & Scan</span>
+            </a>
+          </div>
         </div>
 
-        <nav
-          aria-label="Modes de gestion du commerce"
-          className="flex flex-wrap items-center gap-1 p-1 bg-background rounded-lg border border-border shadow-2xs w-full xl:w-auto"
-        >
-          <Button
-            type="button"
-            variant={viewMode === 'merchant' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('merchant')}
-            className="flex-1 sm:flex-initial h-8 sm:h-7 text-xs gap-1.5 px-3 justify-center whitespace-nowrap"
+        {/* Modern Segmented Navigation Tabs */}
+        <div className="px-3 sm:px-4 py-2 bg-background">
+          <nav
+            aria-label="Modes de gestion du commerce"
+            className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1"
           >
-            <Package className="size-3.5 shrink-0" />
-            <span>Catalogue & stock</span>
-          </Button>
+            <button
+              type="button"
+              onClick={() => handleTabChange('merchant')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer ${
+                viewMode === 'merchant'
+                  ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/70'
+              }`}
+            >
+              <Package className="size-4 shrink-0" />
+              <span>Articles & Stock</span>
+            </button>
 
-          <Button
-            type="button"
-            variant={viewMode === 'gifts' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('gifts')}
-            className="flex-1 sm:flex-initial h-8 sm:h-7 text-xs gap-1.5 px-3 justify-center whitespace-nowrap"
-          >
-            <Gift className="size-3.5 shrink-0 text-amber-500" />
-            <span>Cadeaux fidélité</span>
-          </Button>
+            <button
+              type="button"
+              onClick={() => handleTabChange('gifts')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer ${
+                viewMode === 'gifts'
+                  ? 'bg-amber-500 text-white font-semibold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/70'
+              }`}
+            >
+              <Gift className="size-4 shrink-0 text-amber-500 group-hover:text-amber-600" />
+              <span>Catalogue Cadeaux</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  viewMode === 'gifts'
+                    ? 'bg-white/25 text-white'
+                    : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                }`}
+              >
+                Points
+              </span>
+            </button>
 
-          <Button
-            type="button"
-            variant={viewMode === 'loyalty' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('loyalty')}
-            className="flex-1 sm:flex-initial h-8 sm:h-7 text-xs gap-1.5 px-3 justify-center whitespace-nowrap"
-          >
-            <Coins className="size-3.5 shrink-0" />
-            <span>Barème fidélité</span>
-          </Button>
+            <button
+              type="button"
+              onClick={() => handleTabChange('loyalty')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer ${
+                viewMode === 'loyalty'
+                  ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/70'
+              }`}
+            >
+              <Coins className="size-4 shrink-0" />
+              <span>Barème Fidélité</span>
+            </button>
 
-          <Button
-            type="button"
-            variant={viewMode === 'scan' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('scan')}
-            className="flex-1 sm:flex-initial h-8 sm:h-7 text-xs gap-1.5 px-3 justify-center whitespace-nowrap"
-          >
-            <QrCode className="size-3.5 shrink-0" />
-            <span>Pass Caisse & Scan</span>
-          </Button>
-
-          <Button
-            type="button"
-            variant={viewMode === 'client' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('client')}
-            className="flex-1 sm:flex-initial h-8 sm:h-7 text-xs gap-1.5 px-3 justify-center whitespace-nowrap"
-          >
-            <Eye className="size-3.5 shrink-0" />
-            <span>Aperçu client</span>
-          </Button>
-        </nav>
+            <button
+              type="button"
+              onClick={() => handleTabChange('scan')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer ${
+                viewMode === 'scan'
+                  ? 'bg-emerald-600 text-white font-semibold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/70'
+              }`}
+            >
+              <QrCode className="size-4 shrink-0" />
+              <span>Scanner Caisse</span>
+            </button>
+          </nav>
+        </div>
       </div>
 
       {/* Render selected view */}
@@ -165,6 +235,22 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
 
       {viewMode === 'client' && (
         <div className="space-y-6">
+          <div className="flex items-center justify-between p-3 rounded-xl bg-primary/10 border border-primary/20 text-xs text-primary font-medium">
+            <span className="flex items-center gap-1.5">
+              <Eye className="size-4" />
+              Vous prévisualisez la vitrine telle qu'elle apparaît pour vos clients citoyens.
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => handleTabChange('merchant')}
+              className="h-7 text-xs gap-1 text-primary hover:bg-primary/20 cursor-pointer"
+            >
+              <Undo2 className="size-3.5" />
+              <span>Retour à la gestion</span>
+            </Button>
+          </div>
           <StoreLoyaltyBanner storeId={storeIdNumber} />
           <ClientProductCatalog storeId={storeIdNumber} storeName={store.name} />
         </div>
