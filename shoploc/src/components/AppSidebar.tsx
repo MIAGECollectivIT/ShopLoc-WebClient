@@ -302,16 +302,6 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                         <span className="font-medium text-foreground">Mes commerces</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
-
-                    <SidebarMenuItem>
-                      <SidebarMenuButton
-                        render={<a href="/stores/new" />}
-                        isActive={_currentPath === '/stores/new'}
-                      >
-                        <PlusCircle className="size-4 text-emerald-600 dark:text-emerald-400" />
-                        <span className="font-medium text-foreground">Nouveau commerce</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>

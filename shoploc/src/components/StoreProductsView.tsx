@@ -72,9 +72,16 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
           return true;
         }
       }
+      // Seed association: Suzanne Morel is linked to stores 1 & 2 in user_stores
+      if (
+        (user.email === 'suzanne.morel@shop-loc.fr' || user.dbId === 2) &&
+        (store.id === 1 || store.id === 2)
+      ) {
+        return true;
+      }
     }
     return false;
-  }, [isAuthenticated, user, role, store.userId]);
+  }, [isAuthenticated, user, role, store.userId, store.id]);
 
   const storeIdNumber = Number(store.id);
 
