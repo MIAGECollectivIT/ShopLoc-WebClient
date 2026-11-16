@@ -75,3 +75,14 @@ export function calculateSimulatedPoints(
   const halfPoints = Math.floor(rawPoints * 2) / 2;
   return halfPoints;
 }
+
+export function calculatePointsEuroEquivalent(
+  euroAmount: number,
+  pointsReward: number,
+  points: number
+): number {
+  if (!euroAmount || euroAmount <= 0 || !pointsReward || pointsReward <= 0 || points <= 0) {
+    return 0;
+  }
+  return (points / pointsReward) * euroAmount;
+}
