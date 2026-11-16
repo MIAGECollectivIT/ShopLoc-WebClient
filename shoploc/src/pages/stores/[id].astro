@@ -14,6 +14,11 @@ import { StoreProductsView } from '../../components/StoreProductsView';
 const { id } = Astro.params;
 const { store: initialStore } = Astro.props as { store?: Store };
 const store = initialStore ?? (id ? await getStoreById(id).catch(() => null) : null);
+
+// Canonical redirect to UUID if store was accessed with numeric DB id
+if (store?.uid && id && /^\d+$/.test(id)) {
+  return Astro.redirect(ROUTES.storeDetail(store.uid));
+}
 ---
 
 <Layout title={store?.name || 'Détail boutique'}>

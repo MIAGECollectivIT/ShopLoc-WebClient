@@ -9,6 +9,7 @@ import { ClientProductCatalog } from '@/components/ClientProductCatalog';
 import { StoreLoyaltyBanner } from '@/components/StoreLoyaltyBanner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ROUTES } from '@/config/routes';
 import {
   ShieldCheck,
   Eye,
@@ -144,7 +145,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
             </Button>
 
             <a
-              href={`/stores/${storeIdNumber}/scan`}
+              href={ROUTES.storeScan(store.uid || storeIdNumber)}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
             >
               <QrCode className="size-3.5" />
