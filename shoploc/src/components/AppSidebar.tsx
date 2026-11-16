@@ -67,7 +67,8 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
   const [isWalletOpen, setIsWalletOpen] = React.useState(false);
 
   const { user, isAuthenticated, role, logout } = useAuth();
-  const [merchantStore, setMerchantStore] = React.useState<Store | null>(null);
+  const [merchantStores, setMerchantStores] = React.useState<Store[]>([]);
+  const [selectedStoreId, setSelectedStoreId] = React.useState<number | null>(null);
 
   React.useEffect(() => {
     let active = true;
@@ -75,16 +76,16 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
       getStores()
         .then((stores) => {
           if (!active) return;
-          const found = stores.find(
+          const userStores = stores.filter(
             (s) =>
               s.userId != null &&
               ((user.dbId != null && String(s.userId) === String(user.dbId)) ||
                 (user.id != null && String(s.userId) === String(user.id)))
           );
-          if (found) {
-            setMerchantStore(found);
-          } else if (role === 'ADMIN' && stores.length > 0) {
-            setMerchantStore(stores[0]);
+          if (userStores.length > 0) {
+            setMerchantStores(userStores);
+          } else if (role === 'ADMIN') {
+            setMerchantStores(stores);
           }
         })
         .catch(() => {
@@ -95,6 +96,26 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
       active = false;
     };
   }, [isAuthenticated, role, user]);
+
+  // Synchronize selectedStoreId with currentPath or fallback to first store
+  React.useEffect(() => {
+    if (merchantStores.length > 0) {
+      const match = _currentPath.match(/\/stores\/(\d+)/);
+      if (match && match[1]) {
+        const pathId = Number(match[1]);
+        if (merchantStores.some((s) => s.id === pathId)) {
+          setSelectedStoreId(pathId);
+          return;
+        }
+      }
+      if (selectedStoreId == null || !merchantStores.some((s) => s.id === selectedStoreId)) {
+        setSelectedStoreId(Number(merchantStores[0].id));
+      }
+    }
+  }, [merchantStores, _currentPath, selectedStoreId]);
+
+  const activeStore =
+    merchantStores.find((s) => s.id === selectedStoreId) || merchantStores[0] || null;
 
   // Real profile form state linked to authenticated user
   const [profileForm, setProfileForm] = React.useState({
@@ -322,26 +343,54 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
               <SidebarGroup>
                 <SidebarGroupLabel className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-between">
                   <span>Espace Commerçant</span>
-                  {merchantStore && (
+                  {activeStore && (
                     <span className="text-[10px] font-normal text-muted-foreground truncate max-w-[110px]">
-                      {merchantStore.name}
+                      {merchantStores.length > 1
+                        ? `${merchantStores.length} boutiques`
+                        : activeStore.name}
                     </span>
                   )}
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
+                  {merchantStores.length > 1 && (
+                    <div className="px-2 pt-1 pb-2">
+                      <label
+                        htmlFor="merchant-store-select"
+                        className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1"
+                      >
+                        Boutique active
+                      </label>
+                      <select
+                        id="merchant-store-select"
+                        aria-label="Sélectionner un commerce"
+                        value={activeStore?.id}
+                        onChange={(e) => setSelectedStoreId(Number(e.target.value))}
+                        className="w-full text-xs bg-muted/80 border border-border rounded-md p-1.5 text-foreground font-medium focus:ring-1 focus:ring-primary focus:outline-hidden cursor-pointer"
+                      >
+                        {merchantStores.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <SidebarMenu>
-                    {merchantStore ? (
+                    {activeStore ? (
                       <>
                         <SidebarMenuItem>
-                          <SidebarMenuButton render={<a href={`/stores/${merchantStore.id}`} />}>
+                          <SidebarMenuButton render={<a href={`/stores/${activeStore.id}`} />}>
                             <StoreIcon className="size-4 text-emerald-600 dark:text-emerald-400" />
-                            <span className="font-medium text-foreground">Mon Établissement</span>
+                            <span className="font-medium text-foreground truncate">
+                              {activeStore.name}
+                            </span>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
 
                         <SidebarMenuItem>
                           <SidebarMenuButton
-                            render={<a href={`/stores/${merchantStore.id}?tab=merchant`} />}
+                            render={<a href={`/stores/${activeStore.id}?tab=merchant`} />}
                           >
                             <Package className="size-4 text-muted-foreground" />
                             <span>Articles & Stock</span>
@@ -350,16 +399,16 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
 
                         <SidebarMenuItem>
                           <SidebarMenuButton
-                            render={<a href={`/stores/${merchantStore.id}?tab=gifts`} />}
+                            render={<a href={`/stores/${activeStore.id}?tab=gifts`} />}
                           >
-                            <Gift className="size-4 text-amber-500" />
-                            <span className="font-medium text-foreground">Catalogue Cadeaux</span>
+                            <Gift className="size-4 text-muted-foreground" />
+                            <span>Catalogue Cadeaux</span>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
 
                         <SidebarMenuItem>
                           <SidebarMenuButton
-                            render={<a href={`/stores/${merchantStore.id}?tab=loyalty`} />}
+                            render={<a href={`/stores/${activeStore.id}?tab=loyalty`} />}
                           >
                             <Coins className="size-4 text-primary" />
                             <span>Barème Fidélité</span>
@@ -367,9 +416,7 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                         </SidebarMenuItem>
 
                         <SidebarMenuItem>
-                          <SidebarMenuButton
-                            render={<a href={`/stores/${merchantStore.id}/scan`} />}
-                          >
+                          <SidebarMenuButton render={<a href={`/stores/${activeStore.id}/scan`} />}>
                             <QrCode className="size-4 text-emerald-600 dark:text-emerald-400" />
                             <span className="font-medium text-foreground">Pass Caisse & Scan</span>
                           </SidebarMenuButton>

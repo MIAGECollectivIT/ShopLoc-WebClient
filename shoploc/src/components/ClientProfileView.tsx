@@ -61,7 +61,7 @@ export function ClientProfileView() {
   const [vfpStatus, setVfpStatus] = React.useState<UserVfpStatus | null>(null);
   const [pointsBalance, setPointsBalance] = React.useState<UserPointsBalanceResponse | null>(null);
   const [pointsUnavailable, setPointsUnavailable] = React.useState(false);
-  const [merchantStore, setMerchantStore] = React.useState<StoreModel | null>(null);
+  const [merchantStores, setMerchantStores] = React.useState<StoreModel[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [isManageVehiclesOpen, setIsManageVehiclesOpen] = React.useState(false);
@@ -101,13 +101,13 @@ export function ClientProfileView() {
               getStores()
                 .then((stores) => {
                   if (isMounted) {
-                    const found = stores.find(
+                    const userStores = stores.filter(
                       (s) =>
                         s.userId != null &&
                         ((authUser?.dbId != null && String(s.userId) === String(authUser.dbId)) ||
                           (data.id && String(s.userId) === String(data.id)))
                     );
-                    if (found) setMerchantStore(found);
+                    setMerchantStores(userStores);
                   }
                 })
                 .catch(() => {});
@@ -514,7 +514,13 @@ export function ClientProfileView() {
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             {!isClient && effectiveUser.role === 'MERCHANT' && (
               <a
-                href={merchantStore ? `/stores/${merchantStore.id}` : '/stores/new'}
+                href={
+                  merchantStores.length === 1
+                    ? `/stores/${merchantStores[0].id}`
+                    : merchantStores.length > 1
+                      ? ROUTES.stores.path
+                      : '/stores/new'
+                }
                 className={buttonVariants({
                   variant: 'default',
                   size: 'default',
@@ -522,7 +528,13 @@ export function ClientProfileView() {
                 })}
               >
                 <Store className="size-4" />
-                <span>{merchantStore ? 'Gérer mon commerce' : 'Nouveau commerce'}</span>
+                <span>
+                  {merchantStores.length === 1
+                    ? 'Gérer mon commerce'
+                    : merchantStores.length > 1
+                      ? `Gérer mes commerces (${merchantStores.length})`
+                      : 'Nouveau commerce'}
+                </span>
               </a>
             )}
 

@@ -170,21 +170,12 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
               onClick={() => handleTabChange('gifts')}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer ${
                 viewMode === 'gifts'
-                  ? 'bg-amber-500 text-white font-semibold shadow-xs'
+                  ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/70'
               }`}
             >
-              <Gift className="size-4 shrink-0 text-amber-500 group-hover:text-amber-600" />
+              <Gift className="size-4 shrink-0" />
               <span>Catalogue Cadeaux</span>
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                  viewMode === 'gifts'
-                    ? 'bg-white/25 text-white'
-                    : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-                }`}
-              >
-                Points
-              </span>
             </button>
 
             <button
