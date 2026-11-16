@@ -1,16 +1,9 @@
 import * as React from 'react';
-import { Store as StoreIcon, AlertCircle, RotateCcw, SearchX } from 'lucide-react';
+import { Store as StoreIcon, AlertCircle, Search } from 'lucide-react';
 import type { Store } from '@/types/store';
 import { searchStores } from '@/lib/api';
 import { StoreCard } from '@/components/StoreCard';
 import { StoreSearchBar } from '@/components/StoreSearchBar';
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-} from '@/components/ui/empty';
 import { Button } from '@/components/ui/button';
 
 export interface StoreDirectoryViewProps {
@@ -19,9 +12,8 @@ export interface StoreDirectoryViewProps {
 }
 
 /**
- * Interactive store directory page component (SLE-216, SLE-215).
- * Implements a hybrid search: fetches from /v1/stores/search with debounce
- * and gracefully falls back to client-side filtering if backend is unreachable.
+ * Interactive store directory component (SLE-216).
+ * Toolbar and states are strictly ISO to GlobalProductCatalog.
  */
 export function StoreDirectoryView({
   initialStores = [],
@@ -29,7 +21,10 @@ export function StoreDirectoryView({
 }: StoreDirectoryViewProps) {
   const [stores, setStores] = React.useState<Store[]>(initialStores);
   const [searchQuery, setSearchQuery] = React.useState<string>('');
-  const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = React.useState<string>('ALL');
+  const [sortBy, setSortBy] = React.useState<'default' | 'name-asc' | 'name-desc' | 'category'>(
+    'default'
+  );
   const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const error = initialError;
 
@@ -46,12 +41,12 @@ export function StoreDirectoryView({
     );
   }, [initialStores]);
 
-  const hasActiveFilters = searchQuery.trim().length > 0 || selectedCategories.length > 0;
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 || selectedCategory !== 'ALL' || sortBy !== 'default';
 
   // Hybrid search execution: Backend API first with graceful client-side fallback
   React.useEffect(() => {
-    // If no filter is applied, reset to initialStores immediately
-    if (!hasActiveFilters) {
+    if (searchQuery.trim().length === 0 && selectedCategory === 'ALL') {
       setStores(initialStores);
       setIsLoading(false);
       return;
@@ -62,9 +57,10 @@ export function StoreDirectoryView({
 
     const executeSearch = async () => {
       try {
+        const categoriesParam = selectedCategory !== 'ALL' ? [selectedCategory] : [];
         const results = await searchStores({
           query: searchQuery,
-          categories: selectedCategories,
+          categories: categoriesParam,
         });
         if (isMounted) {
           setStores(results);
@@ -85,11 +81,9 @@ export function StoreDirectoryView({
               (store.address && store.address.toLowerCase().includes(q));
 
             const matchesCategory =
-              selectedCategories.length === 0 ||
+              selectedCategory === 'ALL' ||
               (store.category &&
-                selectedCategories.some(
-                  (c) => c.toLowerCase() === store.category!.trim().toLowerCase()
-                ));
+                store.category.trim().toLowerCase() === selectedCategory.toLowerCase());
 
             return matchesName && matchesCategory;
           });
@@ -104,98 +98,95 @@ export function StoreDirectoryView({
     return () => {
       isMounted = false;
     };
-  }, [searchQuery, selectedCategories, hasActiveFilters, initialStores]);
+  }, [searchQuery, selectedCategory, initialStores]);
 
-  const handleCategoryToggle = (category: string) => {
-    setSelectedCategories((prev) => {
-      const exists = prev.some((c) => c.toLowerCase() === category.toLowerCase());
-      if (exists) {
-        return prev.filter((c) => c.toLowerCase() !== category.toLowerCase());
-      }
-      return [...prev, category];
-    });
-  };
-
-  const handleClearCategories = () => {
-    setSelectedCategories([]);
-  };
+  // Apply sorting
+  const sortedStores = React.useMemo(() => {
+    const list = [...stores];
+    if (sortBy === 'name-asc') {
+      list.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }));
+    } else if (sortBy === 'name-desc') {
+      list.sort((a, b) => b.name.localeCompare(a.name, 'fr', { sensitivity: 'base' }));
+    } else if (sortBy === 'category') {
+      list.sort((a, b) =>
+        (a.category || '').localeCompare(b.category || '', 'fr', { sensitivity: 'base' })
+      );
+    }
+    return list;
+  }, [stores, sortBy]);
 
   const handleResetFilters = () => {
     setSearchQuery('');
-    setSelectedCategories([]);
+    setSelectedCategory('ALL');
+    setSortBy('default');
   };
 
   return (
     <div className="space-y-6">
-      {/* Search Bar & Multi-category Filter (SLE-215) */}
+      {/* Toolbar ISO to GlobalProductCatalog (SLE-215) */}
       <StoreSearchBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         availableCategories={availableCategories}
-        selectedCategories={selectedCategories}
-        onCategoryToggle={handleCategoryToggle}
-        onClearCategories={handleClearCategories}
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
+        sortBy={sortBy}
+        onSortByChange={setSortBy}
         onResetFilters={handleResetFilters}
         hasActiveFilters={hasActiveFilters}
-        totalResults={stores.length}
-        isLoading={isLoading}
       />
 
       {/* Global error banner if initial data fetch failed completely */}
       {error && (
-        <div className="border border-destructive/50 bg-destructive/10 p-4 text-destructive space-y-1 rounded-lg">
-          <div className="flex items-center gap-2 font-medium">
-            <AlertCircle className="size-4 shrink-0" />
-            <p className="text-sm">{error}</p>
-          </div>
+        <div className="p-8 text-center bg-card border border-destructive/20 rounded-xl space-y-2">
+          <AlertCircle className="size-8 text-destructive mx-auto" />
+          <p className="text-sm font-medium text-destructive">{error}</p>
         </div>
       )}
 
-      {/* Responsive Store Grid (SLE-216) */}
-      {!error && stores.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-          {stores.map((store) => (
+      {/* Loading Skeletons ISO to GlobalProductCatalog */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div
+              key={i}
+              className="border border-border rounded-xl p-4 space-y-3 bg-card animate-pulse"
+            >
+              <div className="aspect-4/3 bg-muted rounded-lg" />
+              <div className="h-4 bg-muted rounded w-3/4" />
+              <div className="h-3 bg-muted rounded w-1/2" />
+              <div className="h-9 bg-muted rounded" />
+            </div>
+          ))}
+        </div>
+      ) : !error && initialStores.length === 0 ? (
+        /* Empty Catalog ISO to GlobalProductCatalog */
+        <div className="p-12 text-center bg-card border border-border rounded-xl space-y-4">
+          <StoreIcon className="size-10 text-muted-foreground mx-auto stroke-1" />
+          <h3 className="text-base font-semibold text-foreground">Aucun commerçant disponible</h3>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+            Il n'y a pour le moment aucun commerce partenaire enregistré dans votre municipalité.
+          </p>
+        </div>
+      ) : !error && sortedStores.length === 0 ? (
+        /* Empty Filter Mismatch ISO to GlobalProductCatalog */
+        <div className="p-10 text-center bg-card border border-border rounded-xl space-y-2">
+          <Search className="size-8 text-muted-foreground mx-auto" />
+          <h4 className="text-sm font-medium text-foreground">Aucun commerce ne correspond</h4>
+          <p className="text-xs text-muted-foreground">
+            Ajustez vos filtres de recherche ou sélectionnez une autre catégorie.
+          </p>
+          <Button variant="outline" size="sm" onClick={handleResetFilters}>
+            Réinitialiser les filtres
+          </Button>
+        </div>
+      ) : (
+        /* Responsive Store Grid (SLE-216) */
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+          {sortedStores.map((store) => (
             <StoreCard key={store.uid || store.id || store.name} store={store} />
           ))}
         </div>
-      )}
-
-      {/* Empty State: Filter mismatch */}
-      {!error && stores.length === 0 && hasActiveFilters && (
-        <Empty className="py-12 border rounded-xl bg-card">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <SearchX className="size-8 text-muted-foreground" />
-            </EmptyMedia>
-            <EmptyTitle>Aucun commerce trouvé</EmptyTitle>
-            <EmptyDescription>
-              Aucun commerce ne correspond à vos critères de recherche
-              {searchQuery ? ` « ${searchQuery} »` : ''}
-              {selectedCategories.length > 0 ? ` (${selectedCategories.join(', ')})` : ''}.
-            </EmptyDescription>
-            <div className="pt-2">
-              <Button variant="outline" size="sm" onClick={handleResetFilters} className="gap-1.5">
-                <RotateCcw className="size-3.5" />
-                Effacer les filtres
-              </Button>
-            </div>
-          </EmptyHeader>
-        </Empty>
-      )}
-
-      {/* Empty State: Initial catalog empty */}
-      {!error && stores.length === 0 && !hasActiveFilters && (
-        <Empty className="py-12 border rounded-xl bg-card">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <StoreIcon className="size-8 text-muted-foreground" />
-            </EmptyMedia>
-            <EmptyTitle>Aucune boutique trouvée</EmptyTitle>
-            <EmptyDescription>
-              Il n'y a pour le moment aucun commerçant enregistré dans votre zone.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
       )}
     </div>
   );
