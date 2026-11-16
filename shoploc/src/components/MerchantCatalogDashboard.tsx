@@ -132,13 +132,13 @@ export function MerchantCatalogDashboard({
   // Computed metrics
   const totalCount = products.length;
   const inStockCount = products.filter(
-    (p) => getStockStatus(p.stockQuantity) === 'IN_STOCK'
+    (p) => getStockStatus(p.stockQuantity, p.alertThreshold) === 'IN_STOCK'
   ).length;
   const lowStockCount = products.filter(
-    (p) => getStockStatus(p.stockQuantity) === 'LOW_STOCK'
+    (p) => getStockStatus(p.stockQuantity, p.alertThreshold) === 'LOW_STOCK'
   ).length;
   const outOfStockCount = products.filter(
-    (p) => getStockStatus(p.stockQuantity) === 'OUT_OF_STOCK'
+    (p) => getStockStatus(p.stockQuantity, p.alertThreshold) === 'OUT_OF_STOCK'
   ).length;
 
   // Filtered products list
@@ -152,7 +152,7 @@ export function MerchantCatalogDashboard({
     if (!matchesSearch) return false;
 
     if (stockFilter === 'ALL') return true;
-    return getStockStatus(p.stockQuantity) === stockFilter;
+    return getStockStatus(p.stockQuantity, p.alertThreshold) === stockFilter;
   });
 
   return (
@@ -420,7 +420,7 @@ export function MerchantCatalogDashboard({
         /* Products Grid */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredProducts.map((product) => {
-            const status = getStockStatus(product.stockQuantity);
+            const status = getStockStatus(product.stockQuantity, product.alertThreshold);
 
             return (
               <Card

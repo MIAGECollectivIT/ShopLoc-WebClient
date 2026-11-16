@@ -7,6 +7,8 @@ export interface Product {
   price: number;
   imageUrl?: string | null;
   stockQuantity: number;
+  alertThreshold?: number;
+  isAvailable?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -18,6 +20,7 @@ export interface ProductCreateRequest {
   price: number;
   imageUrl?: string;
   stockQuantity?: number;
+  alertThreshold?: number;
 }
 
 export interface ProductUpdateRequest {
@@ -27,6 +30,7 @@ export interface ProductUpdateRequest {
   price?: number;
   imageUrl?: string;
   stockQuantity?: number;
+  alertThreshold?: number;
 }
 
 export interface StockUpdateRequest {
@@ -37,8 +41,8 @@ export interface StockUpdateRequest {
 
 export type StockStatus = 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
 
-export function getStockStatus(quantity: number): StockStatus {
+export function getStockStatus(quantity: number, alertThreshold: number = 5): StockStatus {
   if (quantity <= 0) return 'OUT_OF_STOCK';
-  if (quantity <= 5) return 'LOW_STOCK';
+  if (quantity <= alertThreshold) return 'LOW_STOCK';
   return 'IN_STOCK';
 }

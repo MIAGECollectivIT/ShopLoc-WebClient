@@ -43,6 +43,19 @@ export const productSchema = z.object({
         .int('Le stock doit être un nombre entier')
         .min(0, 'Le stock ne peut pas être négatif')
     ),
+  alertThreshold: z
+    .union([z.number(), z.string()])
+    .optional()
+    .transform((val) => {
+      if (val === undefined || val === '') return 5;
+      return typeof val === 'string' ? parseInt(val, 10) : val;
+    })
+    .pipe(
+      z
+        .number()
+        .int('Le seuil d’alerte doit être un nombre entier')
+        .min(0, 'Le seuil d’alerte ne peut pas être négatif')
+    ),
   imageUrl: z.string().trim().url().optional().or(z.literal('')),
 });
 
