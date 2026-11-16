@@ -2,13 +2,14 @@ import * as React from 'react';
 import { useAuth } from '@/lib/auth';
 import type { Store } from '@/types/store';
 import { MerchantCatalogDashboard } from '@/components/MerchantCatalogDashboard';
+import { MerchantGiftsDashboard } from '@/components/MerchantGiftsDashboard';
 import { MerchantLoyaltyRateCard } from '@/components/MerchantLoyaltyRateCard';
 import { MerchantLoyaltyScanner } from '@/components/MerchantLoyaltyScanner';
 import { ClientProductCatalog } from '@/components/ClientProductCatalog';
 import { StoreLoyaltyBanner } from '@/components/StoreLoyaltyBanner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ShieldCheck, Eye, Coins, Package, QrCode } from 'lucide-react';
+import { ShieldCheck, Eye, Coins, Package, QrCode, Gift } from 'lucide-react';
 
 interface StoreProductsViewProps {
   store: Store;
@@ -17,9 +18,9 @@ interface StoreProductsViewProps {
 export function StoreProductsView({ store }: StoreProductsViewProps) {
   const { user, role, isAuthenticated, isLoading } = useAuth();
   const [mounted, setMounted] = React.useState(false);
-  const [viewMode, setViewMode] = React.useState<'merchant' | 'loyalty' | 'scan' | 'client'>(
-    'merchant'
-  );
+  const [viewMode, setViewMode] = React.useState<
+    'merchant' | 'gifts' | 'loyalty' | 'scan' | 'client'
+  >('merchant');
 
   React.useEffect(() => {
     setMounted(true);
@@ -96,6 +97,17 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
 
           <Button
             type="button"
+            variant={viewMode === 'gifts' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('gifts')}
+            className="h-7 text-xs gap-1.5 px-3"
+          >
+            <Gift className="size-3.5 text-amber-500" />
+            <span>Cadeaux fidélité</span>
+          </Button>
+
+          <Button
+            type="button"
             variant={viewMode === 'loyalty' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setViewMode('loyalty')}
@@ -132,6 +144,10 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
       {/* Render selected view */}
       {viewMode === 'merchant' && (
         <MerchantCatalogDashboard storeId={storeIdNumber} storeName={store.name} />
+      )}
+
+      {viewMode === 'gifts' && (
+        <MerchantGiftsDashboard storeId={storeIdNumber} storeName={store.name} />
       )}
 
       {viewMode === 'loyalty' && (
