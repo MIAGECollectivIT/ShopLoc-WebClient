@@ -3,6 +3,7 @@ import type {
   StoreCreateRequest,
   StorePatchRequest,
   StoreResponse,
+  StoreAbsence,
   PartnerAccount,
 } from '@/types/store';
 import type { AdminPartnerSummary, AdminPartnerDetail } from '@/types/partner';
@@ -515,6 +516,135 @@ export async function patchStore(
 
   const data: StoreResponse = await res.json();
   return data;
+}
+
+/**
+ * Récupère la liste des absences d'un commerce (SLE-54).
+ */
+export async function getStoreAbsences(storeId: string | number): Promise<StoreAbsence[]> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/absences`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      ...authHeaders,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer les absences du commerce (${res.status})`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Ajoute une absence à la liste d'un commerce (SLE-54).
+ */
+export async function addStoreAbsence(
+  storeId: string | number,
+  absence: { startDate: string; endDate?: string | null; reason?: string | null }
+): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/absences`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify(absence),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de l'ajout de l'absence (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {
+      // Ignore
+    }
+    throw new Error(errorDetail);
+  }
+
+  return res.json();
+}
+
+/**
+ * Modifie une absence existante d'un commerce (SLE-54).
+ */
+export async function updateStoreAbsence(
+  storeId: string | number,
+  absenceId: number,
+  absence: { startDate: string; endDate?: string | null; reason?: string | null }
+): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/absences/${absenceId}`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify(absence),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la modification de l'absence (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {
+      // Ignore
+    }
+    throw new Error(errorDetail);
+  }
+
+  return res.json();
+}
+
+/**
+ * Supprime une absence spécifique ou toutes les absences d'un commerce (SLE-54).
+ */
+export async function deleteStoreAbsence(
+  storeId: string | number,
+  absenceId?: number
+): Promise<StoreResponse> {
+  const endpoint =
+    absenceId != null
+      ? getApiEndpoint(`/v1/stores/${storeId}/absences/${absenceId}`)
+      : getApiEndpoint(`/v1/stores/${storeId}/absence`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  try {
+    const res = await fetchWithTimeout(endpoint, {
+      method: 'DELETE',
+      headers: {
+        ...authHeaders,
+      },
+    });
+
+    if (res.ok) {
+      const data: StoreResponse = await res.json();
+      return data;
+    }
+  } catch {
+    // Fallback to PATCH clearAbsence if DELETE is not supported by proxy
+  }
+
+  if (absenceId == null) {
+    return patchStore(storeId, { clearAbsence: true });
+  }
+  throw new Error("Impossible de supprimer l'absence sélectionnée");
 }
 
 /**

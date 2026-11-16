@@ -1,3 +1,15 @@
+export interface StoreAbsence {
+  id?: number;
+  startDate: string;
+  endDate?: string | null;
+  reason?: string | null;
+  durationDays?: number;
+  isCurrentlyActive?: boolean;
+  isUpcoming?: boolean;
+  isPast?: boolean;
+  createdAt?: string;
+}
+
 export interface Store {
   id?: number;
   uid?: string;
@@ -13,6 +25,7 @@ export interface Store {
   absenceReason?: string;
   isCurrentlyAbsent?: boolean;
   absenceDurationDays?: number;
+  absences?: StoreAbsence[];
   [key: string]: unknown;
 }
 
@@ -35,6 +48,8 @@ export interface StorePatchRequest {
   absenceStartDate?: string;
   absenceEndDate?: string;
   absenceReason?: string;
+  clearAbsence?: boolean;
+  absences?: StoreAbsence[];
 }
 
 export interface StoreResponse {
@@ -52,6 +67,7 @@ export interface StoreResponse {
   absenceReason?: string;
   isCurrentlyAbsent?: boolean;
   absenceDurationDays?: number;
+  absences?: StoreAbsence[];
   [key: string]: unknown;
 }
 
