@@ -235,7 +235,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   // 2. Protect store management/creation routes (MERCHANT / ADMIN)
-  if (pathname.startsWith('/stores/new')) {
+  if (pathname.startsWith('/stores/new') || pathname.startsWith('/stores/my-stores')) {
     if (!context.locals.user) {
       return context.redirect('/login');
     }

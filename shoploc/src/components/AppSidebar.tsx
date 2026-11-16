@@ -48,13 +48,9 @@ import {
   Store as StoreIcon,
   QrCode,
   Users as UsersIcon,
-  Package,
-  Gift,
-  Coins,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { updateUserProfile, getStores } from '@/lib/api';
-import type { Store } from '@/types/store';
+import { updateUserProfile } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 
 interface AppSidebarProps {
@@ -67,55 +63,6 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
   const [isWalletOpen, setIsWalletOpen] = React.useState(false);
 
   const { user, isAuthenticated, role, logout } = useAuth();
-  const [merchantStores, setMerchantStores] = React.useState<Store[]>([]);
-  const [selectedStoreId, setSelectedStoreId] = React.useState<number | null>(null);
-
-  React.useEffect(() => {
-    let active = true;
-    if (isAuthenticated && (role === 'MERCHANT' || role === 'ADMIN') && user) {
-      getStores()
-        .then((stores) => {
-          if (!active) return;
-          const userStores = stores.filter(
-            (s) =>
-              s.userId != null &&
-              ((user.dbId != null && String(s.userId) === String(user.dbId)) ||
-                (user.id != null && String(s.userId) === String(user.id)))
-          );
-          if (userStores.length > 0) {
-            setMerchantStores(userStores);
-          } else if (role === 'ADMIN') {
-            setMerchantStores(stores);
-          }
-        })
-        .catch(() => {
-          // ignore
-        });
-    }
-    return () => {
-      active = false;
-    };
-  }, [isAuthenticated, role, user]);
-
-  // Synchronize selectedStoreId with currentPath or fallback to first store
-  React.useEffect(() => {
-    if (merchantStores.length > 0) {
-      const match = _currentPath.match(/\/stores\/(\d+)/);
-      if (match && match[1]) {
-        const pathId = Number(match[1]);
-        if (merchantStores.some((s) => s.id === pathId)) {
-          setSelectedStoreId(pathId);
-          return;
-        }
-      }
-      if (selectedStoreId == null || !merchantStores.some((s) => s.id === selectedStoreId)) {
-        setSelectedStoreId(Number(merchantStores[0].id));
-      }
-    }
-  }, [merchantStores, _currentPath, selectedStoreId]);
-
-  const activeStore =
-    merchantStores.find((s) => s.id === selectedStoreId) || merchantStores[0] || null;
 
   // Real profile form state linked to authenticated user
   const [profileForm, setProfileForm] = React.useState({
@@ -341,95 +288,30 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
             <>
               <SidebarSeparator />
               <SidebarGroup>
-                <SidebarGroupLabel className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center justify-between">
-                  <span>Espace Commerçant</span>
-                  {activeStore && (
-                    <span className="text-[10px] font-normal text-muted-foreground truncate max-w-[110px]">
-                      {merchantStores.length > 1
-                        ? `${merchantStores.length} boutiques`
-                        : activeStore.name}
-                    </span>
-                  )}
+                <SidebarGroupLabel className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                  Espace Commerçant
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
-                  {merchantStores.length > 1 && (
-                    <div className="px-2 pt-1 pb-2">
-                      <label
-                        htmlFor="merchant-store-select"
-                        className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1"
-                      >
-                        Boutique active
-                      </label>
-                      <select
-                        id="merchant-store-select"
-                        aria-label="Sélectionner un commerce"
-                        value={activeStore?.id}
-                        onChange={(e) => setSelectedStoreId(Number(e.target.value))}
-                        className="w-full text-xs bg-muted/80 border border-border rounded-md p-1.5 text-foreground font-medium focus:ring-1 focus:ring-primary focus:outline-hidden cursor-pointer"
-                      >
-                        {merchantStores.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
                   <SidebarMenu>
-                    {activeStore ? (
-                      <>
-                        <SidebarMenuItem>
-                          <SidebarMenuButton render={<a href={`/stores/${activeStore.id}`} />}>
-                            <StoreIcon className="size-4 text-emerald-600 dark:text-emerald-400" />
-                            <span className="font-medium text-foreground truncate">
-                              {activeStore.name}
-                            </span>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        render={<a href="/stores/my-stores" />}
+                        isActive={_currentPath.startsWith('/stores/my-stores')}
+                      >
+                        <StoreIcon className="size-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="font-medium text-foreground">Mes commerces</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
 
-                        <SidebarMenuItem>
-                          <SidebarMenuButton
-                            render={<a href={`/stores/${activeStore.id}?tab=merchant`} />}
-                          >
-                            <Package className="size-4 text-muted-foreground" />
-                            <span>Articles & Stock</span>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-
-                        <SidebarMenuItem>
-                          <SidebarMenuButton
-                            render={<a href={`/stores/${activeStore.id}?tab=gifts`} />}
-                          >
-                            <Gift className="size-4 text-muted-foreground" />
-                            <span>Catalogue Cadeaux</span>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-
-                        <SidebarMenuItem>
-                          <SidebarMenuButton
-                            render={<a href={`/stores/${activeStore.id}?tab=loyalty`} />}
-                          >
-                            <Coins className="size-4 text-primary" />
-                            <span>Barème Fidélité</span>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-
-                        <SidebarMenuItem>
-                          <SidebarMenuButton render={<a href={`/stores/${activeStore.id}/scan`} />}>
-                            <QrCode className="size-4 text-emerald-600 dark:text-emerald-400" />
-                            <span className="font-medium text-foreground">Pass Caisse & Scan</span>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      </>
-                    ) : (
-                      <SidebarMenuItem>
-                        <SidebarMenuButton render={<a href="/stores/new" />}>
-                          <PlusCircle className="size-4 text-emerald-600 dark:text-emerald-400" />
-                          <span className="font-medium text-foreground">Créer mon commerce</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    )}
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        render={<a href="/stores/new" />}
+                        isActive={_currentPath === '/stores/new'}
+                      >
+                        <PlusCircle className="size-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="font-medium text-foreground">Nouveau commerce</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>

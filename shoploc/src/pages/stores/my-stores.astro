@@ -1,0 +1,21 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import PageContainer from '../../components/PageContainer.astro';
+import { MerchantStoresList } from '../../components/MerchantStoresList';
+import { Store } from 'lucide-react';
+---
+
+<Layout
+  title="Mes commerces - ShopLoc"
+  description="Consultez et pilotez l'ensemble de vos établissements partenaires."
+>
+  <PageContainer
+    title="Mes commerces"
+    description="Accédez rapidement à la gestion de vos boutiques, vos stocks et vos programmes de fidélité."
+    icon={Store}
+  >
+    <MerchantStoresList client:only="react" />
+  </PageContainer>
+</Layout>
