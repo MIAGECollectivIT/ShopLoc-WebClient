@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { giftSchema } from '@/lib/validation/gift';
 import { createGift, updateGift } from '@/lib/api';
+import { resolveGiftImageUrl } from '@/lib/image';
 import type { LoyaltyGift, GiftCreateRequest, GiftUpdateRequest } from '@/types/gift';
 import {
   Coins,
@@ -34,6 +35,9 @@ interface GiftFormDialogProps {
   onSuccess: (savedGift: LoyaltyGift) => void;
 }
 
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 Mo
+
 export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: GiftFormDialogProps) {
   const isEditing = Boolean(gift);
 
@@ -43,6 +47,8 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
   const [stock, setStock] = React.useState('0');
   const [imageUrl, setImageUrl] = React.useState('');
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const [isImageRemoved, setIsImageRemoved] = React.useState(false);
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [serverError, setServerError] = React.useState<string | null>(null);
@@ -58,7 +64,16 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
       setPointsCost(String(gift.pointsCost));
       setStock(String(gift.stock));
       setImageUrl(gift.imageUrl || '');
-      setPreviewUrl(gift.imageUrl?.trim() || null);
+      setIsImageRemoved(false);
+
+      const initialPreview = gift.imageUrl?.trim()
+        ? resolveGiftImageUrl({
+            storeId,
+            giftId: gift.id,
+            imageUrl: gift.imageUrl,
+          })
+        : null;
+      setPreviewUrl(initialPreview);
     } else {
       setName('');
       setDescription('');
@@ -66,30 +81,63 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
       setStock('0');
       setImageUrl('');
       setPreviewUrl(null);
+      setIsImageRemoved(false);
     }
+    setSelectedFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
     setErrors({});
     setServerError(null);
-  }, [gift, isOpen]);
+  }, [gift, isOpen, storeId]);
 
-  const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setImageUrl(val);
-    const trimmed = val.trim();
-    if (trimmed) {
-      setPreviewUrl(trimmed);
-    } else {
-      setPreviewUrl(null);
+  // Revoke object URL when unmounting or replacing
+  React.useEffect(() => {
+    return () => {
+      if (previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
+  const processFile = (file: File) => {
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setErrors((prev) => ({
+        ...prev,
+        file: 'Format non supporté (JPEG, PNG ou WebP uniquement)',
+      }));
+      return;
     }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setErrors((prev) => ({
+        ...prev,
+        file: 'L’image dépasse la taille maximale autorisée (10 Mo)',
+      }));
+      return;
+    }
+
+    setErrors((prev) => {
+      const copy = { ...prev };
+      delete copy.file;
+      return copy;
+    });
+
+    if (previewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    setSelectedFile(file);
+    setIsImageRemoved(false);
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+    setImageUrl('');
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const objectUrl = URL.createObjectURL(file);
-      setPreviewUrl(objectUrl);
+      processFile(file);
     }
   };
 
@@ -98,8 +146,13 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
   };
 
   const handleRemoveImage = () => {
+    if (previewUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedFile(null);
     setPreviewUrl(null);
     setImageUrl('');
+    setIsImageRemoved(true);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -115,7 +168,7 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
       description: description.trim() || undefined,
       pointsCost,
       stock,
-      imageUrl: imageUrl.trim() || undefined,
+      imageUrl: selectedFile || isImageRemoved ? undefined : imageUrl.trim() || undefined,
     };
 
     const result = giftSchema.safeParse(rawValues);
@@ -139,18 +192,29 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
           name: validated.name,
           description: validated.description || undefined,
           pointsCost: validated.pointsCost,
-          imageUrl: validated.imageUrl || undefined,
         };
-        saved = await updateGift(storeId, gift.id, payload);
+        if (selectedFile) {
+          saved = await updateGift(storeId, gift.id, payload, selectedFile);
+        } else if (isImageRemoved) {
+          saved = await updateGift(storeId, gift.id, {
+            ...payload,
+            imageUrl: '',
+          });
+        } else {
+          saved = await updateGift(storeId, gift.id, {
+            ...payload,
+            imageUrl: gift.imageUrl || undefined,
+          });
+        }
       } else {
         const payload: GiftCreateRequest = {
           name: validated.name,
           description: validated.description || undefined,
           pointsCost: validated.pointsCost,
           stock: validated.stock,
-          imageUrl: validated.imageUrl || undefined,
+          imageUrl: selectedFile ? undefined : validated.imageUrl || undefined,
         };
-        saved = await createGift(storeId, payload);
+        saved = await createGift(storeId, payload, selectedFile || undefined);
       }
       onSuccess(saved);
       onClose();
@@ -305,7 +369,7 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
             <Label className="text-xs font-semibold flex items-center justify-between">
               <span>Photo du cadeau</span>
               <span className="text-[11px] text-muted-foreground font-normal">
-                Image d'illustration ou URL externe
+                Image d'illustration
               </span>
             </Label>
 
@@ -362,10 +426,21 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
 
                 {/* Status bar */}
                 <div className="flex items-center justify-between gap-2 px-0.5">
-                  <span className="text-muted-foreground flex items-center gap-1 text-xs">
-                    <ImageIcon className="size-3.5 shrink-0" />
-                    Visuel configuré
-                  </span>
+                  <div className="text-xs truncate">
+                    {selectedFile ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1 truncate">
+                        <Check className="size-3.5 shrink-0" />
+                        <span className="truncate">
+                          Prête : {selectedFile.name} ({(selectedFile.size / 1024).toFixed(0)} Ko)
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <ImageIcon className="size-3.5 shrink-0" />
+                        Visuel configuré
+                      </span>
+                    )}
+                  </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
                     <Button
@@ -405,38 +480,38 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
                     triggerFileSelect();
                   }
                 }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) {
+                    processFile(file);
+                  }
+                }}
                 className="border-2 border-dashed border-border hover:border-primary/50 bg-muted/20 hover:bg-muted/40 rounded-lg p-5 flex flex-col items-center justify-center cursor-pointer transition-colors"
               >
                 <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
                   <Upload className="size-5" />
                 </div>
                 <p className="text-xs font-medium text-foreground">
-                  Sélectionnez une image ou{' '}
+                  Glissez une image ou{' '}
                   <span className="text-primary underline">parcourez vos fichiers</span>
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  JPEG, PNG ou WebP (ou saisissez une URL ci-dessous)
+                  JPEG, PNG ou WebP (max 10 Mo)
                 </p>
               </div>
             )}
 
-            {/* Direct Image URL input */}
-            <div className="pt-1">
-              <Input
-                id="gift-imageUrl"
-                type="url"
-                placeholder="Ou collez une URL d'image externe (https://...)"
-                value={imageUrl}
-                onChange={handleImageUrlChange}
-                disabled={isSubmitting}
-                className={`text-xs ${errors.imageUrl ? 'border-destructive ring-destructive' : ''}`}
-              />
-              {errors.imageUrl && (
-                <p className="text-[11px] text-destructive flex items-center gap-1 mt-1">
-                  <AlertCircle className="size-3 shrink-0" /> {errors.imageUrl}
-                </p>
-              )}
-            </div>
+            {errors.file && (
+              <p className="text-[11px] text-destructive flex items-center gap-1">
+                <AlertCircle className="size-3 shrink-0" /> {errors.file}
+              </p>
+            )}
           </div>
 
           <DialogFooter className="gap-2 pt-2 border-t sm:justify-end">

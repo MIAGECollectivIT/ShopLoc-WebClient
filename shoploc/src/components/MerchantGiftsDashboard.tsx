@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { GiftStockControl } from '@/components/GiftStockControl';
 import { GiftFormDialog } from '@/components/GiftFormDialog';
+import { GiftImage } from '@/components/GiftImage';
 import { getStoreGifts, deleteGift } from '@/lib/api';
 import { type LoyaltyGift, type GiftStockStatus, getGiftStockStatus } from '@/types/gift';
 import {
@@ -417,21 +418,14 @@ export function MerchantGiftsDashboard({
                 <div>
                   {/* Gift Image with overlays */}
                   <div className="relative aspect-4/3 w-full bg-muted/60 overflow-hidden flex items-center justify-center border-b border-border">
-                    {gift.imageUrl ? (
-                      <img
-                        src={gift.imageUrl}
-                        alt={gift.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center text-muted-foreground/60">
-                        <Gift className="size-12 stroke-1 mb-1 text-muted-foreground/40" />
-                        <span className="text-[11px]">Aucun visuel</span>
-                      </div>
-                    )}
+                    <GiftImage
+                      storeId={gift.storeId || storeId}
+                      giftId={gift.id}
+                      imageUrl={gift.imageUrl}
+                      alt={gift.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      fallbackText="Aucun visuel"
+                    />
 
                     {/* Points Overlay Badge (Top Left) */}
                     <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
