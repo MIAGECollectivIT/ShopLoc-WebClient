@@ -12,6 +12,7 @@ import type {
   UserActivityEvaluation,
   UserPointsBalanceResponse,
   UserVfpStatus,
+  UserVfpProgress,
 } from '@/types/loyalty';
 import type { LoyaltyGift, GiftCreateRequest, GiftUpdateRequest } from '@/types/gift';
 import type {
@@ -1520,6 +1521,42 @@ export async function getUserVfpStatus(userId: string | number): Promise<UserVfp
   }
 
   return (await res.json()) as UserVfpStatus;
+}
+
+/**
+ * Retrieves a customer's VFP progression metrics, maintenance requirements, and revocation countdown (SLE-51 / SLE-238).
+ * Restricted to the user themselves or administrators.
+ */
+export async function getUserVfpProgress(userId: string | number): Promise<UserVfpProgress> {
+  const endpoint = getApiEndpoint(
+    `/v1/loyalty/users/${encodeURIComponent(String(userId))}/vfp-progress`
+  );
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour consulter votre progression VFP.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès refusé : vous ne pouvez consulter que votre propre progression VFP.');
+  }
+  if (!res.ok) {
+    let errorDetail = `Impossible de récupérer la progression VFP (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as UserVfpProgress;
 }
 
 /**
