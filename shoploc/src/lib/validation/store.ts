@@ -260,3 +260,64 @@ export const createStoreZodSchema = z.object({
 
 export const createStoreValidationSchema = createStoreZodSchema;
 export type CreateStoreFormData = z.infer<typeof createStoreZodSchema>;
+
+/**
+ * Zod schemas for merchant store profile unit patch updates (SLE-54, SLE-247).
+ */
+export const storeAddressPatchSchema = z.object({
+  address: z
+    .string()
+    .trim()
+    .min(1, "L'adresse de l'établissement est obligatoire")
+    .max(255, "L'adresse ne doit pas dépasser 255 caractères"),
+});
+export type StoreAddressPatchData = z.infer<typeof storeAddressPatchSchema>;
+
+export const storeOpeningHoursPatchSchema = z.object({
+  openingHours: z
+    .string()
+    .trim()
+    .max(1000, "Les horaires d'ouverture ne doivent pas dépasser 1000 caractères")
+    .optional()
+    .or(z.literal('')),
+});
+export type StoreOpeningHoursPatchData = z.infer<typeof storeOpeningHoursPatchSchema>;
+
+export const storeAbsencePatchSchema = z
+  .object({
+    absenceStartDate: z.string().optional().or(z.literal('')),
+    absenceEndDate: z.string().optional().or(z.literal('')),
+    absenceReason: z
+      .string()
+      .trim()
+      .max(255, "Le motif d'absence ne doit pas dépasser 255 caractères")
+      .optional()
+      .or(z.literal('')),
+  })
+  .refine(
+    (data) => {
+      if (data.absenceStartDate && data.absenceEndDate) {
+        return new Date(data.absenceEndDate) >= new Date(data.absenceStartDate);
+      }
+      return true;
+    },
+    {
+      message: "La date de fin d'absence doit être postérieure ou égale à la date de début",
+      path: ['absenceEndDate'],
+    }
+  );
+export type StoreAbsencePatchData = z.infer<typeof storeAbsencePatchSchema>;
+
+export const storeGeneralPatchSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Le nom de l'établissement est obligatoire")
+    .max(255, 'Le nom ne doit pas dépasser 255 caractères'),
+  category: z
+    .string()
+    .trim()
+    .min(1, "La catégorie d'activité est obligatoire")
+    .max(255, 'La catégorie ne doit pas dépasser 255 caractères'),
+});
+export type StoreGeneralPatchData = z.infer<typeof storeGeneralPatchSchema>;
