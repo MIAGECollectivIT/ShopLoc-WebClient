@@ -58,8 +58,20 @@ export function StoreCard({ store }: StoreCardProps) {
         </CardDescription>
       </CardHeader>
 
-      <CardFooter className="justify-between">
-        <Badge variant="secondary">Partenaire</Badge>
+      <CardFooter className="justify-between items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {store.category && (
+            <Badge
+              variant="outline"
+              className="bg-primary/5 text-primary border-primary/20 text-xs font-normal"
+            >
+              {store.category}
+            </Badge>
+          )}
+          <Badge variant="secondary" className="text-xs">
+            Partenaire
+          </Badge>
+        </div>
         {(store.uid || store.id) && (
           <Button
             variant={isMyStore ? 'default' : 'outline'}

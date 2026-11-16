@@ -194,6 +194,35 @@ export async function getStores(): Promise<Store[]> {
   return data;
 }
 
+/**
+ * Search and filter stores via /v1/stores/search (SLE-214, SLE-215).
+ * Supports name query and multiple category filters.
+ */
+export async function searchStores(params?: {
+  query?: string;
+  categories?: string[];
+}): Promise<Store[]> {
+  const queryParams = new URLSearchParams();
+  if (params?.query && params.query.trim()) {
+    queryParams.set('name', params.query.trim());
+  }
+  if (params?.categories && params.categories.length > 0) {
+    for (const cat of params.categories) {
+      if (cat.trim()) {
+        queryParams.append('category', cat.trim());
+      }
+    }
+  }
+  const queryString = queryParams.toString();
+  const endpoint = queryString ? `/v1/stores/search?${queryString}` : '/v1/stores/search';
+  const res = await fetchWithTimeout(getApiEndpoint(endpoint));
+  if (!res.ok) {
+    throw new Error(`Erreur lors de la recherche des commerces (HTTP ${res.status})`);
+  }
+  const data: Store[] = await res.json();
+  return data;
+}
+
 export async function getStoreById(id: string | number): Promise<Store> {
   const res = await fetchWithTimeout(getApiEndpoint(`/v1/stores/${id}`));
   if (!res.ok) {
