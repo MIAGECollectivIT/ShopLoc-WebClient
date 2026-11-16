@@ -1268,22 +1268,37 @@ export async function getStoreGiftById(
 }
 
 /**
- * Creates a new gift in the store's loyalty catalog (SLE-60 / SLE-192).
+ * Creates a new gift in the store's loyalty catalog (JSON or Multipart with S3 image upload) (SLE-60 / SLE-192).
  */
 export async function createGift(
   storeId: number | string,
-  data: GiftCreateRequest
+  data: GiftCreateRequest,
+  imageFile?: File
 ): Promise<LoyaltyGift> {
   const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts`);
   const token = getAuthToken();
+
+  let body: BodyInit;
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  if (imageFile) {
+    const formData = new FormData();
+    const giftBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    formData.append('gift', giftBlob, 'gift.json');
+    formData.append('image', imageFile, imageFile.name);
+    body = formData;
+  } else {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(data);
+  }
+
   const res = await fetchWithTimeout(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(data),
+    headers,
+    body,
   });
 
   if (res.status === 401) {
@@ -1308,23 +1323,38 @@ export async function createGift(
 }
 
 /**
- * Updates an existing gift item (SLE-60 / SLE-192).
+ * Updates an existing gift item (JSON or Multipart with S3 image upload) (SLE-60 / SLE-192).
  */
 export async function updateGift(
   storeId: number | string,
   giftId: number | string,
-  data: GiftUpdateRequest
+  data: GiftUpdateRequest,
+  imageFile?: File
 ): Promise<LoyaltyGift> {
   const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}`);
   const token = getAuthToken();
+
+  let body: BodyInit;
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  if (imageFile) {
+    const formData = new FormData();
+    const giftBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    formData.append('gift', giftBlob, 'gift.json');
+    formData.append('image', imageFile, imageFile.name);
+    body = formData;
+  } else {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(data);
+  }
+
   const res = await fetchWithTimeout(endpoint, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(data),
+    headers,
+    body,
   });
 
   if (res.status === 401) {
