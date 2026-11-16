@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/lib/auth';
 import { getOrderByReference, updateOrderStatus, getWallet, debitWallet } from '@/lib/api';
@@ -24,7 +25,6 @@ import {
   ShieldCheck,
   RefreshCw,
   Clock,
-  Sparkles,
 } from 'lucide-react';
 
 type SettlementMode = 'EUROS' | 'WALLET' | 'MIXED';
@@ -49,6 +49,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
   const [walletBalance, setWalletBalance] = React.useState<number | null>(null);
   const [loadingWallet, setLoadingWallet] = React.useState(true);
   const [settlementMode, setSettlementMode] = React.useState<SettlementMode>('EUROS');
+  const [customWalletPart, setCustomWalletPart] = React.useState<number | null>(null);
 
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
 
@@ -125,24 +126,44 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
   // 100% wallet payment is possible if wallet balance covers entire total
   const canUseWallet = walletBalance !== null && currentWalletBalance >= totalAmount;
 
-  // Mixed payment (wallet + credit card) is possible if wallet has positive balance but does not cover entire total (SLE-213)
-  const canUseMixed =
-    walletBalance !== null && currentWalletBalance > 0 && currentWalletBalance < totalAmount;
+  // Mixed payment (wallet + credit card) is possible as long as wallet has a positive balance (SLE-213)
+  const canUseMixed = walletBalance !== null && currentWalletBalance > 0;
 
-  // Automatic calculation of wallet vs card portions (SLE-213)
+  // Maximum debit on wallet for mixed mode (leaving at least 0.01 € for card payment if totalAmount > 0.01)
+  const maxWalletDebit =
+    totalAmount > 0.01
+      ? Math.min(currentWalletBalance, Math.round((totalAmount - 0.01) * 100) / 100)
+      : Math.min(currentWalletBalance, totalAmount);
+
+  // Default wallet portion when selecting MIXED mode:
+  // If balance < totalAmount: take full balance
+  // If balance >= totalAmount: default to 50% rounded
+  const defaultWalletPart =
+    currentWalletBalance < totalAmount
+      ? currentWalletBalance
+      : Math.round((totalAmount / 2) * 100) / 100;
+
+  const effectiveWalletPart =
+    customWalletPart !== null
+      ? Math.min(maxWalletDebit, Math.max(0.01, customWalletPart))
+      : defaultWalletPart;
+
   const walletPart =
     settlementMode === 'WALLET'
       ? totalAmount
       : settlementMode === 'MIXED'
-        ? Math.min(currentWalletBalance, totalAmount)
+        ? effectiveWalletPart
         : 0;
 
-  const cardPart = Math.max(0, totalAmount - walletPart);
+  const cardPart = Math.max(0, Math.round((totalAmount - walletPart) * 100) / 100);
 
   // Handle mode selection
   const handleSelectMode = (mode: SettlementMode) => {
     setSettlementMode(mode);
     setPaymentError(null);
+    if (mode === 'MIXED' && customWalletPart === null) {
+      setCustomWalletPart(defaultWalletPart);
+    }
   };
 
   // Finalize payment by digital wallet (100% wallet) (SLE-18)
@@ -474,11 +495,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
               </div>
               <div className="font-semibold text-xs text-foreground">Mixte (Portefeuille + CB)</div>
               <div className="text-[11px] text-muted-foreground mt-0.5">
-                {canUseMixed
-                  ? `${currentWalletBalance.toFixed(2)} € port. + ${(totalAmount - currentWalletBalance).toFixed(2)} € CB`
-                  : currentWalletBalance === 0
-                    ? 'Solde portefeuille vide'
-                    : 'Portefeuille suffisant pour 100%'}
+                {canUseMixed ? 'Répartir avec curseur' : 'Solde portefeuille vide'}
               </div>
             </button>
           </div>
@@ -504,25 +521,66 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
             </div>
           )}
 
-          {/* Automatic calculation callout for mixed mode (SLE-213) */}
+          {/* Interactive slider for mixed mode (SLE-213) */}
           {settlementMode === 'MIXED' && (
-            <div className="p-3.5 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-xl space-y-2 border border-indigo-200 dark:border-indigo-800 text-xs">
-              <div className="flex items-center gap-2 font-semibold text-indigo-900 dark:text-indigo-200">
-                <Sparkles className="size-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                <span>Calcul automatique du paiement mixte</span>
+            <div className="p-4 bg-muted/40 rounded-xl space-y-3 border border-border/60">
+              <div className="flex justify-between items-center text-xs">
+                <Label
+                  htmlFor="wallet-slider"
+                  className="font-semibold flex items-center gap-1.5 text-foreground"
+                >
+                  <Wallet className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Répartition du paiement mixte</span>
+                </Label>
+                <span className="text-[11px] text-muted-foreground font-mono">
+                  Solde disponible :{' '}
+                  <strong className="text-foreground">{currentWalletBalance.toFixed(2)} €</strong>
+                </span>
               </div>
-              <p className="text-muted-foreground leading-relaxed">
-                Votre solde portefeuille disponible de{' '}
-                <strong className="font-mono text-foreground font-semibold">
-                  {walletPart.toFixed(2)} €
-                </strong>{' '}
-                est automatiquement appliqué pour régler une partie de votre commande. Le montant
-                restant de{' '}
-                <strong className="font-mono text-primary font-bold">
-                  {cardPart.toFixed(2)} €
-                </strong>{' '}
-                sera prélevé par Carte Bancaire via le module sécurisé ci-dessous.
-              </p>
+
+              {/* 2 pills displaying live breakdown */}
+              <div className="grid grid-cols-2 gap-3 text-center">
+                <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <div className="text-[11px] text-muted-foreground flex items-center justify-center gap-1">
+                    <Wallet className="size-3 text-emerald-600 dark:text-emerald-400" />
+                    <span>Débit Portefeuille</span>
+                  </div>
+                  <div className="font-mono font-bold text-base text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    {walletPart.toFixed(2)} €
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20">
+                  <div className="text-[11px] text-muted-foreground flex items-center justify-center gap-1">
+                    <CreditCard className="size-3 text-primary" />
+                    <span>Reste Carte Bancaire</span>
+                  </div>
+                  <div className="font-mono font-bold text-base text-primary mt-0.5">
+                    {cardPart.toFixed(2)} €
+                  </div>
+                </div>
+              </div>
+
+              {/* Interactive slider */}
+              <div className="space-y-1.5 pt-1">
+                <input
+                  id="wallet-slider"
+                  type="range"
+                  min="0.10"
+                  max={maxWalletDebit.toFixed(2)}
+                  step="0.10"
+                  value={walletPart}
+                  onChange={(e) => setCustomWalletPart(Number(e.target.value))}
+                  className="w-full accent-emerald-600 cursor-pointer"
+                />
+                <div className="flex justify-between text-[11px] text-muted-foreground font-mono">
+                  <span>0.10 €</span>
+                  <span className="text-xs text-foreground font-medium">
+                    Glissez le curseur pour ajuster
+                  </span>
+                  <span>{maxWalletDebit.toFixed(2)} € max</span>
+                </div>
+              </div>
             </div>
           )}
 
