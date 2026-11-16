@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 interface MerchantCatalogDashboardProps {
-  storeId: number;
+  storeId: number | string;
   storeName?: string;
 }
 

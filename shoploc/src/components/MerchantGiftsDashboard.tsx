@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 interface MerchantGiftsDashboardProps {
-  storeId: number;
+  storeId: number | string;
   storeName?: string;
 }
 

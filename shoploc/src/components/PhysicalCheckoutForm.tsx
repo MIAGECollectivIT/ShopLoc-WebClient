@@ -33,7 +33,7 @@ import {
 import { cn } from 'cn';
 
 export interface PhysicalCheckoutFormProps {
-  storeId: number;
+  storeId: number | string;
   storeName?: string;
   customer: CustomerIdentificationResponse | null;
   onCancel: () => void;
@@ -149,7 +149,7 @@ export function PhysicalCheckoutForm({
 
     try {
       const response = await recordPhysicalSale({
-        storeId,
+        storeId: parseResult.data.storeId,
         clientCode: customer.clientCode,
         customerId: customer.publicId,
         amount: parseResult.data.amount,

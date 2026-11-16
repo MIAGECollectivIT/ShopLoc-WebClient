@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 
 interface ProductFormDialogProps {
-  storeId: number;
+  storeId: number | string;
   product?: Product | null;
   isOpen: boolean;
   onClose: () => void;
