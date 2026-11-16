@@ -234,8 +234,19 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  // 2. Protect store management/creation routes (MERCHANT / ADMIN)
+  // 2. Protect store creation route (ADMIN only)
   if (pathname.startsWith('/stores/new')) {
+    if (!context.locals.user) {
+      return context.redirect('/login');
+    }
+    const role = context.locals.user.role;
+    if (role !== 'ADMIN') {
+      return context.redirect('/stores');
+    }
+  }
+
+  // 3. Protect merchant space routes (MERCHANT / ADMIN)
+  if (pathname.startsWith('/stores/my-stores')) {
     if (!context.locals.user) {
       return context.redirect('/login');
     }

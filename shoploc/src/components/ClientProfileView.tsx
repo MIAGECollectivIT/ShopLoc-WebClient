@@ -497,7 +497,7 @@ export function ClientProfileView() {
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             {!isClient && effectiveUser.role === 'MERCHANT' && (
               <a
-                href="/stores/new"
+                href="/stores/my-stores"
                 className={buttonVariants({
                   variant: 'default',
                   size: 'default',
@@ -505,7 +505,7 @@ export function ClientProfileView() {
                 })}
               >
                 <Store className="size-4" />
-                <span>Nouveau commerce</span>
+                <span>Mes commerces</span>
               </a>
             )}
 

@@ -13,6 +13,7 @@ import type {
   UserPointsBalanceResponse,
   UserVfpStatus,
 } from '@/types/loyalty';
+import type { LoyaltyGift, GiftCreateRequest, GiftUpdateRequest } from '@/types/gift';
 import type { PaymentAuthorizationRequest, PaymentAuthorizationResponse } from '@/types/payment';
 import type { CreateOrderRequest, OrderResponse } from '@/types/order';
 import type { PhysicalSaleRequest, PhysicalSaleResponse } from '@/types/sales';
@@ -1215,6 +1216,202 @@ export async function updateStoreLoyaltyRate(
   }
 
   return (await res.json()) as MerchantLoyaltyRate;
+}
+
+/**
+ * Retrieves the list of loyalty gifts for a store (SLE-60 / SLE-192).
+ * By default returns active gifts. Set includeInactive to true to retrieve all gifts (for merchants/admins).
+ */
+export async function getStoreGifts(
+  storeId: number | string,
+  includeInactive: boolean = false
+): Promise<LoyaltyGift[]> {
+  const query = includeInactive ? '?includeInactive=true' : '';
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts${query}`);
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer les articles cadeaux (${res.status})`);
+  }
+
+  return (await res.json()) as LoyaltyGift[];
+}
+
+/**
+ * Retrieves a single loyalty gift item (SLE-60 / SLE-192).
+ */
+export async function getStoreGiftById(
+  storeId: number | string,
+  giftId: number | string
+): Promise<LoyaltyGift> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}`);
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (res.status === 404) {
+    throw new Error("L'article cadeau demandé n'existe pas.");
+  }
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer l'article cadeau (${res.status})`);
+  }
+
+  return (await res.json()) as LoyaltyGift;
+}
+
+/**
+ * Creates a new gift in the store's loyalty catalog (SLE-60 / SLE-192).
+ */
+export async function createGift(
+  storeId: number | string,
+  data: GiftCreateRequest
+): Promise<LoyaltyGift> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts`);
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour ajouter un article cadeau.');
+  }
+  if (res.status === 403) {
+    throw new Error(
+      "Accès refusé : vous n'avez pas la permission d'ajouter un cadeau à ce commerce."
+    );
+  }
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la création du cadeau (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as LoyaltyGift;
+}
+
+/**
+ * Updates an existing gift item (SLE-60 / SLE-192).
+ */
+export async function updateGift(
+  storeId: number | string,
+  giftId: number | string,
+  data: GiftUpdateRequest
+): Promise<LoyaltyGift> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}`);
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour modifier cet article cadeau.');
+  }
+  if (res.status === 403) {
+    throw new Error("Accès refusé : vous n'êtes pas autorisé à modifier cet article.");
+  }
+  if (res.status === 404) {
+    throw new Error("L'article cadeau spécifié n'existe pas.");
+  }
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la mise à jour du cadeau (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as LoyaltyGift;
+}
+
+/**
+ * Adjusts the dedicated stock of a gift item (+/- delta) (SLE-60 / SLE-193).
+ */
+export async function adjustGiftStock(
+  storeId: number | string,
+  giftId: number | string,
+  delta: number
+): Promise<LoyaltyGift> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}/stock`);
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ delta }),
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour ajuster le stock.');
+  }
+  if (res.status === 403) {
+    throw new Error("Accès refusé : vous n'êtes pas autorisé à ajuster le stock de ce cadeau.");
+  }
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de l'ajustement du stock (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as LoyaltyGift;
+}
+
+/**
+ * Deletes a gift item from the catalog (SLE-60 / SLE-192).
+ */
+export async function deleteGift(storeId: number | string, giftId: number | string): Promise<void> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}`);
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'DELETE',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour supprimer cet article cadeau.');
+  }
+  if (res.status === 403) {
+    throw new Error("Accès refusé : vous n'êtes pas autorisé à supprimer cet article.");
+  }
+  if (res.status === 404) {
+    throw new Error("L'article cadeau spécifié n'existe pas.");
+  }
+  if (!res.ok) {
+    throw new Error(`Erreur lors de la suppression du cadeau (${res.status})`);
+  }
 }
 
 /**

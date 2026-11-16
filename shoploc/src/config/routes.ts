@@ -31,6 +31,11 @@ export const ROUTES = {
     label: 'Magasins',
     icon: Store,
   },
+  myStores: {
+    path: '/stores/my-stores',
+    label: 'Mes commerces',
+    icon: Store,
+  },
   storeDetail: (id: string | number) => `/stores/${id}`,
   storeScan: (id: string | number) => `/stores/${id}/scan`,
   createStore: {

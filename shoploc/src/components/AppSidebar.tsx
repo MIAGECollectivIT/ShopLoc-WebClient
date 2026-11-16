@@ -283,6 +283,31 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
             </SidebarGroupContent>
           </SidebarGroup>
 
+          {/* Merchant Management section for merchants and administrators */}
+          {isAuthenticated && (role === 'MERCHANT' || role === 'ADMIN') && (
+            <>
+              <SidebarSeparator />
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                  Espace Commerçant
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        render={<a href="/stores/my-stores" />}
+                        isActive={_currentPath.startsWith('/stores/my-stores')}
+                      >
+                        <StoreIcon className="size-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="font-medium text-foreground">Mes commerces</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </>
+          )}
+
           {/* Administration section restricted to administrators */}
           {isAuthenticated && role === 'ADMIN' && (
             <>
