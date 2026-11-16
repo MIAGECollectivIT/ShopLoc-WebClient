@@ -1,8 +1,7 @@
 import * as React from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -11,8 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { GiftStockControl } from '@/components/GiftStockControl';
 import { GiftFormDialog } from '@/components/GiftFormDialog';
-import { getStoreGifts, deleteGift, adjustGiftStock } from '@/lib/api';
+import { getStoreGifts, deleteGift } from '@/lib/api';
 import { type LoyaltyGift, type GiftStockStatus, getGiftStockStatus } from '@/types/gift';
 import {
   Gift,
@@ -26,8 +26,8 @@ import {
   Trash2,
   Loader2,
   RefreshCw,
-  Plus,
-  Minus,
+  SlidersHorizontal,
+  X,
 } from 'lucide-react';
 
 interface MerchantGiftsDashboardProps {
@@ -54,9 +54,6 @@ export function MerchantGiftsDashboard({
   // Delete dialog state
   const [giftToDelete, setGiftToDelete] = React.useState<LoyaltyGift | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
-
-  // Stock adjustment loading map
-  const [adjustingStockIds, setAdjustingStockIds] = React.useState<Record<number, boolean>>({});
 
   // Notification message
   const [feedback, setFeedback] = React.useState<{
@@ -102,7 +99,7 @@ export function MerchantGiftsDashboard({
     setIsFormOpen(true);
   };
 
-  const handleSaveSuccess = (savedGift: LoyaltyGift) => {
+  const handleGiftSaved = (savedGift: LoyaltyGift) => {
     setGifts((prev) => {
       const exists = prev.some((g) => g.id === savedGift.id);
       if (exists) {
@@ -112,9 +109,14 @@ export function MerchantGiftsDashboard({
     });
     showNotification(
       selectedGift
-        ? `Article cadeau "${savedGift.name}" mis à jour`
-        : `Article cadeau "${savedGift.name}" ajouté avec succès`
+        ? `Article cadeau "${savedGift.name}" mis à jour avec succès`
+        : `Article cadeau "${savedGift.name}" créé avec succès`
     );
+  };
+
+  const handleStockUpdated = (updatedGift: LoyaltyGift) => {
+    setGifts((prev) => prev.map((g) => (g.id === updatedGift.id ? updatedGift : g)));
+    showNotification(`Stock de "${updatedGift.name}" mis à jour (${updatedGift.stock} unités)`);
   };
 
   const handleConfirmDelete = async () => {
@@ -132,24 +134,6 @@ export function MerchantGiftsDashboard({
     }
   };
 
-  const handleQuickAdjustStock = async (giftId: number, delta: number) => {
-    setAdjustingStockIds((prev) => ({ ...prev, [giftId]: true }));
-    try {
-      const updated = await adjustGiftStock(storeId, giftId, delta);
-      setGifts((prev) => prev.map((g) => (g.id === giftId ? updated : g)));
-      showNotification(
-        `Stock de "${updated.name}" ajusté (${delta > 0 ? `+${delta}` : delta}) : nouveau stock = ${updated.stock}`
-      );
-    } catch (err: unknown) {
-      showNotification(
-        err instanceof Error ? err.message : "Erreur d'ajustement du stock",
-        'error'
-      );
-    } finally {
-      setAdjustingStockIds((prev) => ({ ...prev, [giftId]: false }));
-    }
-  };
-
   // Metrics
   const totalCount = gifts.length;
   const inStockCount = gifts.filter((g) => getGiftStockStatus(g.stock) === 'IN_STOCK').length;
@@ -158,7 +142,7 @@ export function MerchantGiftsDashboard({
     (g) => getGiftStockStatus(g.stock) === 'OUT_OF_STOCK'
   ).length;
 
-  // Filtered gifts
+  // Filtered gifts list
   const filteredGifts = gifts.filter((g) => {
     const matchesSearch =
       searchQuery.trim() === '' ||
@@ -174,80 +158,72 @@ export function MerchantGiftsDashboard({
   return (
     <div className="space-y-6">
       {/* Top Banner & Header */}
-      <Card className="border-border bg-card">
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg">
-                <Gift className="size-5" />
-              </div>
-              <CardTitle className="text-xl font-bold">Catalogue de Cadeaux Fidélité</CardTitle>
-            </div>
-            <CardDescription className="text-xs sm:text-sm">
-              Proposez et gérez les articles récompenses que vos clients peuvent échanger avec leurs
-              points de fidélité.
-            </CardDescription>
-          </div>
-          <Button onClick={handleOpenCreate} size="sm" className="gap-1.5 self-start sm:self-auto">
-            <PackagePlus className="size-4" />
-            <span>Nouveau cadeau</span>
-          </Button>
-        </CardHeader>
-      </Card>
-
-      {/* Metrics Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <Card className="p-4 border-border bg-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Total cadeaux</p>
-              <p className="text-2xl font-bold mt-1 text-foreground">{totalCount}</p>
-            </div>
-            <div className="p-2.5 rounded-lg bg-primary/10 text-primary">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 bg-card border border-border rounded-xl">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
               <Gift className="size-5" />
             </div>
+            <h2 className="text-xl font-bold tracking-tight text-foreground">
+              Catalogue de Cadeaux Fidélité
+            </h2>
           </div>
-        </Card>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Gérez vos articles cadeaux, définissez leur coût en points et ajustez les stocks dédiés
+            réservés aux récompenses.
+          </p>
+        </div>
+        <Button onClick={handleOpenCreate} size="sm" className="gap-2 self-start sm:self-auto">
+          <PackagePlus className="size-4" />
+          <span>Nouveau cadeau</span>
+        </Button>
+      </div>
 
-        <Card className="p-4 border-border bg-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">En stock</p>
-              <p className="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">
-                {inStockCount}
-              </p>
-            </div>
-            <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="size-5" />
-            </div>
+      {/* KPI Cards (identical to MerchantCatalogDashboard) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-card border border-border p-3.5 rounded-xl flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Total cadeaux</p>
+            <p className="text-xl font-bold text-foreground mt-0.5">{totalCount}</p>
           </div>
-        </Card>
+          <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+            <Gift className="size-4" />
+          </div>
+        </div>
 
-        <Card className="p-4 border-border bg-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Stock faible</p>
-              <p className="text-2xl font-bold mt-1 text-amber-600 dark:text-amber-400">
-                {lowStockCount}
-              </p>
-            </div>
-            <div className="p-2.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <AlertTriangle className="size-5" />
-            </div>
+        <div className="bg-card border border-border p-3.5 rounded-xl flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">En stock</p>
+            <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+              {inStockCount}
+            </p>
           </div>
-        </Card>
+          <div className="size-9 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <CheckCircle2 className="size-4" />
+          </div>
+        </div>
 
-        <Card className="p-4 border-border bg-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">Épuisés</p>
-              <p className="text-2xl font-bold mt-1 text-destructive">{outOfStockCount}</p>
-            </div>
-            <div className="p-2.5 rounded-lg bg-destructive/10 text-destructive">
-              <XCircle className="size-5" />
-            </div>
+        <div className="bg-card border border-border p-3.5 rounded-xl flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Stock faible (≤ 5)</p>
+            <p className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+              {lowStockCount}
+            </p>
           </div>
-        </Card>
+          <div className="size-9 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <AlertTriangle className="size-4" />
+          </div>
+        </div>
+
+        <div className="bg-card border border-border p-3.5 rounded-xl flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">En rupture (0)</p>
+            <p className="text-xl font-bold text-destructive mt-0.5">{outOfStockCount}</p>
+          </div>
+          <div className="size-9 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center">
+            <XCircle className="size-4" />
+          </div>
+        </div>
       </div>
 
       {/* Notification Feedback */}
@@ -277,222 +253,251 @@ export function MerchantGiftsDashboard({
         </div>
       )}
 
-      {/* Search and Filters Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+      {/* Filter & Search Bar */}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between bg-muted/40 p-3 rounded-xl border border-border">
+        {/* Search */}
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher un cadeau par nom ou description..."
+            type="search"
+            placeholder="Rechercher par nom de cadeau..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 text-xs sm:text-sm"
+            className="pl-8 bg-background h-9 text-xs"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
         </div>
 
-        <div className="inline-flex items-center p-1 bg-muted/60 rounded-lg border border-border self-start sm:self-auto overflow-x-auto">
+        {/* Filter Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          <SlidersHorizontal className="size-3.5 text-muted-foreground mr-1 hidden sm:inline" />
           <Button
             type="button"
             variant={stockFilter === 'ALL' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setStockFilter('ALL')}
-            className="h-7 text-xs px-2.5"
+            className="h-8 text-xs px-2.5 rounded-md"
           >
             Tous ({totalCount})
           </Button>
+
           <Button
             type="button"
             variant={stockFilter === 'IN_STOCK' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setStockFilter('IN_STOCK')}
-            className="h-7 text-xs px-2.5"
+            className="h-8 text-xs px-2.5 rounded-md"
           >
+            <span className="size-2 rounded-full bg-emerald-500 mr-1.5" />
             En stock ({inStockCount})
           </Button>
+
           <Button
             type="button"
             variant={stockFilter === 'LOW_STOCK' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setStockFilter('LOW_STOCK')}
-            className="h-7 text-xs px-2.5"
+            className="h-8 text-xs px-2.5 rounded-md"
           >
+            <span className="size-2 rounded-full bg-amber-500 mr-1.5" />
             Faible ({lowStockCount})
           </Button>
+
           <Button
             type="button"
             variant={stockFilter === 'OUT_OF_STOCK' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setStockFilter('OUT_OF_STOCK')}
-            className="h-7 text-xs px-2.5"
+            className="h-8 text-xs px-2.5 rounded-md"
           >
-            Épuisé ({outOfStockCount})
+            <span className="size-2 rounded-full bg-rose-500 mr-1.5" />
+            Rupture ({outOfStockCount})
           </Button>
         </div>
       </div>
 
-      {/* Catalog Grid / List */}
+      {/* Catalog Listing */}
       {isLoading ? (
-        <div className="py-16 text-center space-y-3">
-          <Loader2 className="size-8 animate-spin mx-auto text-primary" />
-          <p className="text-xs text-muted-foreground">Chargement des cadeaux fidélité...</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="border border-border rounded-xl p-4 space-y-3 animate-pulse bg-card"
+            >
+              <div className="h-40 bg-muted rounded-lg" />
+              <div className="h-4 bg-muted rounded w-3/4" />
+              <div className="h-3 bg-muted rounded w-1/2" />
+              <div className="h-8 bg-muted rounded" />
+            </div>
+          ))}
         </div>
       ) : error ? (
-        <div className="py-12 text-center space-y-3 bg-card border border-destructive/20 rounded-xl p-6">
+        <div className="p-8 text-center bg-card border border-destructive/20 rounded-xl space-y-3">
           <AlertTriangle className="size-8 text-destructive mx-auto" />
-          <p className="text-sm text-destructive">{error}</p>
+          <p className="text-sm font-medium text-destructive">{error}</p>
           <Button variant="outline" size="sm" onClick={fetchGifts} className="gap-1.5">
             <RefreshCw className="size-3.5" /> Réessayer
           </Button>
         </div>
-      ) : filteredGifts.length === 0 ? (
-        <div className="py-16 text-center space-y-3 bg-card border border-dashed border-border rounded-xl p-6">
-          <div className="size-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
-            <Gift className="size-6" />
+      ) : gifts.length === 0 ? (
+        /* Empty State: No gifts at all */
+        <div className="p-12 text-center bg-card border border-dashed border-border rounded-xl space-y-4">
+          <div className="size-14 rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center">
+            <Gift className="size-7" />
           </div>
-          <h3 className="text-sm font-semibold text-foreground">Aucun article cadeau trouvé</h3>
-          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            {searchQuery || stockFilter !== 'ALL'
-              ? 'Aucun cadeau ne correspond à vos critères de recherche.'
-              : 'Vous n’avez pas encore configuré de cadeaux fidélité pour vos clients.'}
+          <div className="space-y-1">
+            <h3 className="text-base font-semibold text-foreground">
+              Aucun cadeau dans votre catalogue
+            </h3>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              Ajoutez vos premiers lots et récompenses fidélité avec leurs coûts en points et stocks
+              dédiés pour récompenser vos clients réguliers.
+            </p>
+          </div>
+          <Button onClick={handleOpenCreate} className="gap-2">
+            <PackagePlus className="size-4" />
+            Créer mon premier cadeau
+          </Button>
+        </div>
+      ) : filteredGifts.length === 0 ? (
+        /* Empty State: Filter or Search returned 0 results */
+        <div className="p-10 text-center bg-card border border-border rounded-xl space-y-3">
+          <Search className="size-7 text-muted-foreground mx-auto" />
+          <h4 className="text-sm font-medium text-foreground">Aucun résultat trouvé</h4>
+          <p className="text-xs text-muted-foreground">
+            Modifiez votre recherche "{searchQuery}" ou ajustez les filtres de stock.
           </p>
-          {!searchQuery && stockFilter === 'ALL' && (
-            <Button onClick={handleOpenCreate} size="sm" className="gap-1.5 mt-2">
-              <PackagePlus className="size-4" />
-              <span>Créer mon premier cadeau</span>
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSearchQuery('');
+              setStockFilter('ALL');
+            }}
+          >
+            Réinitialiser les filtres
+          </Button>
         </div>
       ) : (
+        /* Gifts Grid (matching Products Grid design!) */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredGifts.map((gift) => {
-            const stockStatus = getGiftStockStatus(gift.stock);
-            const isAdjusting = Boolean(adjustingStockIds[gift.id]);
+            const status = getGiftStockStatus(gift.stock);
 
             return (
-              <Card key={gift.id} className="flex flex-col border-border bg-card overflow-hidden">
-                {/* Gift Visual */}
-                <div className="relative h-40 bg-muted flex items-center justify-center overflow-hidden border-b border-border">
-                  {gift.imageUrl ? (
-                    <img
-                      src={gift.imageUrl}
-                      alt={gift.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center text-muted-foreground/60">
-                      <Gift className="size-12 stroke-1 mb-1 text-muted-foreground/40" />
-                      <span className="text-[11px]">Pas d'image</span>
-                    </div>
-                  )}
+              <Card
+                key={gift.id}
+                className="group relative flex flex-col justify-between overflow-hidden border-border hover:shadow-md transition-shadow bg-card"
+              >
+                <div>
+                  {/* Gift Image with overlays */}
+                  <div className="relative aspect-4/3 w-full bg-muted/60 overflow-hidden flex items-center justify-center border-b border-border">
+                    {gift.imageUrl ? (
+                      <img
+                        src={gift.imageUrl}
+                        alt={gift.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-muted-foreground/60">
+                        <Gift className="size-12 stroke-1 mb-1 text-muted-foreground/40" />
+                        <span className="text-[11px]">Aucun visuel</span>
+                      </div>
+                    )}
 
-                  {/* Points Cost Overlay Badge */}
-                  <div className="absolute top-2.5 right-2.5">
-                    <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-semibold gap-1 text-xs shadow-xs">
-                      <Coins className="size-3.5" />
-                      <span>{gift.pointsCost} pts</span>
-                    </Badge>
+                    {/* Points Overlay Badge (Top Left) */}
+                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                      <span className="bg-background/90 backdrop-blur-xs text-foreground font-mono text-[10px] font-semibold px-2 py-0.5 rounded shadow-xs border border-border flex items-center gap-1">
+                        <Coins className="size-3 text-amber-500" />
+                        <span>{gift.pointsCost} pts</span>
+                      </span>
+                    </div>
+
+                    {/* Stock Status Badge Overlay (Top Right) */}
+                    <div className="absolute top-2.5 right-2.5">
+                      {status === 'IN_STOCK' && (
+                        <span className="bg-emerald-500/90 text-white font-medium text-[11px] px-2 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
+                          En stock ({gift.stock})
+                        </span>
+                      )}
+                      {status === 'LOW_STOCK' && (
+                        <span className="bg-amber-500/90 text-white font-medium text-[11px] px-2 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
+                          Faible ({gift.stock})
+                        </span>
+                      )}
+                      {status === 'OUT_OF_STOCK' && (
+                        <span className="bg-rose-600/90 text-white font-medium text-[11px] px-2 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
+                          Rupture
+                        </span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Header / Info: Points replaces Price on the right! */}
+                  <CardHeader className="p-4 pb-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-base font-semibold text-foreground line-clamp-1">
+                        {gift.name}
+                      </CardTitle>
+                      <span className="font-bold text-base text-primary whitespace-nowrap flex items-center gap-1">
+                        <Coins className="size-4 text-amber-500" />
+                        <span>{gift.pointsCost} pts</span>
+                      </span>
+                    </div>
+                    {gift.description && (
+                      <CardDescription className="text-xs line-clamp-2 mt-1">
+                        {gift.description}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
                 </div>
 
-                <CardContent className="p-4 flex-1 flex flex-col justify-between space-y-4">
-                  <div className="space-y-1.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-semibold text-sm text-foreground line-clamp-1">
-                        {gift.name}
-                      </h4>
-                      {stockStatus === 'OUT_OF_STOCK' && (
-                        <Badge variant="destructive" className="text-[10px] shrink-0">
-                          Épuisé
-                        </Badge>
-                      )}
-                      {stockStatus === 'LOW_STOCK' && (
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] shrink-0 border-amber-500/30 text-amber-600 dark:text-amber-400"
-                        >
-                          Stock bas
-                        </Badge>
-                      )}
-                      {stockStatus === 'IN_STOCK' && (
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] shrink-0 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
-                        >
-                          En stock
-                        </Badge>
-                      )}
-                    </div>
-
-                    {gift.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {gift.description}
-                      </p>
-                    )}
+                {/* Footer Controls: Quick Stock +/- and Actions */}
+                <div className="p-4 pt-2 border-t border-border/60 bg-muted/20 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Ajuster le stock :
+                    </span>
+                    <GiftStockControl gift={gift} onStockUpdated={handleStockUpdated} />
                   </div>
 
-                  {/* Stock Controls & Actions */}
-                  <div className="pt-2 border-t border-border/60 space-y-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground font-medium">Stock disponible :</span>
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="size-6 text-xs"
-                          disabled={gift.stock <= 0 || isAdjusting}
-                          onClick={() => handleQuickAdjustStock(gift.id, -1)}
-                          title="Retirer 1 unité de stock"
-                        >
-                          <Minus className="size-3" />
-                        </Button>
-                        <span className="font-semibold w-8 text-center text-foreground">
-                          {isAdjusting ? (
-                            <Loader2 className="size-3 animate-spin mx-auto" />
-                          ) : (
-                            gift.stock
-                          )}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="size-6 text-xs"
-                          disabled={isAdjusting}
-                          onClick={() => handleQuickAdjustStock(gift.id, 1)}
-                          title="Ajouter 1 unité de stock"
-                        >
-                          <Plus className="size-3" />
-                        </Button>
-                      </div>
-                    </div>
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/40">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5"
+                      onClick={() => handleOpenEdit(gift)}
+                      title="Modifier les détails du cadeau"
+                    >
+                      <Pencil className="size-3.5" />
+                      Modifier
+                    </Button>
 
-                    <div className="flex items-center justify-end gap-1.5 pt-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 text-xs gap-1"
-                        onClick={() => handleOpenEdit(gift)}
-                      >
-                        <Pencil className="size-3.5" />
-                        <span>Modifier</span>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 text-xs gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => setGiftToDelete(gift)}
-                      >
-                        <Trash2 className="size-3.5" />
-                        <span>Supprimer</span>
-                      </Button>
-                    </div>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5"
+                      onClick={() => setGiftToDelete(gift)}
+                      title="Supprimer définitivement ce cadeau"
+                    >
+                      <Trash2 className="size-3.5" />
+                      Supprimer
+                    </Button>
                   </div>
-                </CardContent>
+                </div>
               </Card>
             );
           })}
@@ -504,24 +509,33 @@ export function MerchantGiftsDashboard({
         storeId={storeId}
         gift={selectedGift}
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        onSuccess={handleSaveSuccess}
+        onClose={() => {
+          setIsFormOpen(false);
+          setSelectedGift(null);
+        }}
+        onSuccess={handleGiftSaved}
       />
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={Boolean(giftToDelete)} onOpenChange={(open) => !open && setGiftToDelete(null)}>
-        <DialogContent className="sm:max-w-md">
+      {/* Delete Confirmation Modal */}
+      <Dialog
+        open={Boolean(giftToDelete)}
+        onOpenChange={(open) => {
+          if (!open) setGiftToDelete(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-2">
-              <div className="p-2 bg-destructive/10 text-destructive rounded-lg">
+              <div className="p-2 rounded-lg bg-destructive/10 text-destructive">
                 <Trash2 className="size-5" />
               </div>
               <div>
-                <DialogTitle className="text-base font-semibold">
+                <DialogTitle className="text-base font-bold">
                   Supprimer l'article cadeau ?
                 </DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground">
-                  Cette action retirera définitivement ce cadeau de votre catalogue.
+                <DialogDescription className="text-xs">
+                  Cette action est irréversible. L'article sera définitivement retiré de votre
+                  catalogue de cadeaux fidélité.
                 </DialogDescription>
               </div>
             </div>
@@ -529,14 +543,15 @@ export function MerchantGiftsDashboard({
 
           {giftToDelete && (
             <div className="p-3 bg-muted/40 border border-border rounded-lg text-xs space-y-1">
-              <p className="font-medium text-foreground">{giftToDelete.name}</p>
+              <p className="font-semibold text-foreground">{giftToDelete.name}</p>
               <p className="text-muted-foreground">
-                Coût : {giftToDelete.pointsCost} points • Stock restant : {giftToDelete.stock}
+                Valeur : {giftToDelete.pointsCost} points • Stock restant : {giftToDelete.stock}{' '}
+                unités
               </p>
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:justify-end">
             <Button
               type="button"
               variant="outline"

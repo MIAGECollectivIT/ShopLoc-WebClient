@@ -13,7 +13,18 @@ import { Label } from '@/components/ui/label';
 import { giftSchema } from '@/lib/validation/gift';
 import { createGift, updateGift } from '@/lib/api';
 import type { LoyaltyGift, GiftCreateRequest, GiftUpdateRequest } from '@/types/gift';
-import { Gift, Edit, Loader2, AlertCircle } from 'lucide-react';
+import {
+  Coins,
+  PackagePlus,
+  Edit,
+  Upload,
+  Loader2,
+  AlertCircle,
+  Check,
+  Trash2,
+  RefreshCw,
+  Image as ImageIcon,
+} from 'lucide-react';
 
 interface GiftFormDialogProps {
   storeId: number;
@@ -31,10 +42,13 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
   const [pointsCost, setPointsCost] = React.useState('');
   const [stock, setStock] = React.useState('0');
   const [imageUrl, setImageUrl] = React.useState('');
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Initialize or reset form when modal opens or gift changes
   React.useEffect(() => {
@@ -44,16 +58,52 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
       setPointsCost(String(gift.pointsCost));
       setStock(String(gift.stock));
       setImageUrl(gift.imageUrl || '');
+      setPreviewUrl(gift.imageUrl?.trim() || null);
     } else {
       setName('');
       setDescription('');
       setPointsCost('');
       setStock('0');
       setImageUrl('');
+      setPreviewUrl(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
     setErrors({});
     setServerError(null);
   }, [gift, isOpen]);
+
+  const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setImageUrl(val);
+    const trimmed = val.trim();
+    if (trimmed) {
+      setPreviewUrl(trimmed);
+    } else {
+      setPreviewUrl(null);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const objectUrl = URL.createObjectURL(file);
+      setPreviewUrl(objectUrl);
+    }
+  };
+
+  const triggerFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleRemoveImage = () => {
+    setPreviewUrl(null);
+    setImageUrl('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
@@ -106,7 +156,9 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
       onClose();
     } catch (err: unknown) {
       setServerError(
-        err instanceof Error ? err.message : 'Une erreur est survenue lors de l’enregistrement.'
+        err instanceof Error
+          ? err.message
+          : 'Une erreur inattendue est survenue lors de l’enregistrement.'
       );
     } finally {
       setIsSubmitting(false);
@@ -115,88 +167,113 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-primary/10 text-primary rounded-lg">
-              {isEditing ? <Edit className="size-5" /> : <Gift className="size-5" />}
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              {isEditing ? <Edit className="size-5" /> : <PackagePlus className="size-5" />}
             </div>
             <div>
-              <DialogTitle className="text-lg font-semibold">
+              <DialogTitle className="text-lg font-bold">
                 {isEditing ? "Modifier l'article cadeau" : 'Ajouter un article cadeau'}
               </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
+              <DialogDescription className="text-xs">
                 {isEditing
-                  ? 'Modifiez les informations et le coût en points de cet article.'
-                  : 'Proposez un nouveau cadeau que vos clients pourront obtenir avec leurs points.'}
+                  ? 'Mettez à jour les informations, la photo, le coût en points ou l’inventaire de cet article.'
+                  : 'Renseignez les détails du cadeau fidélité pour l’ajouter à votre vitrine récompenses.'}
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         {serverError && (
-          <div className="p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg flex items-start gap-2 text-xs">
-            <AlertCircle className="size-4 shrink-0 mt-0.5" />
-            <span>{serverError}</span>
+          <div className="border border-destructive/50 bg-destructive/10 p-3 rounded-lg text-destructive text-xs flex items-center gap-2">
+            <AlertCircle className="size-4 shrink-0" />
+            <p>{serverError}</p>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          {/* Name */}
           <div className="space-y-1.5">
-            <Label htmlFor="gift-name" className="text-xs font-medium">
-              Nom du cadeau <span className="text-destructive">*</span>
+            <Label htmlFor="gift-name" className="text-xs font-semibold">
+              Nom de l'article cadeau <span className="text-destructive">*</span>
             </Label>
             <Input
               id="gift-name"
-              placeholder="Ex: Mug ShopLoc en céramique"
+              placeholder="Ex: Mug ShopLoc en céramique artisanale"
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={isSubmitting}
-              className={errors.name ? 'border-destructive' : ''}
+              className={errors.name ? 'border-destructive ring-destructive' : ''}
             />
-            {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+            {errors.name && (
+              <p className="text-[11px] text-destructive flex items-center gap-1">
+                <AlertCircle className="size-3 shrink-0" /> {errors.name}
+              </p>
+            )}
           </div>
 
+          {/* Description */}
           <div className="space-y-1.5">
-            <Label htmlFor="gift-description" className="text-xs font-medium">
-              Description (facultative)
+            <Label
+              htmlFor="gift-description"
+              className="text-xs font-semibold flex items-center justify-between"
+            >
+              <span>Description</span>
+              <span className="text-muted-foreground font-normal">(Optionnelle)</span>
             </Label>
             <textarea
               id="gift-description"
-              rows={3}
-              placeholder="Ex: Mug de collection en céramique fabriqué localement."
+              rows={2}
+              placeholder="Caractéristiques, conditions d'échange, modèle..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               disabled={isSubmitting}
-              className={`w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
-                errors.description ? 'border-destructive' : ''
+              className={`w-full rounded-md border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                errors.description ? 'border-destructive ring-destructive' : ''
               }`}
             />
-            {errors.description && <p className="text-xs text-destructive">{errors.description}</p>}
+            {errors.description && (
+              <p className="text-[11px] text-destructive flex items-center gap-1">
+                <AlertCircle className="size-3 shrink-0" /> {errors.description}
+              </p>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Points Cost & Stock (Points replaces Price!) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="gift-points" className="text-xs font-medium">
+              <Label htmlFor="gift-points" className="text-xs font-semibold">
                 Coût en points fidélité <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="gift-points"
-                type="number"
-                min="1"
-                step="1"
-                placeholder="Ex: 50"
-                value={pointsCost}
-                onChange={(e) => setPointsCost(e.target.value)}
-                disabled={isSubmitting}
-                className={errors.pointsCost ? 'border-destructive' : ''}
-              />
-              {errors.pointsCost && <p className="text-xs text-destructive">{errors.pointsCost}</p>}
+              <div className="relative">
+                <Input
+                  id="gift-points"
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="Ex: 50"
+                  value={pointsCost}
+                  onChange={(e) => setPointsCost(e.target.value)}
+                  disabled={isSubmitting}
+                  className={`pr-14 ${errors.pointsCost ? 'border-destructive ring-destructive' : ''}`}
+                />
+                <span className="absolute right-2.5 top-2 text-xs font-semibold text-muted-foreground pointer-events-none flex items-center gap-1">
+                  <Coins className="size-3.5 text-amber-500" />
+                  <span>pts</span>
+                </span>
+              </div>
+              {errors.pointsCost && (
+                <p className="text-[11px] text-destructive flex items-center gap-1">
+                  <AlertCircle className="size-3 shrink-0" /> {errors.pointsCost}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="gift-stock" className="text-xs font-medium">
-                {isEditing ? 'Stock actuel' : 'Stock initial'}{' '}
+              <Label htmlFor="gift-stock" className="text-xs font-semibold">
+                {isEditing ? 'Stock actuel' : 'Stock initial (Unités)'}{' '}
                 <span className="text-destructive">*</span>
               </Label>
               <Input
@@ -204,11 +281,11 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
                 type="number"
                 min="0"
                 step="1"
-                placeholder="Ex: 10"
+                placeholder="0"
                 value={stock}
                 onChange={(e) => setStock(e.target.value)}
                 disabled={isSubmitting || isEditing}
-                className={errors.stock ? 'border-destructive' : ''}
+                className={errors.stock ? 'border-destructive ring-destructive' : ''}
               />
               {isEditing ? (
                 <p className="text-[11px] text-muted-foreground">
@@ -216,45 +293,153 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
                   stock.
                 </p>
               ) : errors.stock ? (
-                <p className="text-xs text-destructive">{errors.stock}</p>
+                <p className="text-[11px] text-destructive flex items-center gap-1">
+                  <AlertCircle className="size-3 shrink-0" /> {errors.stock}
+                </p>
               ) : null}
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="gift-image" className="text-xs font-medium">
-              URL de l'image (facultative)
+          {/* Photo Management */}
+          <div className="space-y-2 pt-2 border-t">
+            <Label className="text-xs font-semibold flex items-center justify-between">
+              <span>Photo du cadeau</span>
+              <span className="text-[11px] text-muted-foreground font-normal">
+                Image d'illustration ou URL externe
+              </span>
             </Label>
-            <Input
-              id="gift-image"
-              type="url"
-              placeholder="https://cdn.example.com/gifts/mug.png"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              id="gift-file-upload"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleFileChange}
               disabled={isSubmitting}
-              className={errors.imageUrl ? 'border-destructive' : ''}
             />
-            {errors.imageUrl && <p className="text-xs text-destructive">{errors.imageUrl}</p>}
+
+            {/* Preview Box with Actions */}
+            {previewUrl ? (
+              <div className="space-y-2">
+                <div className="relative rounded-lg overflow-hidden border border-border h-40 bg-muted/30 flex items-center justify-center group">
+                  <img
+                    src={previewUrl}
+                    alt="Aperçu du cadeau"
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+
+                  {/* Hover action overlay */}
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5 shadow"
+                      onClick={triggerFileSelect}
+                      disabled={isSubmitting}
+                    >
+                      <RefreshCw className="size-3.5" />
+                      Changer l'image
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5 shadow"
+                      onClick={handleRemoveImage}
+                      disabled={isSubmitting}
+                    >
+                      <Trash2 className="size-3.5" />
+                      Supprimer
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Status bar */}
+                <div className="flex items-center justify-between gap-2 px-0.5">
+                  <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                    <ImageIcon className="size-3.5 shrink-0" />
+                    Visuel configuré
+                  </span>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={triggerFileSelect}
+                      disabled={isSubmitting}
+                    >
+                      <Upload className="size-3" />
+                      Changer
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                      onClick={handleRemoveImage}
+                      disabled={isSubmitting}
+                    >
+                      <Trash2 className="size-3" />
+                      Supprimer
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Dropzone when no preview exists */
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={triggerFileSelect}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    triggerFileSelect();
+                  }
+                }}
+                className="border-2 border-dashed border-border hover:border-primary/50 bg-muted/20 hover:bg-muted/40 rounded-lg p-5 flex flex-col items-center justify-center cursor-pointer transition-colors"
+              >
+                <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
+                  <Upload className="size-5" />
+                </div>
+                <p className="text-xs font-medium text-foreground">
+                  Sélectionnez une image ou{' '}
+                  <span className="text-primary underline">parcourez vos fichiers</span>
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  JPEG, PNG ou WebP (ou saisissez une URL ci-dessous)
+                </p>
+              </div>
+            )}
+
+            {/* Direct Image URL input */}
+            <div className="pt-1">
+              <Input
+                id="gift-imageUrl"
+                type="url"
+                placeholder="Ou collez une URL d'image externe (https://...)"
+                value={imageUrl}
+                onChange={handleImageUrlChange}
+                disabled={isSubmitting}
+                className={`text-xs ${errors.imageUrl ? 'border-destructive ring-destructive' : ''}`}
+              />
+              {errors.imageUrl && (
+                <p className="text-[11px] text-destructive flex items-center gap-1 mt-1">
+                  <AlertCircle className="size-3 shrink-0" /> {errors.imageUrl}
+                </p>
+              )}
+            </div>
           </div>
 
-          {imageUrl.trim() && (
-            <div className="flex items-center gap-3 p-2 bg-muted/40 rounded-lg border border-border">
-              <img
-                src={imageUrl.trim()}
-                alt="Aperçu du cadeau"
-                className="size-14 rounded object-cover border border-border shrink-0 bg-background"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-              <div className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground block">Aperçu visuel</span>
-                <span>L'image sera affichée dans le catalogue de récompenses.</span>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter className="pt-2">
+          <DialogFooter className="gap-2 pt-2 border-t sm:justify-end">
             <Button
               type="button"
               variant="outline"
@@ -272,8 +457,10 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
                 </>
               ) : (
                 <>
-                  <Gift className="size-3.5" />
-                  <span>{isEditing ? 'Enregistrer les modifications' : 'Créer le cadeau'}</span>
+                  <Check className="size-3.5" />
+                  <span>
+                    {isEditing ? 'Enregistrer les modifications' : 'Ajouter au catalogue'}
+                  </span>
                 </>
               )}
             </Button>
