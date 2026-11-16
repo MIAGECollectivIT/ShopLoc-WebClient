@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -157,26 +158,42 @@ export function MerchantGiftsDashboard({
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 bg-card border border-border rounded-xl">
-        <div className="space-y-1">
+      {/* Top Banner & Action */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+        <div>
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary">
-              <Gift className="size-5" />
-            </div>
-            <h2 className="text-xl font-bold tracking-tight text-foreground">
+            <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <Gift className="size-5 text-primary" />
               Catalogue de Cadeaux Fidélité
             </h2>
+            <Badge variant="secondary" className="font-mono text-xs">
+              {totalCount} {totalCount > 1 ? 'cadeaux' : 'cadeau'}
+            </Badge>
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Gérez vos articles cadeaux, définissez leur coût en points et ajustez les stocks dédiés
-            réservés aux récompenses.
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Gérez vos récompenses en points et ajustez les stocks dédiés aux cadeaux fidélité.
           </p>
         </div>
-        <Button onClick={handleOpenCreate} size="sm" className="gap-2 self-start sm:self-auto">
-          <PackagePlus className="size-4" />
-          <span>Nouveau cadeau</span>
-        </Button>
+
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={fetchGifts}
+            disabled={isLoading}
+            title="Rafraîchir les cadeaux"
+            className="gap-1.5"
+          >
+            <RefreshCw className={`size-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Actualiser</span>
+          </Button>
+
+          <Button type="button" size="sm" onClick={handleOpenCreate} className="gap-1.5 shadow-xs">
+            <PackagePlus className="size-4" />
+            <span>Ajouter un cadeau</span>
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards (identical to MerchantCatalogDashboard) */}
