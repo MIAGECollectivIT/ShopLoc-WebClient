@@ -50,7 +50,7 @@ import {
   Users as UsersIcon,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { updateUserProfile } from '@/lib/api';
+import { updateUserProfile, logoutUser } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 
 interface AppSidebarProps {
@@ -62,7 +62,7 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
   const [isWalletOpen, setIsWalletOpen] = React.useState(false);
 
-  const { user, isAuthenticated, role, logout } = useAuth();
+  const { user, isAuthenticated, role } = useAuth();
 
   // Real profile form state linked to authenticated user
   const [profileForm, setProfileForm] = React.useState({
@@ -392,10 +392,10 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
               variant="ghost"
               size="sm"
               className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-              onClick={() => {
+              onClick={async () => {
                 if (window.confirm('Voulez-vous vous déconnecter de ShopLoc ?')) {
-                  logout();
-                  window.location.href = '/api/auth/logout';
+                  await logoutUser();
+                  window.location.href = '/login';
                 }
               }}
             >
