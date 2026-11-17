@@ -48,7 +48,6 @@ import {
   Store as StoreIcon,
   QrCode,
   Users as UsersIcon,
-  Gift,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { updateUserProfile, logoutUser } from '@/lib/api';
@@ -278,13 +277,6 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                   <SidebarMenuButton render={<a href="/stores" />}>
                     <StoreIcon className="size-4 text-muted-foreground" />
                     <span>Commerces partenaires</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<a href={ROUTES.gifts.path} data-astro-reload="" />}>
-                    <Gift className="size-4 text-muted-foreground" />
-                    <span>Cadeaux fidélité</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

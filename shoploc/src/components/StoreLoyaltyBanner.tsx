@@ -85,28 +85,6 @@ export function StoreLoyaltyBanner({ storeId, initialRate, onViewGifts }: StoreL
             </p>
           </div>
         </div>
-
-        <div className="flex items-center shrink-0 self-end sm:self-center">
-          {onViewGifts ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={onViewGifts}
-              className="h-8 text-xs gap-1.5 font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs transition-colors shrink-0 cursor-pointer"
-            >
-              <Coins className="size-3.5 text-amber-400" />
-              <span>Utiliser mes points</span>
-            </Button>
-          ) : (
-            <a
-              href={`${ROUTES.gifts.path}?storeId=${storeId}`}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs transition-colors shrink-0"
-            >
-              <Coins className="size-3.5 text-amber-400" />
-              <span>Utiliser mes points</span>
-            </a>
-          )}
-        </div>
       </div>
     </div>
   );

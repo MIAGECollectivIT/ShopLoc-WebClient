@@ -51,7 +51,7 @@ export const ROUTES = {
   },
   gifts: {
     path: '/gifts',
-    label: 'Cadeaux fidélité',
+    label: 'Cadeaux',
     icon: Gift,
   },
   cart: {

@@ -89,7 +89,7 @@ export function StoreClientGiftsCatalog({ storeId, storeName }: StoreClientGifts
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
               <Gift className="size-5 text-primary" />
-              <span>Cadeaux Fidélité</span>
+              <span>Cadeaux</span>
             </h2>
             <Badge variant="secondary" className="font-mono text-xs">
               {gifts.length} {gifts.length > 1 ? 'lots' : 'lot'}
