@@ -281,6 +281,44 @@ export async function revokeStore(storeId: string | number): Promise<StoreRespon
 }
 
 /**
+ * Reactivates a previously revoked partner store with a new valid RIB/IBAN (SLE-70, SLE-263).
+ * Only accessible by ADMIN users.
+ */
+export async function reactivateStore(
+  storeId: string | number,
+  rib: string
+): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/reactivate`);
+  const token = getAuthToken();
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ rib }),
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    const message =
+      errorBody.message ||
+      (res.status === 409
+        ? "Ce commerce n'est pas révoqué."
+        : res.status === 403
+          ? 'Accès refusé : privilèges administrateur requis.'
+          : res.status === 400
+            ? 'Format de RIB ou IBAN invalide.'
+            : `Impossible de réactiver le commerce (HTTP ${res.status})`);
+    throw new Error(message);
+  }
+
+  const data: StoreResponse = await res.json();
+  return data;
+}
+
+/**
  * Retrieves the stores belonging to the currently authenticated merchant (anti-IDOR, SLE-70).
  */
 export async function getMyStores(serverToken?: string): Promise<StoreResponse[]> {
