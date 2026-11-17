@@ -201,8 +201,9 @@ export async function checkUsersServiceStatus(): Promise<ServiceHealthResponse> 
   }
 }
 
-export async function getStores(): Promise<Store[]> {
-  const res = await fetchWithTimeout(getApiEndpoint('/v1/stores'));
+export async function getStores(includeRevoked: boolean = false): Promise<Store[]> {
+  const query = includeRevoked ? '?includeRevoked=true' : '';
+  const res = await fetchWithTimeout(getApiEndpoint(`/v1/stores${query}`));
   if (!res.ok) {
     throw new Error(`Erreur lors de la récupération des commerces (HTTP ${res.status})`);
   }

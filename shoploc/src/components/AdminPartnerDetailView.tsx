@@ -69,9 +69,7 @@ export function AdminPartnerDetailView({
   initialStores = [],
 }: AdminPartnerDetailViewProps) {
   const [currentPartner, setCurrentPartner] = React.useState<AdminPartnerDetail>(partner);
-  const [stores, setStores] = React.useState<Store[]>(() =>
-    initialStores.filter((s) => s.status !== 'REVOKED')
-  );
+  const [stores, setStores] = React.useState<Store[]>(() => initialStores);
   const [loadingStores, setLoadingStores] = React.useState<boolean>(
     initialStores.length === 0 && (partner.storeIds?.length || 0) > 0
   );
@@ -153,7 +151,7 @@ export function AdminPartnerDetailView({
 
         const results = await Promise.all(storePromises);
         if (!isCancelled) {
-          setStores(results.filter((s) => s.status !== 'REVOKED'));
+          setStores(results);
         }
       } finally {
         if (!isCancelled) {
@@ -178,7 +176,7 @@ export function AdminPartnerDetailView({
     setIsLoadingAvailableStores(true);
 
     try {
-      const allStores = await getStores();
+      const allStores = await getStores(true);
       // Filter out stores already affiliated
       const affiliatedIds = new Set(stores.map((s) => s.id));
       const unlinked = allStores.filter((s) => s.id !== undefined && !affiliatedIds.has(s.id));
@@ -353,12 +351,19 @@ export function AdminPartnerDetailView({
     const storeIdentifier = storeToRevoke.uid || storeToRevoke.id!;
     try {
       await revokeStore(storeIdentifier);
+      if (storeToRevoke.id && (currentPartner.publicId || currentPartner.id)) {
+        await removeStoreFromPartner(
+          currentPartner.publicId || currentPartner.id,
+          storeToRevoke.id
+        ).catch(() => {});
+      }
       setStores((prev) =>
         prev.filter((s) => s.id !== storeToRevoke.id && (!s.uid || s.uid !== storeToRevoke.uid))
       );
-      if (storeToRevoke.id && currentPartner.id) {
-        removeStoreFromPartner(currentPartner.id, storeToRevoke.id).catch(() => {});
-      }
+      setCurrentPartner((prev) => ({
+        ...prev,
+        storeIds: (prev.storeIds || []).filter((id) => id !== storeToRevoke.id),
+      }));
       setRevokeSuccessMessage(
         `Le commerce "${storeToRevoke.name}" a été révoqué avec succès et retiré des commerces affiliés.`
       );
@@ -1043,11 +1048,18 @@ export function AdminPartnerDetailView({
                             <span className="font-semibold text-xs text-foreground truncate">
                               {store.name}
                             </span>
-                            {store.category && (
+                            {store.status === 'REVOKED' ? (
+                              <Badge
+                                variant="destructive"
+                                className="text-[10px] px-1.5 py-0 h-4 bg-destructive/15 text-destructive border-destructive/30"
+                              >
+                                Révoqué
+                              </Badge>
+                            ) : store.category ? (
                               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
                                 {store.category}
                               </Badge>
-                            )}
+                            ) : null}
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <MapPin className="size-3 shrink-0 text-primary" />
