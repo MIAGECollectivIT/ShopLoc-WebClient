@@ -834,21 +834,16 @@ export function AdminPartnerDetailView({
                           </Button>
                         </>
                       ) : (
-                        <>
-                          <span className="text-[11px] text-destructive font-medium px-2 py-0.5 rounded bg-destructive/10 border border-destructive/20">
-                            Partenariat neutralisé
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenReactivateStore(store)}
-                            className="gap-1 text-xs h-7 px-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-400 dark:border-emerald-900/50"
-                            title="Réactiver ce commerce partenaire avec un nouveau RIB"
-                          >
-                            <RotateCcw className="size-3" />
-                            <span>Réactiver</span>
-                          </Button>
-                        </>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenReactivateStore(store)}
+                          className="gap-1 text-xs h-7 px-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-400 dark:border-emerald-900/50"
+                          title="Réactiver ce commerce partenaire avec un nouveau RIB"
+                        >
+                          <RotateCcw className="size-3" />
+                          <span>Réactiver</span>
+                        </Button>
                       )}
 
                       {(store.uid || store.id) && (
