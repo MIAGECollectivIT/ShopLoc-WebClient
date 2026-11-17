@@ -5,7 +5,7 @@ import { Coins, Sparkles, Gift } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface StoreLoyaltyBannerProps {
-  storeId: number;
+  storeId: number | string;
   initialRate?: MerchantLoyaltyRate | null;
 }
 

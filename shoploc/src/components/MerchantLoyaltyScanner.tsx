@@ -14,7 +14,7 @@ import { QrCode, Keyboard, Camera, AlertCircle, Sparkles, Store } from 'lucide-r
 import { cn } from 'cn';
 
 export interface MerchantLoyaltyScannerProps {
-  storeId?: number;
+  storeId?: number | string;
   storeName?: string;
   className?: string;
 }

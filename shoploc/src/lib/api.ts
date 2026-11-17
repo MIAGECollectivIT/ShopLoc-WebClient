@@ -1401,9 +1401,9 @@ export async function getStoreLoyaltyRate(storeId: number | string): Promise<Mer
     },
   });
 
-  if (res.status === 404) {
+  if (res.status === 404 || res.status === 400) {
     return {
-      storeId: Number(storeId),
+      storeId,
       euroAmount: 1,
       pointsReward: 1,
     };

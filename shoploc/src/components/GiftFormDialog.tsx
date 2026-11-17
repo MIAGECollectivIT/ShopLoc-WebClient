@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 interface GiftFormDialogProps {
-  storeId: number;
+  storeId: number | string;
   gift?: LoyaltyGift | null;
   isOpen: boolean;
   onClose: () => void;

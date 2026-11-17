@@ -5,7 +5,7 @@
 
 export interface MerchantLoyaltyRate {
   id?: number | null;
-  storeId: number;
+  storeId: number | string;
   euroAmount: number;
   pointsReward: number;
   createdAt?: string | null;

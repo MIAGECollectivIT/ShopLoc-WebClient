@@ -24,7 +24,7 @@ export type { CartItem };
 export { CART_STORAGE_KEY };
 
 interface ClientProductCatalogProps {
-  storeId: number;
+  storeId: number | string;
   storeName?: string;
 }
 
@@ -95,7 +95,8 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
 
     const res = addItem({
       productId: product.id,
-      storeId,
+      storeId: product.storeId || (typeof storeId === 'number' ? storeId : 1),
+      storeUid: typeof storeId === 'string' ? storeId : undefined,
       storeName: storeName || 'Boutique',
       name: product.name,
       price: product.price,

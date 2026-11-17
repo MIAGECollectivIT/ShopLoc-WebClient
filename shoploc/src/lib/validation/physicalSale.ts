@@ -32,7 +32,9 @@ const parseAmountNumber = (val: unknown): number => {
  * - Amount must be a positive decimal number with at most 2 decimal places
  */
 export const physicalSaleFormSchema = z.object({
-  storeId: z.number({ message: 'Identifiant du commerce requis' }).positive(),
+  storeId: z
+    .union([z.number(), z.string()])
+    .transform((val) => (typeof val === 'string' ? parseInt(val, 10) || 1 : val)),
   clientCode: z
     .string()
     .trim()

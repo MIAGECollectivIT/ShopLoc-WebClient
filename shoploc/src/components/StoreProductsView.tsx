@@ -86,15 +86,18 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
       // Seed association: Suzanne Morel is linked to stores 1 & 2 in user_stores
       if (
         (user.email === 'suzanne.morel@shop-loc.fr' || user.dbId === 2) &&
-        (store.id === 1 || store.id === 2)
+        (store.id === 1 ||
+          store.id === 2 ||
+          store.uid === '11111111-1111-1111-1111-111111111111' ||
+          store.uid === '22222222-2222-2222-2222-222222222222')
       ) {
         return true;
       }
     }
     return false;
-  }, [isAuthenticated, user, role, store.userId, store.id]);
+  }, [isAuthenticated, user, role, store.userId, store.id, store.uid]);
 
-  const storeIdNumber = Number(store.id);
+  const storeIdentifier: string | number = currentStore.uid || currentStore.id || '';
 
   if (!mounted || isLoading) {
     return (
@@ -109,8 +112,8 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
   if (!isOwnerOrAdmin) {
     return (
       <div className="space-y-6 pt-6">
-        <StoreLoyaltyBanner storeId={storeIdNumber} />
-        <ClientProductCatalog storeId={storeIdNumber} storeName={store.name} />
+        <StoreLoyaltyBanner storeId={storeIdentifier} />
+        <ClientProductCatalog storeId={storeIdentifier} storeName={currentStore.name} />
       </div>
     );
   }
@@ -155,7 +158,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
             </Button>
 
             <a
-              href={ROUTES.storeScan(store.uid || storeIdNumber)}
+              href={ROUTES.storeScan(storeIdentifier)}
               className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
             >
               <QrCode className="size-3.5" />
@@ -240,15 +243,15 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
 
       {/* Render selected view */}
       {viewMode === 'merchant' && (
-        <MerchantCatalogDashboard storeId={storeIdNumber} storeName={store.name} />
+        <MerchantCatalogDashboard storeId={storeIdentifier} storeName={store.name} />
       )}
 
       {viewMode === 'gifts' && (
-        <MerchantGiftsDashboard storeId={storeIdNumber} storeName={store.name} />
+        <MerchantGiftsDashboard storeId={storeIdentifier} storeName={store.name} />
       )}
 
       {viewMode === 'loyalty' && (
-        <MerchantLoyaltyRateCard storeId={storeIdNumber} storeName={currentStore.name} />
+        <MerchantLoyaltyRateCard storeId={storeIdentifier} storeName={currentStore.name} />
       )}
 
       {viewMode === 'profile' && (
@@ -259,7 +262,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
       )}
 
       {viewMode === 'scan' && (
-        <MerchantLoyaltyScanner storeId={storeIdNumber} storeName={currentStore.name} />
+        <MerchantLoyaltyScanner storeId={storeIdentifier} storeName={currentStore.name} />
       )}
 
       {viewMode === 'client' && (
@@ -280,8 +283,8 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
               <span>Retour à la gestion</span>
             </Button>
           </div>
-          <StoreLoyaltyBanner storeId={storeIdNumber} />
-          <ClientProductCatalog storeId={storeIdNumber} storeName={store.name} />
+          <StoreLoyaltyBanner storeId={storeIdentifier} />
+          <ClientProductCatalog storeId={storeIdentifier} storeName={store.name} />
         </div>
       )}
     </div>

@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 
 interface MerchantLoyaltyRateCardProps {
-  storeId: number;
+  storeId: number | string;
   storeName?: string;
   onRateUpdated?: (rate: MerchantLoyaltyRate) => void;
 }

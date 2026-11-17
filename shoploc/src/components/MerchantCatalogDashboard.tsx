@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 interface MerchantCatalogDashboardProps {
-  storeId: number;
+  storeId: number | string;
   storeName?: string;
 }
 
@@ -132,13 +132,13 @@ export function MerchantCatalogDashboard({
   // Computed metrics
   const totalCount = products.length;
   const inStockCount = products.filter(
-    (p) => getStockStatus(p.stockQuantity) === 'IN_STOCK'
+    (p) => getStockStatus(p.stockQuantity, p.alertThreshold) === 'IN_STOCK'
   ).length;
   const lowStockCount = products.filter(
-    (p) => getStockStatus(p.stockQuantity) === 'LOW_STOCK'
+    (p) => getStockStatus(p.stockQuantity, p.alertThreshold) === 'LOW_STOCK'
   ).length;
   const outOfStockCount = products.filter(
-    (p) => getStockStatus(p.stockQuantity) === 'OUT_OF_STOCK'
+    (p) => getStockStatus(p.stockQuantity, p.alertThreshold) === 'OUT_OF_STOCK'
   ).length;
 
   // Filtered products list
@@ -152,7 +152,7 @@ export function MerchantCatalogDashboard({
     if (!matchesSearch) return false;
 
     if (stockFilter === 'ALL') return true;
-    return getStockStatus(p.stockQuantity) === stockFilter;
+    return getStockStatus(p.stockQuantity, p.alertThreshold) === stockFilter;
   });
 
   return (
@@ -420,7 +420,7 @@ export function MerchantCatalogDashboard({
         /* Products Grid */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredProducts.map((product) => {
-            const status = getStockStatus(product.stockQuantity);
+            const status = getStockStatus(product.stockQuantity, product.alertThreshold);
 
             return (
               <Card
@@ -431,7 +431,7 @@ export function MerchantCatalogDashboard({
                   {/* Product Image */}
                   <div className="relative aspect-4/3 w-full bg-muted/60 overflow-hidden flex items-center justify-center border-b border-border">
                     <ProductImage
-                      storeId={product.storeId || storeId}
+                      storeId={storeId || product.storeUid || product.storeId}
                       productId={product.id}
                       imageUrl={product.imageUrl}
                       alt={product.name}
@@ -489,7 +489,11 @@ export function MerchantCatalogDashboard({
                     <span className="text-xs font-medium text-muted-foreground">
                       Ajuster le stock :
                     </span>
-                    <StockControl product={product} onStockUpdated={handleStockUpdated} />
+                    <StockControl
+                      storeIdentifier={storeId}
+                      product={product}
+                      onStockUpdated={handleStockUpdated}
+                    />
                   </div>
 
                   <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/40">
