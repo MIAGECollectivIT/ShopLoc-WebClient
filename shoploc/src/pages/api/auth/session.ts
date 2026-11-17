@@ -2,6 +2,7 @@ export const prerender = false;
 
 import type { APIRoute } from 'astro';
 import { TOKEN_STORAGE_KEY } from '@/lib/auth';
+import { getOrFetchPublicKey, verifyAndDecodeToken } from '@/lib/server/jwt';
 
 export const POST: APIRoute = async ({ request, cookies, url }) => {
   try {
@@ -11,6 +12,27 @@ export const POST: APIRoute = async ({ request, cookies, url }) => {
     if (!token || typeof token !== 'string') {
       return new Response(JSON.stringify({ error: 'Jeton JWT manquant ou invalide' }), {
         status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const publicKeyPem = await getOrFetchPublicKey();
+    if (!publicKeyPem) {
+      return new Response(
+        JSON.stringify({
+          error: "Impossible de vérifier la signature du jeton d'authentification",
+        }),
+        {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const payload = verifyAndDecodeToken(token, publicKeyPem);
+    if (!payload) {
+      return new Response(JSON.stringify({ error: 'Jeton JWT invalide ou expiré' }), {
+        status: 401,
         headers: { 'Content-Type': 'application/json' },
       });
     }

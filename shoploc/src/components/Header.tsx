@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/config/routes';
 import { useAuth } from '@/lib/auth';
 import { getUserVfpStatus } from '@/lib/api';
+import { getUserVfpStatus, logoutUser } from '@/lib/api';
 import { VfpBadge } from './VfpBadge';
 import { UserPlus, LogIn, LogOut, User as UserIcon } from 'lucide-react';
 
@@ -18,7 +19,7 @@ interface HeaderProps {
 export function Header({ currentPath }: HeaderProps) {
   const isRegister = currentPath === ROUTES.register.path;
   const isLogin = currentPath === ROUTES.login.path;
-  const { user, isAuthenticated, role, logout, isLoading } = useAuth();
+  const { user, isAuthenticated, role, isLoading } = useAuth();
   const [mounted, setMounted] = React.useState(false);
   const [isVfp, setIsVfp] = React.useState(false);
 
@@ -110,9 +111,9 @@ export function Header({ currentPath }: HeaderProps) {
                 variant="ghost"
                 size="sm"
                 className="gap-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                onClick={() => {
-                  logout();
-                  window.location.href = '/api/auth/logout';
+                onClick={async () => {
+                  await logoutUser();
+                  window.location.href = '/login';
                 }}
                 title="Se déconnecter"
               >
