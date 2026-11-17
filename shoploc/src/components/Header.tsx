@@ -7,7 +7,6 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/config/routes';
 import { useAuth } from '@/lib/auth';
-import { getUserVfpStatus } from '@/lib/api';
 import { getUserVfpStatus, logoutUser } from '@/lib/api';
 import { VfpBadge } from './VfpBadge';
 import { UserPlus, LogIn, LogOut, User as UserIcon } from 'lucide-react';
