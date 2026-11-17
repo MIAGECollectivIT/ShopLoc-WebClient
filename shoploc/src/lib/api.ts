@@ -14,7 +14,11 @@ import type {
   UserVfpStatus,
 } from '@/types/loyalty';
 import type { LoyaltyGift, GiftCreateRequest, GiftUpdateRequest } from '@/types/gift';
-import type { PaymentAuthorizationRequest, PaymentAuthorizationResponse } from '@/types/payment';
+import type {
+  PaymentAuthorizationRequest,
+  PaymentAuthorizationResponse,
+  UserPaymentTransaction,
+} from '@/types/payment';
 import type { CreateOrderRequest, OrderResponse } from '@/types/order';
 import type { PhysicalSaleRequest, PhysicalSaleResponse } from '@/types/sales';
 import type {
@@ -1516,6 +1520,43 @@ export async function getUserVfpStatus(userId: string | number): Promise<UserVfp
   }
 
   return (await res.json()) as UserVfpStatus;
+}
+
+/**
+ * Extracts a user's approved payment transactions within a date range (SLE-51 / SLE-238 / SLE-240).
+ */
+export async function getUserPaymentTransactions(
+  userId: string | number,
+  from?: string,
+  to?: string
+): Promise<UserPaymentTransaction[]> {
+  const queryParams = new URLSearchParams();
+  if (from) queryParams.set('from', from);
+  if (to) queryParams.set('to', to);
+  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+  const endpoint = getApiEndpoint(
+    `/v1/sales/payments/users/${encodeURIComponent(String(userId))}/transactions${queryString}`
+  );
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Impossible de récupérer l'historique des paiements (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as UserPaymentTransaction[];
 }
 
 /**

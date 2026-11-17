@@ -1,8 +1,15 @@
 import * as React from 'react';
 import type { UserActivityEvaluation, UserVfpStatus } from '@/types/loyalty';
-import { getUserActivityEvaluation, getUserVfpStatus } from '@/lib/api';
+import type { UserPaymentTransaction } from '@/types/payment';
+import { getUserActivityEvaluation, getUserVfpStatus, getUserPaymentTransactions } from '@/lib/api';
+import {
+  calculateVfpRevocationForecast,
+  formatRevocationCountdown,
+  type VfpRevocationForecast,
+} from '@/lib/vfp';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { VfpBadge } from './VfpBadge';
@@ -14,23 +21,32 @@ import {
   CheckCircle2,
   Clock,
   AlertTriangle,
+  ArrowRight,
+  CalendarClock,
 } from 'lucide-react';
 
 interface UserActivityGaugeCardProps {
   userId: string;
   initialData?: UserActivityEvaluation | null;
   initialVfpStatus?: UserVfpStatus | null;
+  onOpenBenefitsModal?: (forecast?: VfpRevocationForecast | null) => void;
+  onForecastChange?: (forecast: VfpRevocationForecast | null) => void;
 }
 
 export function UserActivityGaugeCard({
   userId,
   initialData,
   initialVfpStatus,
+  onOpenBenefitsModal,
+  onForecastChange,
 }: UserActivityGaugeCardProps) {
   const [evaluation, setEvaluation] = React.useState<UserActivityEvaluation | null>(
     initialData || null
   );
   const [vfpStatus, setVfpStatus] = React.useState<UserVfpStatus | null>(initialVfpStatus || null);
+  const [revocationForecast, setRevocationForecast] = React.useState<VfpRevocationForecast | null>(
+    null
+  );
   const [isLoading, setIsLoading] = React.useState(!initialData);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -50,12 +66,26 @@ export function UserActivityGaugeCard({
           getUserVfpStatus(userId).catch(() => null),
         ]);
 
+        let txList: UserPaymentTransaction[] = [];
+        if (evalData?.windowStart && evalData?.windowEnd) {
+          txList = await getUserPaymentTransactions(
+            userId,
+            evalData.windowStart,
+            evalData.windowEnd
+          ).catch(() => []);
+        }
+
         if (isMounted) {
           if (evalData) {
             setEvaluation(evalData);
           }
           if (statusData) {
             setVfpStatus(statusData);
+          }
+          if (txList.length > 0) {
+            const forecast = calculateVfpRevocationForecast(txList, evalData?.threshold ?? 10);
+            setRevocationForecast(forecast);
+            onForecastChange?.(forecast);
           }
         }
       } catch (err) {
@@ -112,7 +142,7 @@ export function UserActivityGaugeCard({
     );
   }
 
-  const { transactionCount, threshold, isEligibleVfp, windowStart, windowEnd } = evaluation;
+  const { transactionCount, threshold, isEligibleVfp } = evaluation;
   const isVfpActive = vfpStatus?.isVfp ?? isEligibleVfp;
   const progressPercent = Math.min(
     100,
@@ -131,6 +161,22 @@ export function UserActivityGaugeCard({
       });
     } catch {
       return isoString;
+    }
+  };
+
+  const formatDateTime = (date?: Date | string | null) => {
+    if (!date) return '—';
+    try {
+      const d = typeof date === 'string' ? new Date(date) : date;
+      return d.toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return String(date);
     }
   };
 
@@ -157,7 +203,15 @@ export function UserActivityGaugeCard({
               </div>
               <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                 <span>Activité & Statut VFP</span>
-                <VfpBadge isVfp={isVfpActive} size="sm" showInactive={false} />
+                <VfpBadge
+                  isVfp={isVfpActive}
+                  size="sm"
+                  showInactive={true}
+                  interactive={Boolean(onOpenBenefitsModal)}
+                  onClick={
+                    onOpenBenefitsModal ? () => onOpenBenefitsModal(revocationForecast) : undefined
+                  }
+                />
               </CardTitle>
             </div>
             <CardDescription className="text-xs">
@@ -238,20 +292,35 @@ export function UserActivityGaugeCard({
         {/* Informative text & Window interval */}
         <div className="p-3 rounded-xl border bg-muted/20 text-xs space-y-2">
           {isVfpActive ? (
-            <div className="space-y-1">
-              <p className="text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1.5">
-                <Sparkles className="size-3.5 shrink-0" />
-                <span>Félicitations ! Vous bénéficiez du statut Very Faithful Person (VFP).</span>
-              </p>
-              <p className="text-muted-foreground text-[11px]">
-                Vous profitez de la gratuité sur les transports en commun urbains et les places de
-                stationnement partenaires.
-                {vfpStatus?.grantedAt && (
-                  <span className="block mt-0.5">
-                    Statut accordé le <strong>{formatDate(vfpStatus.grantedAt)}</strong>.
-                  </span>
-                )}
-              </p>
+            <div className="space-y-2">
+              {vfpStatus?.grantedAt && (
+                <p className="text-muted-foreground text-[11px]">
+                  Statut accordé le <strong>{formatDate(vfpStatus.grantedAt)}</strong>.
+                </p>
+              )}
+
+              {/* Révocation prévisionnelle en l'état actuel (SLE-51 / SLE-240) */}
+              {revocationForecast && (
+                <div className="p-2.5 rounded-lg border bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-200 text-xs space-y-1">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                      <CalendarClock className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                      <span>Révocation prévisionnelle (en l&apos;état actuel)</span>
+                    </span>
+                    <Badge className="bg-amber-600 text-white text-[10px] px-2 py-0 font-medium">
+                      Dans {formatRevocationCountdown(revocationForecast)}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-foreground/80">
+                    Sans nouvel achat d&apos;ici là, votre statut sera révoqué le{' '}
+                    <strong>{formatDateTime(revocationForecast.revocationDate)}</strong> (vos{' '}
+                    <strong>{revocationForecast.transactionsExpiringBeforeRevocation}</strong>{' '}
+                    transaction
+                    {revocationForecast.transactionsExpiringBeforeRevocation > 1 ? 's' : ''} les
+                    plus anciennes sortiront de la fenêtre glissante des 15 jours).
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-1">
@@ -272,12 +341,20 @@ export function UserActivityGaugeCard({
             </div>
           )}
 
-          <div className="text-[11px] text-muted-foreground/80 pt-1.5 border-t border-border/40 flex flex-wrap items-center justify-between gap-1">
-            <span>Fenêtre glissante (J-15 à J) :</span>
-            <span className="font-medium text-foreground/90">
-              {formatDate(windowStart)} — {formatDate(windowEnd)}
-            </span>
-          </div>
+          {onOpenBenefitsModal && (
+            <div className="pt-2 border-t border-border/30 flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto text-xs gap-1.5 cursor-pointer text-amber-800 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/10"
+                onClick={() => onOpenBenefitsModal(revocationForecast)}
+              >
+                <Sparkles className="size-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Voir le détail des privilèges VFP</span>
+                <ArrowRight className="size-3.5 ml-auto sm:ml-0" />
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

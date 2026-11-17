@@ -20,29 +20,10 @@ export function Header({ currentPath }: HeaderProps) {
   const isLogin = currentPath === ROUTES.login.path;
   const { user, isAuthenticated, role, isLoading } = useAuth();
   const [mounted, setMounted] = React.useState(false);
-  const [isVfp, setIsVfp] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
-
-  React.useEffect(() => {
-    let active = true;
-    if (user?.id && (role === 'CLIENT' || role === 'ADMIN')) {
-      getUserVfpStatus(user.id)
-        .then((res) => {
-          if (active && res) {
-            setIsVfp(res.isVfp);
-          }
-        })
-        .catch(() => {
-          // Graceful degradation when Loyalty Service is unreachable
-        });
-    }
-    return () => {
-      active = false;
-    };
-  }, [user?.id, role]);
 
   const getRoleBadge = () => {
     switch (role) {
@@ -103,7 +84,6 @@ export function Header({ currentPath }: HeaderProps) {
                   {user.firstName || user.email}
                 </span>
                 {getRoleBadge()}
-                {isVfp && <VfpBadge isVfp={true} size="sm" />}
               </a>
 
               <Button
