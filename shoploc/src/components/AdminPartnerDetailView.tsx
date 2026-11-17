@@ -359,7 +359,7 @@ export function AdminPartnerDetailView({
                 ...s,
                 status: 'REVOKED',
                 rib: 'REVOKED',
-                url: undefined,
+                url: revoked.url ?? s.url,
                 revokedAt: revoked.revokedAt || new Date().toISOString(),
                 revokedBy: revoked.revokedBy || 'ADMIN',
               }
@@ -411,6 +411,7 @@ export function AdminPartnerDetailView({
                 ...s,
                 status: 'ACTIVE',
                 rib: reactivated.rib || reactivateRib.trim(),
+                url: reactivated.url ?? s.url,
                 revokedAt: undefined,
                 revokedBy: undefined,
               }
