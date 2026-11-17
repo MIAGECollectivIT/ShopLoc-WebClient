@@ -25,3 +25,12 @@ export interface PhysicalSaleResponse {
   status: string;
   timestamp: string;
 }
+
+export interface StoreTurnoverResponse {
+  storeId: number;
+  currency: string;
+  monthlyTurnover: number;
+  annualTurnover: number;
+  totalTurnover: number;
+  completedTransactionsCount: number;
+}

@@ -1,8 +1,19 @@
 import * as React from 'react';
-import type { UserActivityEvaluation, UserVfpStatus } from '@/types/loyalty';
-import { getUserActivityEvaluation, getUserVfpStatus } from '@/lib/api';
+import type { UserActivityEvaluation, UserVfpStatus, UserVfpProgress } from '@/types/loyalty';
+import {
+  getUserActivityEvaluation,
+  getUserVfpStatus,
+  getUserVfpProgress,
+  getUserPaymentTransactions,
+} from '@/lib/api';
+import {
+  calculateVfpRevocationForecast,
+  formatRevocationCountdown,
+  type VfpRevocationForecast,
+} from '@/lib/vfp';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { VfpBadge } from './VfpBadge';
@@ -14,23 +25,33 @@ import {
   CheckCircle2,
   Clock,
   AlertTriangle,
+  ArrowRight,
+  CalendarClock,
 } from 'lucide-react';
 
 interface UserActivityGaugeCardProps {
   userId: string;
   initialData?: UserActivityEvaluation | null;
   initialVfpStatus?: UserVfpStatus | null;
+  onOpenBenefitsModal?: (forecast?: VfpRevocationForecast | null) => void;
+  onForecastChange?: (forecast: VfpRevocationForecast | null) => void;
 }
 
 export function UserActivityGaugeCard({
   userId,
   initialData,
   initialVfpStatus,
+  onOpenBenefitsModal,
+  onForecastChange,
 }: UserActivityGaugeCardProps) {
   const [evaluation, setEvaluation] = React.useState<UserActivityEvaluation | null>(
     initialData || null
   );
   const [vfpStatus, setVfpStatus] = React.useState<UserVfpStatus | null>(initialVfpStatus || null);
+  const [vfpProgress, setVfpProgress] = React.useState<UserVfpProgress | null>(null);
+  const [revocationForecast, setRevocationForecast] = React.useState<VfpRevocationForecast | null>(
+    null
+  );
   const [isLoading, setIsLoading] = React.useState(!initialData);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -45,17 +66,71 @@ export function UserActivityGaugeCard({
 
       try {
         setError(null);
-        const [evalData, statusData] = await Promise.all([
+
+        // Fetch consolidated VFP progress from Loyalty Service (SLE-51 / SLE-238)
+        const [progressData, evalData, statusData] = await Promise.all([
+          getUserVfpProgress(userId).catch(() => null),
           getUserActivityEvaluation(userId).catch(() => null),
           getUserVfpStatus(userId).catch(() => null),
         ]);
 
         if (isMounted) {
-          if (evalData) {
-            setEvaluation(evalData);
+          let forecast: VfpRevocationForecast | null = null;
+
+          if (progressData) {
+            setVfpProgress(progressData);
+            if (evalData) {
+              setEvaluation(evalData);
+            } else {
+              setEvaluation({
+                userId: progressData.userId,
+                transactionCount: progressData.currentTransactionCount,
+                threshold: progressData.threshold,
+                isEligibleVfp: progressData.currentTransactionCount >= progressData.threshold,
+                windowStart: progressData.windowStart,
+                windowEnd: progressData.windowEnd,
+              });
+            }
+
+            if (statusData) {
+              setVfpStatus(statusData);
+            }
+
+            if (progressData.isVfp && progressData.estimatedRevocationDate) {
+              const revDate = new Date(progressData.estimatedRevocationDate);
+              const days = progressData.daysRemainingBeforeRevocation ?? 0;
+              const hours = progressData.hoursRemainingBeforeRevocation ?? 0;
+              forecast = {
+                revocationDate: revDate,
+                daysRemaining: days,
+                hoursRemaining: hours,
+                totalDaysCeil: Math.max(1, Math.ceil(days + hours / 24)),
+                transactionsExpiringBeforeRevocation: progressData.expiringTransactionsCount || 1,
+                criticalTransactionDate: new Date(revDate.getTime() - 15 * 24 * 60 * 60 * 1000),
+              };
+            }
+          } else {
+            // Fallback for older instances
+            if (evalData) setEvaluation(evalData);
+            if (statusData) setVfpStatus(statusData);
           }
-          if (statusData) {
-            setVfpStatus(statusData);
+
+          // Resilient fallback: calculate directly from Sales transactions if VFP is active but forecast is missing
+          const isVfpActiveMember =
+            progressData?.isVfp ?? statusData?.isVfp ?? Boolean(evalData?.isEligibleVfp);
+          if (isVfpActiveMember && !forecast) {
+            const start =
+              evalData?.windowStart || new Date(Date.now() - 15 * 86400000).toISOString();
+            const end = evalData?.windowEnd || new Date().toISOString();
+            const txList = await getUserPaymentTransactions(userId, start, end).catch(() => []);
+            if (txList.length > 0) {
+              forecast = calculateVfpRevocationForecast(txList, evalData?.threshold ?? 10);
+            }
+          }
+
+          if (isMounted) {
+            setRevocationForecast(forecast);
+            onForecastChange?.(forecast);
           }
         }
       } catch (err) {
@@ -76,7 +151,7 @@ export function UserActivityGaugeCard({
     return () => {
       isMounted = false;
     };
-  }, [userId]);
+  }, [userId, onForecastChange]);
 
   if (isLoading) {
     return (
@@ -96,7 +171,7 @@ export function UserActivityGaugeCard({
     );
   }
 
-  if (error || !evaluation) {
+  if (error || (!evaluation && !vfpProgress)) {
     return (
       <Card className="shadow-xs border-dashed text-muted-foreground">
         <CardHeader className="pb-3">
@@ -112,13 +187,18 @@ export function UserActivityGaugeCard({
     );
   }
 
-  const { transactionCount, threshold, isEligibleVfp, windowStart, windowEnd } = evaluation;
-  const isVfpActive = vfpStatus?.isVfp ?? isEligibleVfp;
+  const transactionCount =
+    vfpProgress?.currentTransactionCount ?? evaluation?.transactionCount ?? 0;
+  const threshold = vfpProgress?.threshold ?? evaluation?.threshold ?? 10;
+  const isVfpActive = vfpProgress?.isVfp ?? vfpStatus?.isVfp ?? Boolean(evaluation?.isEligibleVfp);
   const progressPercent = Math.min(
     100,
     Math.max(0, Math.round((transactionCount / threshold) * 100))
   );
-  const remaining = Math.max(0, threshold - transactionCount);
+
+  const remainingToQualify =
+    vfpProgress?.remainingTransactionsToQualify ?? Math.max(0, threshold - transactionCount);
+  const remainingToMaintain = vfpProgress?.remainingTransactionsToMaintain ?? 0;
 
   const formatDate = (isoString?: string | null) => {
     if (!isoString) return '—';
@@ -131,6 +211,22 @@ export function UserActivityGaugeCard({
       });
     } catch {
       return isoString;
+    }
+  };
+
+  const formatDateTime = (date?: Date | string | null) => {
+    if (!date) return '—';
+    try {
+      const d = typeof date === 'string' ? new Date(date) : date;
+      return d.toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return String(date);
     }
   };
 
@@ -157,11 +253,19 @@ export function UserActivityGaugeCard({
               </div>
               <CardTitle className="text-base sm:text-lg flex items-center gap-2">
                 <span>Activité & Statut VFP</span>
-                <VfpBadge isVfp={isVfpActive} size="sm" showInactive={false} />
+                <VfpBadge
+                  isVfp={isVfpActive}
+                  size="sm"
+                  showInactive={true}
+                  interactive={Boolean(onOpenBenefitsModal)}
+                  onClick={
+                    onOpenBenefitsModal ? () => onOpenBenefitsModal(revocationForecast) : undefined
+                  }
+                />
               </CardTitle>
             </div>
             <CardDescription className="text-xs">
-              Évaluation dynamique de vos achats sur fenêtre glissante de 15 jours.
+              Évaluation dynamique de vos achats sur fenêtre glissante de 15 jours (SLE-51).
             </CardDescription>
           </div>
 
@@ -230,36 +334,91 @@ export function UserActivityGaugeCard({
           </div>
 
           <div className="flex justify-between text-[11px] text-muted-foreground px-0.5">
-            <span>0</span>
+            <span>0 transaction</span>
             <span className="font-medium">Seuil VFP : {threshold} tx</span>
           </div>
         </div>
 
         {/* Informative text & Window interval */}
-        <div className="p-3 rounded-xl border bg-muted/20 text-xs space-y-2">
+        <div className="p-3 rounded-xl border bg-muted/20 text-xs space-y-3">
           {isVfpActive ? (
-            <div className="space-y-1">
-              <p className="text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1.5">
-                <Sparkles className="size-3.5 shrink-0" />
-                <span>Félicitations ! Vous bénéficiez du statut Very Faithful Person (VFP).</span>
-              </p>
-              <p className="text-muted-foreground text-[11px]">
-                Vous profitez de la gratuité sur les transports en commun urbains et les places de
-                stationnement partenaires.
-                {vfpStatus?.grantedAt && (
-                  <span className="block mt-0.5">
-                    Statut accordé le <strong>{formatDate(vfpStatus.grantedAt)}</strong>.
+            <div className="space-y-2.5">
+              {vfpStatus?.grantedAt && (
+                <p className="text-muted-foreground text-[11px]">
+                  Statut accordé le <strong>{formatDate(vfpStatus.grantedAt)}</strong>.
+                </p>
+              )}
+
+              {/* Maintenance requirement indicator (SLE-51 / Critère d'acceptation 2) */}
+              {remainingToMaintain > 0 && (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-950 dark:text-emerald-200 text-xs">
+                  <CheckCircle2 className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-semibold text-emerald-800 dark:text-emerald-300">
+                      Maintien du statut VFP
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-foreground/85">
+                      Effectuez au moins{' '}
+                      <strong className="text-foreground font-bold">
+                        {remainingToMaintain} achat{remainingToMaintain > 1 ? 's' : ''}
+                      </strong>{' '}
+                      supplémentaire{remainingToMaintain > 1 ? 's' : ''} lors des prochains jours
+                      pour maintenir votre statut sans interruption.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Revocation countdown indicator (SLE-51 / Critère d'acceptation 3) */}
+              {revocationForecast ? (
+                <div className="p-2.5 rounded-lg border bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-200 text-xs space-y-1.5">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
+                      <CalendarClock className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                      <span>Compte à rebours avant expiration (perte du statut)</span>
+                    </span>
+                    <Badge className="bg-amber-600 text-white text-[10px] px-2 py-0 font-medium">
+                      Dans {formatRevocationCountdown(revocationForecast)}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-foreground/80">
+                    Sans nouvel achat d&apos;ici là, votre statut sera révoqué le{' '}
+                    <strong>{formatDateTime(revocationForecast.revocationDate)}</strong> (vos{' '}
+                    <strong>{revocationForecast.transactionsExpiringBeforeRevocation}</strong>{' '}
+                    transaction
+                    {revocationForecast.transactionsExpiringBeforeRevocation > 1 ? 's' : ''} les
+                    plus anciennes sortiront de la fenêtre glissante des 15 jours).
+                  </p>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-lg border bg-muted/40 text-muted-foreground text-xs flex items-center gap-2">
+                  <Clock className="size-3.5 shrink-0" />
+                  <span>
+                    Votre statut VFP est actif. Conservez au moins 10 achats sur 15 jours glissants
+                    pour maintenir vos avantages sans interruption.
                   </span>
-                )}
-              </p>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="space-y-1">
-              <p className="text-muted-foreground">
-                Plus que <strong className="text-foreground font-semibold">{remaining}</strong>{' '}
-                transaction{remaining > 1 ? 's' : ''} sur les 15 prochains jours pour débloquer le
-                statut VFP.
-              </p>
+            <div className="space-y-1.5">
+              {/* Non-VFP progression counter (SLE-51 / Critère d'acceptation 1) */}
+              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-xs">
+                <TrendingUp className="size-4 shrink-0 text-primary mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-semibold text-foreground">Progression vers le statut VFP</p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Vous avez réalisé <strong>{transactionCount}</strong> achat
+                    {transactionCount > 1 ? 's' : ''} sur les 15 derniers jours. Plus que{' '}
+                    <strong className="text-foreground font-bold">{remainingToQualify}</strong>{' '}
+                    achat{remainingToQualify > 1 ? 's' : ''} restant
+                    {remainingToQualify > 1 ? 's' : ''} pour atteindre le seuil de{' '}
+                    <strong>{threshold}</strong> et débloquer les privilèges VFP (stationnement
+                    gratuit, réductions exclusives).
+                  </p>
+                </div>
+              </div>
+
               {vfpStatus?.revokedAt && !vfpStatus.isVfp && (
                 <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 text-[11px] font-medium pt-0.5">
                   <AlertTriangle className="size-3.5 shrink-0" />
@@ -272,12 +431,20 @@ export function UserActivityGaugeCard({
             </div>
           )}
 
-          <div className="text-[11px] text-muted-foreground/80 pt-1.5 border-t border-border/40 flex flex-wrap items-center justify-between gap-1">
-            <span>Fenêtre glissante (J-15 à J) :</span>
-            <span className="font-medium text-foreground/90">
-              {formatDate(windowStart)} — {formatDate(windowEnd)}
-            </span>
-          </div>
+          {onOpenBenefitsModal && (
+            <div className="pt-2 border-t border-border/30 flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto text-xs gap-1.5 cursor-pointer text-amber-800 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/10"
+                onClick={() => onOpenBenefitsModal(revocationForecast)}
+              >
+                <Sparkles className="size-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Voir le détail des privilèges VFP</span>
+                <ArrowRight className="size-3.5 ml-auto sm:ml-0" />
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
