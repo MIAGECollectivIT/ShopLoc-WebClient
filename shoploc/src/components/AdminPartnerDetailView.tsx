@@ -796,68 +796,64 @@ export function AdminPartnerDetailView({
                         <MapPin className="size-3.5 shrink-0 text-primary" />
                         <span className="truncate">{store.address}</span>
                       </CardDescription>
+
+                      {store.rib && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-mono mt-1.5">
+                          <CreditCard className="size-3 shrink-0 text-muted-foreground/70" />
+                          <span className="truncate">{store.rib}</span>
+                        </div>
+                      )}
                     </CardHeader>
                   </div>
 
-                  <CardFooter className="p-4 pt-2 border-t bg-muted/10 flex items-center justify-between gap-2">
-                    {store.rib ? (
-                      <div className="flex items-center gap-1 text-[11px] text-muted-foreground font-mono truncate max-w-[130px]">
-                        <CreditCard className="size-3 shrink-0" />
-                        <span className="truncate">{store.rib}</span>
-                      </div>
+                  <CardFooter className="p-3 pt-2.5 border-t bg-muted/10 flex items-center justify-center gap-2 flex-wrap">
+                    {store.status !== 'REVOKED' ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenRevokeStore(store)}
+                          className="gap-1 text-xs h-7 px-2.5 text-rose-700 border-rose-300 hover:bg-rose-50 hover:text-rose-800 dark:text-rose-400 dark:border-rose-900/50"
+                          title="Révoquer définitivement ce commerce partenaire"
+                        >
+                          <ShieldAlert className="size-3" />
+                          <span>Révoquer</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenDesaffectStore(store)}
+                          className="gap-1 text-xs h-7 px-2.5 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                          title="Désaffecter ce commerce du partenaire"
+                        >
+                          <Unlink className="size-3" />
+                          <span>Désaffecter</span>
+                        </Button>
+                      </>
                     ) : (
-                      <span className="text-[11px] text-muted-foreground">RIB non renseigné</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenReactivateStore(store)}
+                        className="gap-1 text-xs h-7 px-2.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-400 dark:border-emerald-900/50"
+                        title="Réactiver ce commerce partenaire avec un nouveau RIB"
+                      >
+                        <RotateCcw className="size-3" />
+                        <span>Réactiver</span>
+                      </Button>
                     )}
 
-                    <div className="flex items-center gap-1.5">
-                      {store.status !== 'REVOKED' ? (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenRevokeStore(store)}
-                            className="gap-1 text-xs h-7 px-2 text-rose-700 border-rose-300 hover:bg-rose-50 hover:text-rose-800 dark:text-rose-400 dark:border-rose-900/50"
-                            title="Révoquer définitivement ce commerce partenaire"
-                          >
-                            <ShieldAlert className="size-3" />
-                            <span>Révoquer</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenDesaffectStore(store)}
-                            className="gap-1 text-xs h-7 px-2 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
-                            title="Désaffecter ce commerce du partenaire"
-                          >
-                            <Unlink className="size-3" />
-                            <span>Désaffecter</span>
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenReactivateStore(store)}
-                          className="gap-1 text-xs h-7 px-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-400 dark:border-emerald-900/50"
-                          title="Réactiver ce commerce partenaire avec un nouveau RIB"
-                        >
-                          <RotateCcw className="size-3" />
-                          <span>Réactiver</span>
-                        </Button>
-                      )}
-
-                      {(store.uid || store.id) && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          render={<a href={ROUTES.storeDetail(store.uid || store.id!)} />}
-                          className="gap-1 text-xs h-7 px-2"
-                        >
-                          <span>Consulter</span>
-                          <ExternalLink className="size-3" />
-                        </Button>
-                      )}
-                    </div>
+                    {(store.uid || store.id) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        render={<a href={ROUTES.storeDetail(store.uid || store.id!)} />}
+                        className="gap-1 text-xs h-7 px-2.5"
+                      >
+                        <span>Consulter</span>
+                        <ExternalLink className="size-3" />
+                      </Button>
+                    )}
                   </CardFooter>
                 </Card>
               );
