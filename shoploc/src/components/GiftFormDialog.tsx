@@ -11,9 +11,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { giftSchema } from '@/lib/validation/gift';
-import { createGift, updateGift } from '@/lib/api';
+import { calculatePointsEuroEquivalent } from '@/lib/validation/loyalty';
+import { createGift, getStoreLoyaltyRate, updateGift } from '@/lib/api';
 import { resolveGiftImageUrl } from '@/lib/image';
 import type { LoyaltyGift, GiftCreateRequest, GiftUpdateRequest } from '@/types/gift';
+import type { MerchantLoyaltyRate } from '@/types/loyalty';
 import {
   Coins,
   PackagePlus,
@@ -53,8 +55,36 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [loyaltyRate, setLoyaltyRate] = React.useState<MerchantLoyaltyRate | null>(null);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    getStoreLoyaltyRate(storeId)
+      .then((rate) => {
+        if (isMounted) setLoyaltyRate(rate);
+      })
+      .catch(() => {
+        if (isMounted) setLoyaltyRate(null);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, storeId]);
+
+  const parsedPoints = Number(pointsCost);
+  const equivalentEuros = React.useMemo(() => {
+    if (!loyaltyRate || !Number.isFinite(parsedPoints) || parsedPoints <= 0) {
+      return 0;
+    }
+    return calculatePointsEuroEquivalent(
+      loyaltyRate.euroAmount,
+      loyaltyRate.pointsReward,
+      parsedPoints
+    );
+  }, [loyaltyRate, parsedPoints]);
 
   // Initialize or reset form when modal opens or gift changes
   React.useEffect(() => {
@@ -331,6 +361,12 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
               {errors.pointsCost && (
                 <p className="text-[11px] text-destructive flex items-center gap-1">
                   <AlertCircle className="size-3 shrink-0" /> {errors.pointsCost}
+                </p>
+              )}
+              {loyaltyRate && equivalentEuros > 0 && (
+                <p className="pt-1 text-left text-base font-normal text-foreground">
+                  ➔ équivalent à{' '}
+                  <span className="text-primary font-semibold">{equivalentEuros.toFixed(2)} €</span>
                 </p>
               )}
             </div>
