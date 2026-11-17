@@ -1,4 +1,16 @@
-import { Home, Store, BookOpen, ShoppingCart, UserPlus, LogIn, User, Users } from 'lucide-react';
+import {
+  Home,
+  Store,
+  BookOpen,
+  ShoppingCart,
+  ShoppingBag,
+  UserPlus,
+  LogIn,
+  User,
+  Users,
+  CreditCard,
+  Wallet,
+} from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react';
 
@@ -19,7 +31,13 @@ export const ROUTES = {
     label: 'Magasins',
     icon: Store,
   },
+  myStores: {
+    path: '/stores/my-stores',
+    label: 'Mes commerces',
+    icon: Store,
+  },
   storeDetail: (id: string | number) => `/stores/${id}`,
+  storeScan: (id: string | number) => `/stores/${id}/scan`,
   createStore: {
     path: '/stores/new',
     label: 'Ajouter un établissement',
@@ -33,6 +51,28 @@ export const ROUTES = {
   cart: {
     path: '/cart',
     label: 'Panier',
+    icon: ShoppingCart,
+  },
+  orders: {
+    path: '/orders',
+    label: 'Mes commandes',
+    icon: ShoppingBag,
+  },
+  wallet: {
+    path: '/wallet',
+    label: 'Portefeuille',
+    icon: Wallet,
+  },
+  checkout: {
+    path: '/checkout',
+    detail: (id: string | number) => `/checkout/${id}`,
+    label: 'Règlement',
+    icon: CreditCard,
+  },
+  orderConfirmation: {
+    path: '/order-confirmation',
+    detail: (id: string | number) => `/order-confirmation/${id}`,
+    label: 'Confirmation de commande',
     icon: ShoppingCart,
   },
   login: {
@@ -58,4 +98,4 @@ export const ROUTES = {
   adminPartnerDetail: (id: string | number) => `/admin/partners/${id}`,
 } as const;
 
-export const NAV_ROUTES: RouteConfig[] = [ROUTES.home, ROUTES.stores, ROUTES.catalog, ROUTES.cart];
+export const NAV_ROUTES: RouteConfig[] = [ROUTES.home, ROUTES.stores, ROUTES.catalog];

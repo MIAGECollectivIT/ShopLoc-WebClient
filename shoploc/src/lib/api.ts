@@ -6,8 +6,17 @@ import type {
   ProductUpdateRequest,
   StockUpdateRequest,
 } from '@/types/product';
-import type { MerchantLoyaltyRate, MerchantLoyaltyRateRequest } from '@/types/loyalty';
+import type {
+  MerchantLoyaltyRate,
+  MerchantLoyaltyRateRequest,
+  UserActivityEvaluation,
+  UserPointsBalanceResponse,
+  UserVfpStatus,
+} from '@/types/loyalty';
+import type { LoyaltyGift, GiftCreateRequest, GiftUpdateRequest } from '@/types/gift';
 import type { PaymentAuthorizationRequest, PaymentAuthorizationResponse } from '@/types/payment';
+import type { CreateOrderRequest, OrderResponse } from '@/types/order';
+import type { PhysicalSaleRequest, PhysicalSaleResponse } from '@/types/sales';
 import type {
   UserRegistrationRequest,
   UserLoginRequest,
@@ -15,6 +24,7 @@ import type {
   AuthResponse,
   UserRole,
   VehicleResponse,
+  CustomerIdentificationResponse,
 } from '@/types/user';
 import {
   getAuthToken,
@@ -68,7 +78,7 @@ export async function fetchWithTimeout(
 }
 
 export function getApiEndpoint(path: string, _serviceUrl?: string): string {
-  const cleanPath = path.toLowerCase().replace(/^\/+/, '');
+  const cleanPath = path.toLowerCase().replace(/^\/+/, '').replace(/^v1\//, '');
 
   let serviceBase: string | undefined;
   if (
@@ -740,9 +750,9 @@ export async function createProduct(
   if (imageFile) {
     const formData = new FormData();
     const productBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-    formData.append('product', productBlob);
-    formData.append('image', imageFile);
-    formData.append('file', imageFile);
+    formData.append('product', productBlob, 'product.json');
+    formData.append('image', imageFile, imageFile.name);
+    formData.append('file', imageFile, imageFile.name);
     body = formData;
   } else {
     headers['Content-Type'] = 'application/json';
@@ -788,9 +798,9 @@ export async function updateProduct(
   if (imageFile) {
     const formData = new FormData();
     const productBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-    formData.append('product', productBlob);
-    formData.append('image', imageFile);
-    formData.append('file', imageFile);
+    formData.append('product', productBlob, 'product.json');
+    formData.append('image', imageFile, imageFile.name);
+    formData.append('file', imageFile, imageFile.name);
     body = formData;
   } else {
     headers['Content-Type'] = 'application/json';
@@ -1173,11 +1183,13 @@ export async function updateStoreLoyaltyRate(
   data: MerchantLoyaltyRateRequest
 ): Promise<MerchantLoyaltyRate> {
   const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${storeId}/rates`);
+  const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(data),
   });
@@ -1206,6 +1218,347 @@ export async function updateStoreLoyaltyRate(
   return (await res.json()) as MerchantLoyaltyRate;
 }
 
+/**
+ * Retrieves the list of loyalty gifts for a store (SLE-60 / SLE-192).
+ * By default returns active gifts. Set includeInactive to true to retrieve all gifts (for merchants/admins).
+ */
+export async function getStoreGifts(
+  storeId: number | string,
+  includeInactive: boolean = false
+): Promise<LoyaltyGift[]> {
+  const query = includeInactive ? '?includeInactive=true' : '';
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts${query}`);
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer les articles cadeaux (${res.status})`);
+  }
+
+  return (await res.json()) as LoyaltyGift[];
+}
+
+/**
+ * Retrieves a single loyalty gift item (SLE-60 / SLE-192).
+ */
+export async function getStoreGiftById(
+  storeId: number | string,
+  giftId: number | string
+): Promise<LoyaltyGift> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}`);
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (res.status === 404) {
+    throw new Error("L'article cadeau demandé n'existe pas.");
+  }
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer l'article cadeau (${res.status})`);
+  }
+
+  return (await res.json()) as LoyaltyGift;
+}
+
+/**
+ * Creates a new gift in the store's loyalty catalog (JSON or Multipart with S3 image upload) (SLE-60 / SLE-192).
+ */
+export async function createGift(
+  storeId: number | string,
+  data: GiftCreateRequest,
+  imageFile?: File
+): Promise<LoyaltyGift> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts`);
+  const token = getAuthToken();
+
+  let body: BodyInit;
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  if (imageFile) {
+    const formData = new FormData();
+    const giftBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    formData.append('gift', giftBlob, 'gift.json');
+    formData.append('image', imageFile, imageFile.name);
+    body = formData;
+  } else {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(data);
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+    body,
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour ajouter un article cadeau.');
+  }
+  if (res.status === 403) {
+    throw new Error(
+      "Accès refusé : vous n'avez pas la permission d'ajouter un cadeau à ce commerce."
+    );
+  }
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la création du cadeau (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as LoyaltyGift;
+}
+
+/**
+ * Updates an existing gift item (JSON or Multipart with S3 image upload) (SLE-60 / SLE-192).
+ */
+export async function updateGift(
+  storeId: number | string,
+  giftId: number | string,
+  data: GiftUpdateRequest,
+  imageFile?: File
+): Promise<LoyaltyGift> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}`);
+  const token = getAuthToken();
+
+  let body: BodyInit;
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  if (imageFile) {
+    const formData = new FormData();
+    const giftBlob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    formData.append('gift', giftBlob, 'gift.json');
+    formData.append('image', imageFile, imageFile.name);
+    body = formData;
+  } else {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(data);
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PUT',
+    headers,
+    body,
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour modifier cet article cadeau.');
+  }
+  if (res.status === 403) {
+    throw new Error("Accès refusé : vous n'êtes pas autorisé à modifier cet article.");
+  }
+  if (res.status === 404) {
+    throw new Error("L'article cadeau spécifié n'existe pas.");
+  }
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la mise à jour du cadeau (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as LoyaltyGift;
+}
+
+/**
+ * Adjusts the dedicated stock of a gift item (+/- delta) (SLE-60 / SLE-193).
+ */
+export async function adjustGiftStock(
+  storeId: number | string,
+  giftId: number | string,
+  delta: number
+): Promise<LoyaltyGift> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}/stock`);
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ delta }),
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour ajuster le stock.');
+  }
+  if (res.status === 403) {
+    throw new Error("Accès refusé : vous n'êtes pas autorisé à ajuster le stock de ce cadeau.");
+  }
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de l'ajustement du stock (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as LoyaltyGift;
+}
+
+/**
+ * Deletes a gift item from the catalog (SLE-60 / SLE-192).
+ */
+export async function deleteGift(storeId: number | string, giftId: number | string): Promise<void> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}`);
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'DELETE',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour supprimer cet article cadeau.');
+  }
+  if (res.status === 403) {
+    throw new Error("Accès refusé : vous n'êtes pas autorisé à supprimer cet article.");
+  }
+  if (res.status === 404) {
+    throw new Error("L'article cadeau spécifié n'existe pas.");
+  }
+  if (!res.ok) {
+    throw new Error(`Erreur lors de la suppression du cadeau (${res.status})`);
+  }
+}
+
+/**
+ * Retrieves the 15-day sliding window activity evaluation and VFP status for a user (SLE-44 / SLE-164).
+ * Restricted to the user themselves or administrators.
+ */
+export async function getUserActivityEvaluation(
+  userId: string | number
+): Promise<UserActivityEvaluation> {
+  const endpoint = getApiEndpoint(
+    `/v1/loyalty/users/${encodeURIComponent(String(userId))}/activity-evaluation`
+  );
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour consulter votre activité.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès refusé : vous ne pouvez consulter que votre propre activité.');
+  }
+  if (!res.ok) {
+    let errorDetail = `Impossible de récupérer l'évaluation d'activité (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as UserActivityEvaluation;
+}
+
+/**
+ * Retrieves the Very Faithful Person (VFP) qualification status and metrics for a user (SLE-45 / SLE-204).
+ * Restricted to the user themselves or administrators.
+ */
+export async function getUserVfpStatus(userId: string | number): Promise<UserVfpStatus> {
+  const endpoint = getApiEndpoint(
+    `/v1/loyalty/users/${encodeURIComponent(String(userId))}/vfp-status`
+  );
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour consulter votre statut VFP.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès refusé : vous ne pouvez consulter que votre propre statut VFP.');
+  }
+  if (!res.ok) {
+    let errorDetail = `Impossible de récupérer le statut VFP (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as UserVfpStatus;
+}
+
+/**
+ * Fetches a customer's loyalty points balance and movement history (SLE-38 / SLE-176 / SLE-177 / SLE-178).
+ */
+export async function getUserPointsBalance(
+  userId?: string | number,
+  token?: string
+): Promise<UserPointsBalanceResponse> {
+  const authToken = token || getAuthToken();
+  const hasUserId = userId !== undefined && userId !== null && String(userId).trim() !== '';
+  const path = hasUserId
+    ? `/v1/loyalty/users/${encodeURIComponent(String(userId).trim())}/balance`
+    : '/v1/loyalty/balance';
+  const endpoint = getApiEndpoint(path);
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    let detail = `Impossible de récupérer votre solde de points fidélité (HTTP ${res.status})`;
+    try {
+      const err = await res.json();
+      if (err.message) detail = err.message;
+      else if (err.detail) detail = err.detail;
+    } catch {
+      // Ignorer si la réponse d'erreur n'est pas en JSON
+    }
+    throw new Error(detail);
+  }
+
+  return (await res.json()) as UserPointsBalanceResponse;
+}
+
 export async function authorizePayment(
   payload: PaymentAuthorizationRequest
 ): Promise<PaymentAuthorizationResponse> {
@@ -1232,6 +1585,70 @@ export async function authorizePayment(
   return (await res.json()) as PaymentAuthorizationResponse;
 }
 
+/**
+ * Records an in-store physical sale checkout for an identified customer and attributes loyalty points.
+ * Restricted to authenticated merchants and administrators.
+ */
+export async function recordPhysicalSale(
+  payload: PhysicalSaleRequest
+): Promise<PhysicalSaleResponse> {
+  const endpoint = getApiEndpoint('/v1/sales/physical');
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `L'enregistrement de la vente a échoué (HTTP ${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+      else if (errorJson.details) {
+        errorDetail = Object.values(errorJson.details).join(', ');
+      }
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as PhysicalSaleResponse;
+}
+
+/**
+ * Retrieves a physical sale transaction audit record by reference.
+ */
+export async function getPhysicalSaleByReference(reference: string): Promise<PhysicalSaleResponse> {
+  const endpoint = getApiEndpoint(`/v1/sales/physical/${encodeURIComponent(reference)}`);
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Transaction de vente physique introuvable (HTTP ${res.status})`);
+  }
+
+  return (await res.json()) as PhysicalSaleResponse;
+}
+
 export async function getPaymentByReference(
   reference: string
 ): Promise<PaymentAuthorizationResponse> {
@@ -1248,4 +1665,467 @@ export async function getPaymentByReference(
   }
 
   return (await res.json()) as PaymentAuthorizationResponse;
+}
+
+/**
+ * Identifies a customer by their 7-character loyalty code or scanned QR code (SLE-56).
+ * Restricted to authenticated merchants and administrators.
+ * Returns masked customer profile (GDPR compliant).
+ */
+export async function identifyCustomerByCardNumber(
+  clientCode: string
+): Promise<CustomerIdentificationResponse> {
+  const normalizedCode = clientCode.trim().toUpperCase();
+  const endpoint = getUsersApiEndpoint(
+    `/v1/users/loyalty-cards/${encodeURIComponent(normalizedCode)}`
+  );
+  const token = getAuthToken();
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise pour identifier un client.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès réservé aux commerçants partenaires et administrateurs.');
+  }
+  if (res.status === 404) {
+    throw new Error(`Aucun compte client trouvé pour le code fidélité "${normalizedCode}".`);
+  }
+  if (!res.ok) {
+    let detail = `Erreur lors de l'identification du client (${res.status})`;
+    try {
+      const err = await res.json();
+      if (err.message) detail = err.message;
+      else if (err.detail) detail = err.detail;
+    } catch {
+      // Ignore JSON parse error
+    }
+    throw new Error(detail);
+  }
+
+  return (await res.json()) as CustomerIdentificationResponse;
+}
+
+export async function createOrder(
+  payload: CreateOrderRequest,
+  token?: string
+): Promise<OrderResponse> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint('/v1/sales/orders');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Order creation failed (HTTP ${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  const data = (await res.json()) as OrderResponse;
+  data.uid = data.uid || data.orderReference;
+  return data;
+}
+
+export async function getOrderByReference(
+  reference: string,
+  token?: string
+): Promise<OrderResponse> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint(`/v1/sales/orders/${encodeURIComponent(reference)}`);
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Order not found (HTTP ${res.status})`);
+  }
+
+  const data = (await res.json()) as OrderResponse;
+  data.uid = data.uid || data.orderReference;
+  return data;
+}
+
+export async function updateOrderStatus(
+  reference: string,
+  status: string,
+  token?: string
+): Promise<OrderResponse> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint(`/v1/sales/orders/${encodeURIComponent(reference)}/status`);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ status }),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Failed to update order status (HTTP ${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  const data = (await res.json()) as OrderResponse;
+  data.uid = data.uid || data.orderReference;
+  return data;
+}
+
+export async function getCustomerLoyaltyPoints(
+  customerId: string | number,
+  token?: string
+): Promise<number> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint(
+    `/v1/loyalty/customers/${encodeURIComponent(String(customerId))}/points`
+  );
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  try {
+    const res = await fetchWithTimeout(endpoint, {
+      method: 'GET',
+      headers,
+    });
+    if (!res.ok) {
+      return 0;
+    }
+    const data = await res.json();
+    return typeof data.balance === 'number'
+      ? data.balance
+      : typeof data.points === 'number'
+        ? data.points
+        : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export async function getCustomerOrders(token?: string): Promise<OrderResponse[]> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint('/v1/sales/orders');
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Erreur lors de la récupération des commandes (HTTP ${res.status})`);
+  }
+
+  const list = (await res.json()) as OrderResponse[];
+  return list.map((item) => {
+    item.uid = item.uid || item.orderReference;
+    return item;
+  });
+}
+
+export async function downloadOrderReceiptPdf(
+  identifier: string,
+  token?: string,
+  orderReference?: string,
+  orderStatus?: string
+): Promise<{ blob: Blob; filename: string }> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint(`/v1/sales/orders/${encodeURIComponent(identifier)}/receipt`);
+  const headers: Record<string, string> = {
+    Accept: 'application/pdf, application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    const isCompleted = orderStatus && orderStatus.toUpperCase() === 'COMPLETED';
+    let errorDetail = isCompleted
+      ? `Échec du téléchargement de la facture (HTTP ${res.status})`
+      : `Échec du téléchargement du bon de retrait (HTTP ${res.status})`;
+    try {
+      const errJson = await res.json();
+      if (errJson.message) errorDetail = errJson.message;
+      else if (errJson.error) errorDetail = errJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/pdf')) {
+    throw new Error("Le serveur n'a pas renvoyé un fichier PDF valide.");
+  }
+
+  const blob = await res.blob();
+
+  // Prefer filename from Content-Disposition header if provided by backend
+  let filename = '';
+  const disposition = res.headers.get('content-disposition');
+  if (disposition) {
+    const filenameMatch = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+    if (filenameMatch && filenameMatch[1]) {
+      filename = filenameMatch[1].replace(/['"]/g, '').trim();
+    }
+  }
+
+  // Fallback to orderReference if provided, or identifier
+  if (!filename) {
+    const ref = orderReference || identifier;
+    const isCompleted = orderStatus && orderStatus.toUpperCase() === 'COMPLETED';
+    filename = isCompleted ? `facture-${ref}.pdf` : `bon-de-retrait-${ref}.pdf`;
+  }
+
+  return { blob, filename };
+}
+
+export async function resendOrderReceiptEmail(
+  identifier: string,
+  token?: string
+): Promise<{ success: boolean; orderReference: string }> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint(
+    `/v1/sales/orders/${encodeURIComponent(identifier)}/resend-receipt`
+  );
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Échec de l'envoi de l'email (HTTP ${res.status})`;
+    try {
+      const errJson = await res.json();
+      if (errJson.message) errorDetail = errJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as { success: boolean; orderReference: string };
+}
+
+export function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
+
+// ============================================================================
+// Digital Wallet API (SLE-15, SLE-17, SLE-18)
+// ============================================================================
+
+import type {
+  Wallet,
+  WalletTransaction,
+  WalletReloadRequest,
+  WalletDebitRequest,
+} from '@/types/wallet';
+
+/**
+ * Retrieves the citizen's real-time wallet balance (SLE-17).
+ */
+export async function getWallet(token?: string): Promise<Wallet> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint('/v1/sales/wallet');
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Impossible de récupérer le solde du porte-monnaie (HTTP ${res.status})`;
+    try {
+      const errJson = await res.json();
+      if (errJson.message) errorDetail = errJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as Wallet;
+}
+
+/**
+ * Reloads the citizen's wallet with a custom amount between 5.00 € and 100.00 € via bank gateway (SLE-15).
+ * Supports automatic client-generated idempotency key to prevent double charge on retries.
+ */
+export async function reloadWallet(
+  amount: number,
+  paymentToken = 'tok_visa_4242',
+  token?: string,
+  idempotencyKey?: string
+): Promise<Wallet> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint('/v1/sales/wallet/reload');
+  const effectiveIdempotencyKey =
+    idempotencyKey ||
+    (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : undefined);
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+  if (effectiveIdempotencyKey) {
+    headers['X-Idempotency-Key'] = effectiveIdempotencyKey;
+  }
+
+  const payload: WalletReloadRequest = {
+    amount,
+    paymentToken,
+    idempotencyKey: effectiveIdempotencyKey,
+  };
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Échec du rechargement (HTTP ${res.status})`;
+    try {
+      const errJson = await res.json();
+      if (errJson.message) errorDetail = errJson.message;
+      else if (errJson.details?.amount) errorDetail = errJson.details.amount;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as Wallet;
+}
+
+/**
+ * Retrieves the ordered transaction history (newest to oldest) of the citizen's wallet (SLE-18).
+ */
+export async function getWalletTransactions(token?: string): Promise<WalletTransaction[]> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint('/v1/sales/wallet/transactions');
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Impossible de récupérer l'historique des transactions (HTTP ${res.status})`;
+    try {
+      const errJson = await res.json();
+      if (errJson.message) errorDetail = errJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as WalletTransaction[];
+}
+
+/**
+ * Debits the citizen's wallet for a purchase (SLE-18).
+ */
+export async function debitWallet(request: WalletDebitRequest, token?: string): Promise<Wallet> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint('/v1/sales/wallet/debit');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(request),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Échec du débit du porte-monnaie (HTTP ${res.status})`;
+    try {
+      const errJson = await res.json();
+      if (errJson.message) errorDetail = errJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as Wallet;
 }

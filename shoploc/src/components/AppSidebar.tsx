@@ -50,7 +50,8 @@ import {
   Users as UsersIcon,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { updateUserProfile } from '@/lib/api';
+import { updateUserProfile, logoutUser } from '@/lib/api';
+import { ROUTES } from '@/config/routes';
 
 interface AppSidebarProps {
   currentPath?: string;
@@ -61,7 +62,7 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
   const [isWalletOpen, setIsWalletOpen] = React.useState(false);
 
-  const { user, isAuthenticated, role, logout } = useAuth();
+  const { user, isAuthenticated, role } = useAuth();
 
   // Real profile form state linked to authenticated user
   const [profileForm, setProfileForm] = React.useState({
@@ -255,24 +256,19 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                 </SidebarMenuItem>
 
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<a href="/cart" />}>
+                  <SidebarMenuButton render={<a href={ROUTES.orders.path} />}>
                     <ShoppingBag className="size-4 text-muted-foreground" />
                     <span>Mes commandes</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
-                {role === 'CLIENT' && (
+                {isAuthenticated && (
                   <SidebarMenuItem>
-                    <SidebarMenuButton onClick={() => setIsWalletOpen(true)}>
+                    <SidebarMenuButton
+                      render={<a href={ROUTES.wallet.path} data-astro-reload="" />}
+                    >
                       <Wallet className="size-4 text-muted-foreground" />
-                      <div className="flex items-center justify-between flex-1">
-                        <span>Portefeuille & Fidélité</span>
-                        {user?.clientCode && (
-                          <span className="text-[10px] font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                            {user.clientCode}
-                          </span>
-                        )}
-                      </div>
+                      <span>Portefeuille & Solde</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
@@ -286,6 +282,31 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+
+          {/* Merchant Management section for merchants and administrators */}
+          {isAuthenticated && (role === 'MERCHANT' || role === 'ADMIN') && (
+            <>
+              <SidebarSeparator />
+              <SidebarGroup>
+                <SidebarGroupLabel className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                  Espace Commerçant
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        render={<a href="/stores/my-stores" />}
+                        isActive={_currentPath.startsWith('/stores/my-stores')}
+                      >
+                        <StoreIcon className="size-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="font-medium text-foreground">Mes commerces</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </>
+          )}
 
           {/* Administration section restricted to administrators */}
           {isAuthenticated && role === 'ADMIN' && (
@@ -371,10 +392,10 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
               variant="ghost"
               size="sm"
               className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-              onClick={() => {
+              onClick={async () => {
                 if (window.confirm('Voulez-vous vous déconnecter de ShopLoc ?')) {
-                  logout();
-                  window.location.href = '/api/auth/logout';
+                  await logoutUser();
+                  window.location.href = '/login';
                 }
               }}
             >
@@ -764,7 +785,16 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                 </p>
               </div>
 
-              <div className="pt-1">
+              <div className="pt-1 space-y-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="w-full gap-2 cursor-pointer"
+                  render={<a href={ROUTES.wallet.path} data-astro-reload="" />}
+                >
+                  <Wallet className="size-4" />
+                  Accéder à mon portefeuille en ligne
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"

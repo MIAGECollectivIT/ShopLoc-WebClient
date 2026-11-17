@@ -46,12 +46,18 @@ export interface PaymentSimulatorCardProps {
   initialAmount?: string | number;
   initialReference?: string;
   onPaymentSuccess?: (receipt: PaymentAuthorizationResponse) => void;
+  hidePresets?: boolean;
+  hideReceipt?: boolean;
+  hideReference?: boolean;
 }
 
 export function PaymentSimulatorCard({
   initialAmount,
   initialReference,
   onPaymentSuccess,
+  hidePresets = false,
+  hideReceipt = false,
+  hideReference = true,
 }: PaymentSimulatorCardProps = {}) {
   const [amount, setAmount] = React.useState(
     initialAmount !== undefined ? String(initialAmount) : '42.50'
@@ -61,6 +67,18 @@ export function PaymentSimulatorCard({
   const [cardNumber, setCardNumber] = React.useState('4111 2222 3333 4444');
   const [expiryDate, setExpiryDate] = React.useState('12/28');
   const [cvc, setCvc] = React.useState('421');
+
+  React.useEffect(() => {
+    if (initialReference) {
+      setReference(initialReference);
+    }
+  }, [initialReference]);
+
+  React.useEffect(() => {
+    if (initialAmount !== undefined) {
+      setAmount(String(initialAmount));
+    }
+  }, [initialAmount]);
 
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -178,29 +196,29 @@ export function PaymentSimulatorCard({
     }
   };
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card className="border-border shadow-xs">
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-primary/10 text-primary rounded-lg">
-                <CreditCard className="size-5" />
-              </div>
-              <CardTitle className="text-lg font-bold">Passerelle de Paiement Bancaire</CardTitle>
+  const formCard = (
+    <Card className="border-border shadow-xs">
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-primary/10 text-primary rounded-lg">
+              <CreditCard className="size-5" />
             </div>
-            <Badge variant="secondary" className="gap-1 text-xs">
-              <ShieldCheck className="size-3.5 text-emerald-600" />
-              Règle RG001
-            </Badge>
+            <CardTitle className="text-lg font-bold">Passerelle de Paiement Bancaire</CardTitle>
           </div>
-          <CardDescription>
-            Simulez une autorisation bancaire pour un achat local, une recharge ou un stationnement.
-          </CardDescription>
-        </CardHeader>
+          <Badge variant="secondary" className="gap-1 text-xs">
+            <ShieldCheck className="size-3.5 text-emerald-600" />
+            Règle RG001
+          </Badge>
+        </div>
+        <CardDescription>
+          Simulez une autorisation bancaire pour un achat local, une recharge ou un stationnement.
+        </CardDescription>
+      </CardHeader>
 
-        <form onSubmit={handleAuthorizePayment}>
-          <CardContent className="space-y-4 pb-6">
+      <form onSubmit={handleAuthorizePayment}>
+        <CardContent className="space-y-4 pb-6">
+          {!hidePresets && (
             <div className="flex flex-wrap gap-2">
               {PAYMENT_PRESETS.map((preset) => (
                 <Button
@@ -216,14 +234,33 @@ export function PaymentSimulatorCard({
                 </Button>
               ))}
             </div>
+          )}
 
-            {serverError && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive flex items-center gap-2 text-sm">
-                <AlertTriangle className="size-4 shrink-0" />
-                <span>{serverError}</span>
-              </div>
-            )}
+          {serverError && (
+            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive flex items-center gap-2 text-sm">
+              <AlertTriangle className="size-4 shrink-0" />
+              <span>{serverError}</span>
+            </div>
+          )}
 
+          {hideReference ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="payment-amount">Montant à régler (€)</Label>
+              <Input
+                id="payment-amount"
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => handleAmountChange(e.target.value)}
+                disabled={isSubmitting || initialAmount !== undefined}
+                className={initialAmount !== undefined ? 'bg-muted/50 font-semibold' : ''}
+              />
+              {fieldErrors.amount && (
+                <p className="text-xs text-destructive">{fieldErrors.amount}</p>
+              )}
+            </div>
+          ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="payment-amount">Montant (€)</Label>
@@ -234,7 +271,8 @@ export function PaymentSimulatorCard({
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => handleAmountChange(e.target.value)}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || initialAmount !== undefined}
+                  className={initialAmount !== undefined ? 'bg-muted/50 font-semibold' : ''}
                 />
                 {fieldErrors.amount && (
                   <p className="text-xs text-destructive">{fieldErrors.amount}</p>
@@ -249,122 +287,132 @@ export function PaymentSimulatorCard({
                 <Input
                   id="payment-reference"
                   value={reference}
-                  onChange={(e) => setReference(e.target.value)}
+                  readOnly
                   disabled={isSubmitting}
-                  className="font-mono text-xs bg-muted/30"
+                  className="font-mono text-xs bg-muted/50 cursor-not-allowed"
                 />
                 {fieldErrors.reference && (
                   <p className="text-xs text-destructive">{fieldErrors.reference}</p>
                 )}
               </div>
             </div>
+          )}
 
+          <div className="space-y-1.5">
+            <Label htmlFor="card-holder">Titulaire de la carte</Label>
+            <Input
+              id="card-holder"
+              placeholder="ex: Jean Dupont"
+              value={cardHolder}
+              onChange={(e) => setCardHolder(e.target.value)}
+              disabled={isSubmitting}
+              autoComplete="cc-name"
+            />
+            {fieldErrors.cardHolder && (
+              <p className="text-xs text-destructive">{fieldErrors.cardHolder}</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="card-number">Numéro de carte (16 chiffres)</Label>
+            <Input
+              id="card-number"
+              placeholder="4111 2222 3333 4444"
+              value={cardNumber}
+              onChange={(e) => handleCardNumberChange(e.target.value)}
+              disabled={isSubmitting}
+              maxLength={19}
+              inputMode="numeric"
+              autoComplete="cc-number"
+            />
+            {fieldErrors.cardNumber && (
+              <p className="text-xs text-destructive">{fieldErrors.cardNumber}</p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="card-holder">Titulaire de la carte</Label>
-              <Input
-                id="card-holder"
-                placeholder="ex: Jean Dupont"
-                value={cardHolder}
-                onChange={(e) => setCardHolder(e.target.value)}
-                disabled={isSubmitting}
-                autoComplete="cc-name"
-              />
-              {fieldErrors.cardHolder && (
-                <p className="text-xs text-destructive">{fieldErrors.cardHolder}</p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="card-number">Numéro de carte (16 chiffres)</Label>
-              <Input
-                id="card-number"
-                placeholder="4111 2222 3333 4444"
-                value={cardNumber}
-                onChange={(e) => handleCardNumberChange(e.target.value)}
-                disabled={isSubmitting}
-                maxLength={19}
-                inputMode="numeric"
-                autoComplete="cc-number"
-              />
-              {fieldErrors.cardNumber && (
-                <p className="text-xs text-destructive">{fieldErrors.cardNumber}</p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="card-expiry">Expiration (MM/AA)</Label>
-                <div className="relative flex items-center">
-                  <Input
-                    id="card-expiry"
-                    placeholder="12/28"
-                    value={expiryDate}
-                    onChange={(e) => handleExpiryTextChange(e.target.value)}
-                    disabled={isSubmitting}
-                    maxLength={5}
-                    inputMode="numeric"
-                    autoComplete="cc-exp"
-                    className="pr-10"
-                  />
-                  <input
-                    ref={monthInputRef}
-                    type="month"
-                    tabIndex={-1}
-                    className="sr-only"
-                    onChange={handleMonthPickerChange}
-                    min={new Date().toISOString().slice(0, 7)}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={openMonthPicker}
-                    disabled={isSubmitting}
-                    className="absolute right-0 h-full px-3 text-muted-foreground hover:text-foreground"
-                    title="Choisir via calendrier"
-                  >
-                    <Calendar className="size-4" />
-                  </Button>
-                </div>
-                {fieldErrors.expiryDate && (
-                  <p className="text-xs text-destructive">{fieldErrors.expiryDate}</p>
-                )}
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="card-cvc">CVC</Label>
+              <Label htmlFor="card-expiry">Expiration (MM/AA)</Label>
+              <div className="relative flex items-center">
                 <Input
-                  id="card-cvc"
-                  placeholder="421"
-                  value={cvc}
-                  onChange={(e) => handleCvcChange(e.target.value)}
+                  id="card-expiry"
+                  placeholder="12/28"
+                  value={expiryDate}
+                  onChange={(e) => handleExpiryTextChange(e.target.value)}
                   disabled={isSubmitting}
-                  maxLength={4}
+                  maxLength={5}
                   inputMode="numeric"
-                  autoComplete="cc-csc"
+                  autoComplete="cc-exp"
+                  className="pr-10"
                 />
-                {fieldErrors.cvc && <p className="text-xs text-destructive">{fieldErrors.cvc}</p>}
+                <input
+                  ref={monthInputRef}
+                  type="month"
+                  tabIndex={-1}
+                  className="sr-only"
+                  onChange={handleMonthPickerChange}
+                  min={new Date().toISOString().slice(0, 7)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={openMonthPicker}
+                  disabled={isSubmitting}
+                  className="absolute right-0 h-full px-3 text-muted-foreground hover:text-foreground"
+                  title="Choisir via calendrier"
+                >
+                  <Calendar className="size-4" />
+                </Button>
               </div>
-            </div>
-          </CardContent>
-
-          <CardFooter className="py-4 px-6 flex justify-end gap-2 border-t border-border bg-muted/10">
-            <Button type="submit" disabled={isSubmitting} className="gap-2">
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Autorisation en cours...
-                </>
-              ) : (
-                <>
-                  <CreditCard className="size-4" />
-                  Autoriser le paiement ({amount} €)
-                </>
+              {fieldErrors.expiryDate && (
+                <p className="text-xs text-destructive">{fieldErrors.expiryDate}</p>
               )}
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="card-cvc">CVC</Label>
+              <Input
+                id="card-cvc"
+                placeholder="421"
+                value={cvc}
+                onChange={(e) => handleCvcChange(e.target.value)}
+                disabled={isSubmitting}
+                maxLength={4}
+                inputMode="numeric"
+                autoComplete="cc-csc"
+              />
+              {fieldErrors.cvc && <p className="text-xs text-destructive">{fieldErrors.cvc}</p>}
+            </div>
+          </div>
+        </CardContent>
+
+        <CardFooter className="py-4 px-6 flex justify-end gap-2 border-t border-border bg-muted/10">
+          <Button type="submit" disabled={isSubmitting} className="gap-2">
+            {isSubmitting ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Autorisation en cours...
+              </>
+            ) : (
+              <>
+                <CreditCard className="size-4" />
+                Autoriser le paiement ({amount} €)
+              </>
+            )}
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
+  );
+
+  if (hideReceipt) {
+    return formCard;
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {formCard}
 
       <Card className="border-border shadow-xs flex flex-col justify-between">
         <CardHeader className="pb-4">

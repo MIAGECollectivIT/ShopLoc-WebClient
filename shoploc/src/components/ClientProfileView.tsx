@@ -1,11 +1,22 @@
 import * as React from 'react';
 import { useAuth } from '@/lib/auth';
-import { getCurrentUserProfile, addVehicle, updateVehicle, deleteVehicle } from '@/lib/api';
+import {
+  getCurrentUserProfile,
+  addVehicle,
+  updateVehicle,
+  deleteVehicle,
+  getUserVfpStatus,
+  getUserPointsBalance,
+} from '@/lib/api';
 import { ROUTES } from '@/config/routes';
+import { formatPoints } from '@/lib/format';
 import type { UserResponse } from '@/types/user';
+import type { UserPointsBalanceResponse, UserVfpStatus } from '@/types/loyalty';
 import { ClientQrCodeCard } from './ClientQrCodeCard';
 import { FrenchLicensePlateBadge } from './FrenchLicensePlateBadge';
 import { ManageVehiclesDialog } from './ManageVehiclesDialog';
+import { UserActivityGaugeCard } from './UserActivityGaugeCard';
+import { VfpBadge } from './VfpBadge';
 import {
   Card,
   CardContent,
@@ -32,6 +43,9 @@ import {
   IdCard,
   Plus,
   Settings2,
+  Wallet,
+  Award,
+  ArrowRight,
 } from 'lucide-react';
 
 export function ClientProfileView() {
@@ -42,6 +56,9 @@ export function ClientProfileView() {
     setMounted(true);
   }, []);
   const [profile, setProfile] = React.useState<UserResponse | null>(null);
+  const [vfpStatus, setVfpStatus] = React.useState<UserVfpStatus | null>(null);
+  const [pointsBalance, setPointsBalance] = React.useState<UserPointsBalanceResponse | null>(null);
+  const [pointsUnavailable, setPointsUnavailable] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [isManageVehiclesOpen, setIsManageVehiclesOpen] = React.useState(false);
@@ -60,6 +77,25 @@ export function ClientProfileView() {
         const data = await getCurrentUserProfile();
         if (isMounted) {
           setProfile(data);
+          if (data?.id) {
+            getUserVfpStatus(data.id)
+              .then((vfp) => {
+                if (isMounted) setVfpStatus(vfp);
+              })
+              .catch(() => {});
+            if (data.role === 'CLIENT') {
+              getUserPointsBalance(data.id)
+                .then((points) => {
+                  if (isMounted) {
+                    setPointsBalance(points);
+                    setPointsUnavailable(false);
+                  }
+                })
+                .catch(() => {
+                  if (isMounted) setPointsUnavailable(true);
+                });
+            }
+          }
         }
       } catch (err) {
         console.warn('Impossible de charger le profil via API, fallback sur la session:', err);
@@ -146,7 +182,7 @@ export function ClientProfileView() {
         </CardHeader>
         <CardFooter className="flex justify-center pt-2">
           <a
-            href="/api/auth/logout"
+            href="/login?logout=1"
             data-astro-reload=""
             className={buttonVariants({
               variant: 'default',
@@ -257,6 +293,7 @@ export function ClientProfileView() {
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                 {fullName}
               </h2>
+              {vfpStatus?.isVfp && <VfpBadge isVfp={true} size="md" />}
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
               <Mail className="size-3.5" />
@@ -460,7 +497,7 @@ export function ClientProfileView() {
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             {!isClient && effectiveUser.role === 'MERCHANT' && (
               <a
-                href="/stores/new"
+                href="/stores/my-stores"
                 className={buttonVariants({
                   variant: 'default',
                   size: 'default',
@@ -468,7 +505,7 @@ export function ClientProfileView() {
                 })}
               >
                 <Store className="size-4" />
-                <span>Nouveau commerce</span>
+                <span>Mes commerces</span>
               </a>
             )}
 
@@ -485,15 +522,27 @@ export function ClientProfileView() {
             </a>
 
             <a
-              href={ROUTES.cart.path}
+              href={ROUTES.orders.path}
               className={buttonVariants({
                 variant: 'outline',
                 size: 'default',
-                className: 'flex-1 gap-2',
+                className: 'flex-1 gap-2 cursor-pointer',
               })}
             >
               <ShoppingBag className="size-4 text-primary" />
               <span>Mes commandes</span>
+            </a>
+
+            <a
+              href={ROUTES.wallet.path}
+              className={buttonVariants({
+                variant: 'outline',
+                size: 'default',
+                className: 'flex-1 gap-2 cursor-pointer',
+              })}
+            >
+              <Wallet className="size-4 text-primary" />
+              <span>Mon portefeuille</span>
             </a>
           </div>
         </div>
@@ -515,6 +564,43 @@ export function ClientProfileView() {
                 </CardHeader>
               </Card>
             )}
+
+            {/* Compact Loyalty Points Balance Card (SLE-38 / SLE-177) */}
+            <Card className="border-border bg-gradient-to-br from-card via-card to-emerald-500/5 rounded-2xl shadow-sm border-l-4 border-l-emerald-500">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <Award className="size-4 text-emerald-600 dark:text-emerald-400" />
+                  Solde Points Fidélité
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {pointsUnavailable
+                    ? 'Service fidélité temporairement indisponible.'
+                    : 'Points cumulés chez les commerçants locaux.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-1 pb-4">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold tracking-tight text-foreground">
+                    {pointsUnavailable ? '—' : formatPoints(pointsBalance?.balance)}
+                  </span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                    PTS
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-between mt-4 text-xs cursor-pointer"
+                  render={<a href={ROUTES.wallet.path} data-astro-reload="" />}
+                >
+                  <span>Consulter le portefeuille &amp; l&apos;historique</span>
+                  <ArrowRight className="size-3.5" />
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Dynamic Activity Gauge & VFP Status (SLE-44 / SLE-45 / SLE-164) */}
+            <UserActivityGaugeCard userId={effectiveUser.id} initialVfpStatus={vfpStatus} />
 
             {/* Security & benefits reminder */}
             <div className="p-4 rounded-xl border bg-muted/30 text-xs text-muted-foreground space-y-2">

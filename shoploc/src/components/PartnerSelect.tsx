@@ -12,16 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { getPartners } from '@/lib/api';
 import type { PartnerAccount } from '@/types/store';
-import {
-  UserCheck,
-  Search,
-  Building,
-  Mail,
-  Loader2,
-  Store,
-  UserPlus,
-  ExternalLink,
-} from 'lucide-react';
+import { UserCheck, Search, Mail, Loader2, Store, UserPlus, ExternalLink } from 'lucide-react';
 
 interface PartnerSelectProps {
   value: number | '';
@@ -131,10 +122,7 @@ export function PartnerSelect({
             )}
             <SelectValue placeholder="Sélectionner le compte partenaire">
               {selectedPartner ? (
-                <span className="truncate font-medium text-foreground">
-                  {selectedPartner.name}
-                  {selectedPartner.companyName ? ` (${selectedPartner.companyName})` : ''}
-                </span>
+                <span className="truncate font-medium text-foreground">{selectedPartner.name}</span>
               ) : (
                 'Sélectionner le compte partenaire propriétaire'
               )}
@@ -213,12 +201,6 @@ export function PartnerSelect({
                 <div className="flex flex-col gap-0.5">
                   <div className="flex items-center gap-2 font-medium text-foreground">
                     <span>{partner.name}</span>
-                    {partner.companyName && (
-                      <span className="text-muted-foreground font-normal flex items-center gap-1">
-                        <Building className="size-3" />
-                        {partner.companyName}
-                      </span>
-                    )}
                   </div>
                   <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                     <span className="flex items-center gap-1 truncate">

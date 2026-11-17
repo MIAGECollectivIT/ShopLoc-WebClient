@@ -3,7 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 
 function resolveTargetServiceUrl(path: string): string {
-  const cleanPath = path.toLowerCase();
+  const cleanPath = path.toLowerCase().replace(/^\/+/, '').replace(/^v1\//, '');
 
   if (
     cleanPath.startsWith('users') ||
@@ -108,17 +108,22 @@ export const ALL: APIRoute = async ({ request, params, url, locals }) => {
   for (const h of hopByHopHeaders) {
     forwardHeaders.delete(h);
   }
+  // Always strip client-supplied identity headers before injecting verified session claims
+  forwardHeaders.delete('x-user-id');
+  forwardHeaders.delete('x-user-role');
+  forwardHeaders.delete('x-user-email');
+
   if (locals.token && !forwardHeaders.has('authorization')) {
     forwardHeaders.set('authorization', `Bearer ${locals.token}`);
   }
   if (locals.user) {
-    if (!forwardHeaders.has('x-user-id') && locals.user.id) {
+    if (locals.user.id) {
       forwardHeaders.set('x-user-id', locals.user.id);
     }
-    if (!forwardHeaders.has('x-user-role') && locals.user.role) {
+    if (locals.user.role) {
       forwardHeaders.set('x-user-role', locals.user.role);
     }
-    if (!forwardHeaders.has('x-user-email') && locals.user.email) {
+    if (locals.user.email) {
       forwardHeaders.set('x-user-email', locals.user.email);
     }
   }
@@ -179,11 +184,12 @@ export const ALL: APIRoute = async ({ request, params, url, locals }) => {
           : error.message
         : String(error);
 
+    console.error(`[Proxy /v1/${path}] Erreur upstream (${destination}):`, detail);
+
     return new Response(
       JSON.stringify({
         error: 'SERVICE_UNAVAILABLE',
-        message: `Impossible de contacter le microservice cible (${destination})`,
-        detail,
+        message: 'Le service cible est temporairement indisponible.',
       }),
       {
         status: 502,

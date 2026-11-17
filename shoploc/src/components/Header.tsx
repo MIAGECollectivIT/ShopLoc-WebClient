@@ -1,11 +1,14 @@
 import * as React from 'react';
 import { MainNav } from './MainNav';
 import { ModeToggle } from './ModeToggle';
+import { CartDrawer } from './CartDrawer';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/config/routes';
 import { useAuth } from '@/lib/auth';
+import { getUserVfpStatus, logoutUser } from '@/lib/api';
+import { VfpBadge } from './VfpBadge';
 import { UserPlus, LogIn, LogOut, User as UserIcon } from 'lucide-react';
 
 interface HeaderProps {
@@ -15,12 +18,31 @@ interface HeaderProps {
 export function Header({ currentPath }: HeaderProps) {
   const isRegister = currentPath === ROUTES.register.path;
   const isLogin = currentPath === ROUTES.login.path;
-  const { user, isAuthenticated, role, logout, isLoading } = useAuth();
+  const { user, isAuthenticated, role, isLoading } = useAuth();
   const [mounted, setMounted] = React.useState(false);
+  const [isVfp, setIsVfp] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
+
+  React.useEffect(() => {
+    let active = true;
+    if (user?.id && (role === 'CLIENT' || role === 'ADMIN')) {
+      getUserVfpStatus(user.id)
+        .then((res) => {
+          if (active && res) {
+            setIsVfp(res.isVfp);
+          }
+        })
+        .catch(() => {
+          // Graceful degradation when Loyalty Service is unreachable
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [user?.id, role]);
 
   const getRoleBadge = () => {
     switch (role) {
@@ -81,15 +103,16 @@ export function Header({ currentPath }: HeaderProps) {
                   {user.firstName || user.email}
                 </span>
                 {getRoleBadge()}
+                {isVfp && <VfpBadge isVfp={true} size="sm" />}
               </a>
 
               <Button
                 variant="ghost"
                 size="sm"
                 className="gap-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                onClick={() => {
-                  logout();
-                  window.location.href = '/api/auth/logout';
+                onClick={async () => {
+                  await logoutUser();
+                  window.location.href = '/login';
                 }}
                 title="Se déconnecter"
               >
@@ -127,6 +150,7 @@ export function Header({ currentPath }: HeaderProps) {
             </>
           )}
 
+          <CartDrawer />
           <ModeToggle />
         </div>
       </div>

@@ -1,9 +1,17 @@
-import { getApiEndpoint } from './api';
-
 export interface ResolveImageOptions {
   storeId?: number | string | null;
   productId?: number | string | null;
   imageUrl?: string | null;
+}
+
+/**
+ * Returns a browser-accessible relative API path for `<img src="...">` tags.
+ * Unlike `getApiEndpoint()`, this must NEVER inject internal Kubernetes service hostnames
+ * (e.g. `http://store-service:8080`) during Astro SSR, because `<img>` tags are always
+ * fetched by the client browser via `/v1/[...path]` or Ingress.
+ */
+function getBrowserImageEndpoint(path: string): string {
+  return path.startsWith('/') ? path : `/${path}`;
 }
 
 /**
@@ -30,7 +38,7 @@ export function resolveProductImageUrl(options: ResolveImageOptions): string | n
     // Divert through backend streaming endpoint if storeId & productId are present
     if (trimmed.includes('minio:9000') || trimmed.includes('minio-shoploc-dev')) {
       if (storeId && productId) {
-        return getApiEndpoint(`/v1/stores/${storeId}/products/${productId}/image`);
+        return getBrowserImageEndpoint(`/v1/stores/${storeId}/products/${productId}/image`);
       }
     }
 
@@ -42,7 +50,7 @@ export function resolveProductImageUrl(options: ResolveImageOptions): string | n
       window.location.hostname !== '127.0.0.1'
     ) {
       if (storeId && productId) {
-        return getApiEndpoint(`/v1/stores/${storeId}/products/${productId}/image`);
+        return getBrowserImageEndpoint(`/v1/stores/${storeId}/products/${productId}/image`);
       }
     }
 
@@ -58,7 +66,7 @@ export function resolveProductImageUrl(options: ResolveImageOptions): string | n
 
   // 5. If no explicit imageUrl string exists, but storeId & productId are known, try backend streaming endpoint
   if (storeId && productId) {
-    return getApiEndpoint(`/v1/stores/${storeId}/products/${productId}/image`);
+    return getBrowserImageEndpoint(`/v1/stores/${storeId}/products/${productId}/image`);
   }
 
   return null;
@@ -71,7 +79,77 @@ export function getProductApiImageUrl(
   storeId: number | string,
   productId: number | string
 ): string {
-  return getApiEndpoint(`/v1/stores/${storeId}/products/${productId}/image`);
+  return getBrowserImageEndpoint(`/v1/stores/${storeId}/products/${productId}/image`);
+}
+
+export interface ResolveGiftImageOptions {
+  storeId?: number | string | null;
+  giftId?: number | string | null;
+  imageUrl?: string | null;
+}
+
+/**
+ * Resolves a reliable, browser-accessible URL for a gift image hosted on S3/MinIO.
+ *
+ * Handles:
+ * - Local blob previews (URL.createObjectURL)
+ * - Internal Docker / K8s hostnames (http://minio:9000/product-images/...) converted to backend streaming endpoint
+ * - Absolute public URLs (https://...)
+ * - Fallback to backend streaming endpoint: /v1/loyalty/stores/{storeId}/gifts/{giftId}/image
+ */
+export function resolveGiftImageUrl(options: ResolveGiftImageOptions): string | null {
+  const { storeId, giftId, imageUrl } = options;
+
+  if (imageUrl) {
+    const trimmed = imageUrl.trim();
+
+    // 1. In-memory object preview (during upload) or base64 data URI
+    if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) {
+      return trimmed;
+    }
+
+    // 2. MinIO internal docker/k8s address (unreachable directly from browser)
+    if (trimmed.includes('minio:9000') || trimmed.includes('minio-shoploc-dev')) {
+      if (storeId && giftId) {
+        return getBrowserImageEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}/image`);
+      }
+    }
+
+    // 3. Localhost:9000 accessed from non-localhost
+    if (
+      typeof window !== 'undefined' &&
+      trimmed.includes('localhost:9000') &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1'
+    ) {
+      if (storeId && giftId) {
+        return getBrowserImageEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}/image`);
+      }
+    }
+
+    // 4. Standard valid HTTP/HTTPS URL
+    if (
+      trimmed.startsWith('http://') ||
+      trimmed.startsWith('https://') ||
+      trimmed.startsWith('/')
+    ) {
+      return trimmed;
+    }
+  }
+
+  // 5. If no explicit imageUrl string exists, but storeId & giftId are known, try backend streaming endpoint
+  if (storeId && giftId) {
+    return getBrowserImageEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}/image`);
+  }
+
+  return null;
+}
+
+/**
+ * Returns the direct backend streaming endpoint URL for a given gift image.
+ */
+export function getGiftApiImageUrl(storeId: number | string, giftId: number | string): string {
+  return getBrowserImageEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}/image`);
 }
 
 /**
@@ -87,15 +165,22 @@ const LOCALHOST_MINIO = 'localhost:9000';
  *
  * Supported formats:
  * - Local in-memory blob previews (`blob:...`) or Base64 data URIs (`data:...`)
- * - Internal Docker / K8s hostnames (`http://minio:9000/store-images/...`) converted to host-accessible endpoint
+ * - Internal Docker / K8s hostnames (`http://minio:9000/store-images/...`) converted to backend streaming endpoint
  * - Remote / mobile device resolution for local dev
  * - Absolute public URLs (`https://...`) or relative paths (`/...`)
  *
  * @param imageUrl Raw image URL or path stored in the database
+ * @param storeId Optional numeric or string store identifier for streaming route
  * @returns Fully qualified, browser-accessible image URL or null if invalid/empty
  */
-export function resolveStoreImageUrl(imageUrl?: string | null): string | null {
+export function resolveStoreImageUrl(
+  imageUrl?: string | null,
+  storeId?: number | string | null
+): string | null {
   if (!imageUrl) {
+    if (storeId) {
+      return null;
+    }
     return null;
   }
 
@@ -110,7 +195,11 @@ export function resolveStoreImageUrl(imageUrl?: string | null): string | null {
   }
 
   // 2. MinIO internal docker/k8s address (unreachable directly from browser)
-  if (INTERNAL_MINIO_REGEX.test(trimmed)) {
+  // Divert through backend streaming endpoint if storeId is present
+  if (INTERNAL_MINIO_REGEX.test(trimmed) || trimmed.includes('minio-shoploc-dev')) {
+    if (storeId) {
+      return getBrowserImageEndpoint(`/v1/stores/${storeId}/image`);
+    }
     const hostname =
       typeof window !== 'undefined' && window.location.hostname
         ? window.location.hostname
@@ -125,6 +214,9 @@ export function resolveStoreImageUrl(imageUrl?: string | null): string | null {
     window.location.hostname !== 'localhost' &&
     window.location.hostname !== '127.0.0.1'
   ) {
+    if (storeId) {
+      return getBrowserImageEndpoint(`/v1/stores/${storeId}/image`);
+    }
     return trimmed.replace(LOCALHOST_MINIO, `${window.location.hostname}:9000`);
   }
 

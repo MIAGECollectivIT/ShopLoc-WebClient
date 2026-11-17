@@ -1,0 +1,19 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PageContainer from '../components/PageContainer.astro';
+import { CustomerOrdersSection } from '../components/CustomerOrdersSection';
+import { ROUTES } from '../config/routes';
+---
+
+<Layout
+  title="Mes Commandes — ShopLoc"
+  description="Consultez l'historique de vos commandes Click & Collect, suivez vos retraits et téléchargez vos justificatifs officiels."
+>
+  <PageContainer
+    title="Mes Commandes"
+    description="Retrouvez le suivi de vos commandes Click & Collect, téléchargez vos bons de retrait ou factures officielles."
+    icon={ROUTES.orders.icon}
+  >
+    <CustomerOrdersSection client:only="react" />
+  </PageContainer>
+</Layout>
