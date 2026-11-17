@@ -21,6 +21,8 @@ import {
   Building2,
   Store as StoreIcon,
   Undo2,
+  Ban,
+  AlertCircle,
 } from 'lucide-react';
 
 interface StoreProductsViewProps {
@@ -131,17 +133,28 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
                 <StoreIcon className="size-5 text-primary" />
                 <span>Espace Gestion Commerce</span>
               </h2>
-              <Badge
-                variant="outline"
-                className="gap-1.5 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 text-xs py-0.5 px-2.5 font-semibold"
-              >
-                <ShieldCheck className="size-3.5" />
-                {role === 'ADMIN' ? 'Accès Administrateur' : 'Propriétaire du commerce'}
-              </Badge>
+              {store.status === 'REVOKED' ? (
+                <Badge
+                  variant="destructive"
+                  className="gap-1.5 text-xs py-0.5 px-2.5 font-semibold"
+                >
+                  <Ban className="size-3.5" />
+                  <span>Partenariat révoqué</span>
+                </Badge>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="gap-1.5 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 text-xs py-0.5 px-2.5 font-semibold"
+                >
+                  <ShieldCheck className="size-3.5" />
+                  {role === 'ADMIN' ? 'Accès Administrateur' : 'Propriétaire du commerce'}
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Pilotez le catalogue d'articles, les cadeaux fidélité, le barème de points et
-              l'encaissement de <span className="font-semibold text-foreground">{store.name}</span>.
+              {store.status === 'REVOKED'
+                ? `Ce commerce a été révoqué du programme d'animation locale. Les opérations sont suspendues.`
+                : `Pilotez le catalogue d'articles, les cadeaux fidélité, le barème de points et l'encaissement de ${store.name}.`}
             </p>
           </div>
 
@@ -157,15 +170,27 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
               <span>{viewMode === 'client' ? 'Quitter aperçu' : 'Aperçu client'}</span>
             </Button>
 
-            <a
-              href={ROUTES.storeScan(storeIdentifier)}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
-            >
-              <QrCode className="size-3.5" />
-              <span>Pass Caisse & Scan</span>
-            </a>
+            {store.status !== 'REVOKED' && (
+              <a
+                href={ROUTES.storeScan(storeIdentifier)}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
+              >
+                <QrCode className="size-3.5" />
+                <span>Pass Caisse & Scan</span>
+              </a>
+            )}
           </div>
         </div>
+
+        {store.status === 'REVOKED' && (
+          <div className="p-3.5 bg-destructive/10 border-b border-destructive/20 text-xs text-destructive flex items-center gap-2">
+            <AlertCircle className="size-4 shrink-0" />
+            <span>
+              Ce commerce est neutralisé (statut REVOKED) : les modifications de catalogue,
+              d'horaires et les encaissements sont désactivés.
+            </span>
+          </div>
+        )}
 
         {/* Modern Segmented Navigation Tabs */}
         <div className="px-3 sm:px-4 py-2 bg-background">

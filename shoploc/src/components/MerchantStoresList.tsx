@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useAuth } from '@/lib/auth';
-import { getStores } from '@/lib/api';
+import { getStores, getMyStores } from '@/lib/api';
 import type { Store } from '@/types/store';
 import { StoreCard } from '@/components/StoreCard';
 import { Button } from '@/components/ui/button';
@@ -31,30 +31,38 @@ export function MerchantStoresList() {
 
       try {
         setError(null);
-        const allStores = await getStores();
+        let allStores: Store[] = [];
+        try {
+          allStores = role === 'MERCHANT' ? await getMyStores() : await getStores();
+        } catch {
+          allStores = await getStores();
+        }
         if (!active) return;
 
         // Filter stores belonging to this merchant (or all if admin)
-        const myStores = allStores.filter((s) => {
-          if (role === 'ADMIN') return true;
-          if (!user) return false;
-          // Standard check: store creator matches current user dbId or public id
-          if (
-            s.userId != null &&
-            ((user.dbId != null && String(s.userId) === String(user.dbId)) ||
-              (user.id != null && String(s.userId) === String(user.id)))
-          ) {
-            return true;
-          }
-          // Seed association: Suzanne Morel is associated with stores 1 & 2 in user_stores
-          if (
-            (user.email === 'suzanne.morel@shop-loc.fr' || user.dbId === 2) &&
-            (s.id === 1 || s.id === 2)
-          ) {
-            return true;
-          }
-          return false;
-        });
+        const myStores =
+          role === 'MERCHANT' && allStores.length > 0
+            ? allStores
+            : allStores.filter((s) => {
+                if (role === 'ADMIN') return true;
+                if (!user) return false;
+                // Standard check: store creator matches current user dbId or public id
+                if (
+                  s.userId != null &&
+                  ((user.dbId != null && String(s.userId) === String(user.dbId)) ||
+                    (user.id != null && String(s.userId) === String(user.id)))
+                ) {
+                  return true;
+                }
+                // Seed association: Suzanne Morel is associated with stores 1 & 2 in user_stores
+                if (
+                  (user.email === 'suzanne.morel@shop-loc.fr' || user.dbId === 2) &&
+                  (s.id === 1 || s.id === 2)
+                ) {
+                  return true;
+                }
+                return false;
+              });
 
         setStores(myStores);
       } catch (err: unknown) {

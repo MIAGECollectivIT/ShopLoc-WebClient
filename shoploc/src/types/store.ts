@@ -19,6 +19,9 @@ export interface Store {
   category?: string;
   rib?: string;
   userId?: number;
+  status?: 'ACTIVE' | 'REVOKED';
+  revokedAt?: string | null;
+  revokedBy?: string | null;
   openingHours?: string;
   absenceStartDate?: string;
   absenceEndDate?: string;
@@ -61,6 +64,9 @@ export interface StoreResponse {
   category: string;
   rib: string;
   userId: number;
+  status?: 'ACTIVE' | 'REVOKED';
+  revokedAt?: string | null;
+  revokedBy?: string | null;
   openingHours?: string;
   absenceStartDate?: string;
   absenceEndDate?: string;

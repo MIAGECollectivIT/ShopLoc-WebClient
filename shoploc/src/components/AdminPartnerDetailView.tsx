@@ -8,6 +8,7 @@ import {
   updateAdminPartner,
   getAdminPartners,
   removeStoreFromPartner,
+  revokeStore,
 } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 import { resolveStoreImageUrl } from '@/lib/image';
@@ -52,6 +53,9 @@ import {
   Pencil,
   Unlink,
   Users,
+  AlertTriangle,
+  Ban,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface AdminPartnerDetailViewProps {
@@ -96,6 +100,13 @@ export function AdminPartnerDetailView({
   const [isLoadingReassignPartners, setIsLoadingReassignPartners] = React.useState<boolean>(false);
   const [isSubmittingDesaffect, setIsSubmittingDesaffect] = React.useState<boolean>(false);
   const [desaffectError, setDesaffectError] = React.useState<string | null>(null);
+
+  // Modal dialog state for revoking partner store (SLE-70, SLE-257)
+  const [isRevokeStoreOpen, setIsRevokeStoreOpen] = React.useState<boolean>(false);
+  const [storeToRevoke, setStoreToRevoke] = React.useState<Store | null>(null);
+  const [isSubmittingRevoke, setIsSubmittingRevoke] = React.useState<boolean>(false);
+  const [revokeError, setRevokeError] = React.useState<string | null>(null);
+  const [revokeSuccessMessage, setRevokeSuccessMessage] = React.useState<string | null>(null);
 
   // Load store details for affiliated store IDs if not provided in SSR
   React.useEffect(() => {
@@ -311,6 +322,51 @@ export function AdminPartnerDetailView({
       );
     } finally {
       setIsSubmittingDesaffect(false);
+    }
+  };
+
+  const handleOpenRevokeStore = (store: Store) => {
+    setStoreToRevoke(store);
+    setRevokeError(null);
+    setRevokeSuccessMessage(null);
+    setIsRevokeStoreOpen(true);
+  };
+
+  const handleConfirmRevokeStore = async () => {
+    if (!storeToRevoke || (!storeToRevoke.id && !storeToRevoke.uid)) return;
+    setIsSubmittingRevoke(true);
+    setRevokeError(null);
+
+    const storeIdentifier = storeToRevoke.uid || storeToRevoke.id!;
+    try {
+      const revoked = await revokeStore(storeIdentifier);
+      setStores((prev) =>
+        prev.map((s) =>
+          s.id === storeToRevoke.id || (s.uid && s.uid === storeToRevoke.uid)
+            ? {
+                ...s,
+                status: 'REVOKED',
+                rib: 'REVOKED',
+                url: undefined,
+                revokedAt: revoked.revokedAt || new Date().toISOString(),
+                revokedBy: revoked.revokedBy || 'ADMIN',
+              }
+            : s
+        )
+      );
+      setRevokeSuccessMessage(
+        `Le commerce "${storeToRevoke.name}" a été révoqué avec succès du programme d'animation.`
+      );
+      setTimeout(() => {
+        setIsRevokeStoreOpen(false);
+        setStoreToRevoke(null);
+      }, 1500);
+    } catch (err: unknown) {
+      setRevokeError(
+        err instanceof Error ? err.message : 'Erreur lors de la révocation du commerce partenaire.'
+      );
+    } finally {
+      setIsSubmittingRevoke(false);
     }
   };
 
@@ -646,11 +702,29 @@ export function AdminPartnerDetailView({
                         <CardTitle className="text-base font-semibold leading-tight">
                           {store.name}
                         </CardTitle>
-                        {store.category && (
-                          <Badge variant="secondary" className="text-[10px] shrink-0">
-                            {store.category}
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                          {store.status === 'REVOKED' ? (
+                            <Badge
+                              variant="destructive"
+                              className="text-[10px] shrink-0 font-semibold gap-1"
+                            >
+                              <Ban className="size-3" />
+                              <span>Révoqué</span>
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] shrink-0 font-semibold text-emerald-700 bg-emerald-50 border-emerald-300"
+                            >
+                              Actif
+                            </Badge>
+                          )}
+                          {store.category && (
+                            <Badge variant="secondary" className="text-[10px] shrink-0">
+                              {store.category}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <CardDescription className="flex items-center gap-1.5 text-xs mt-1">
                         <MapPin className="size-3.5 shrink-0 text-primary" />
@@ -670,16 +744,34 @@ export function AdminPartnerDetailView({
                     )}
 
                     <div className="flex items-center gap-1.5">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenDesaffectStore(store)}
-                        className="gap-1 text-xs h-7 px-2 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
-                        title="Désaffecter ce commerce du partenaire"
-                      >
-                        <Unlink className="size-3" />
-                        <span>Désaffecter</span>
-                      </Button>
+                      {store.status !== 'REVOKED' ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenRevokeStore(store)}
+                            className="gap-1 text-xs h-7 px-2 text-rose-700 border-rose-300 hover:bg-rose-50 hover:text-rose-800 dark:text-rose-400 dark:border-rose-900/50"
+                            title="Révoquer définitivement ce commerce partenaire"
+                          >
+                            <ShieldAlert className="size-3" />
+                            <span>Révoquer</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenDesaffectStore(store)}
+                            className="gap-1 text-xs h-7 px-2 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                            title="Désaffecter ce commerce du partenaire"
+                          >
+                            <Unlink className="size-3" />
+                            <span>Désaffecter</span>
+                          </Button>
+                        </>
+                      ) : (
+                        <span className="text-[11px] text-destructive font-medium px-2 py-0.5 rounded bg-destructive/10 border border-destructive/20">
+                          Partenariat neutralisé
+                        </span>
+                      )}
 
                       {(store.uid || store.id) && (
                         <Button
@@ -1148,6 +1240,95 @@ export function AdminPartnerDetailView({
                       ? `Réassigner à ${selectedTargetPartner.name}`
                       : 'Confirmer la désaffectation'}
                   </span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Dialog for Revoking Store Partnership (SLE-70, SLE-257) */}
+      <Dialog open={isRevokeStoreOpen} onOpenChange={setIsRevokeStoreOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="size-5 shrink-0" />
+              <DialogTitle>Révoquer le commerce partenaire</DialogTitle>
+            </div>
+            <DialogDescription className="text-left pt-2 space-y-2">
+              <span>
+                Vous êtes sur le point de révoquer l'adhésion de{' '}
+                <strong className="text-foreground">{storeToRevoke?.name}</strong> au programme
+                d'animation locale ShopLoc.
+              </span>
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-foreground space-y-1.5">
+                <p className="font-semibold text-destructive flex items-center gap-1.5">
+                  <ShieldAlert className="size-3.5" />
+                  Effets immédiats de la révocation :
+                </p>
+                <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
+                  <li>
+                    <strong>Ventes & Commandes :</strong> Les ventes physiques et le Click & Collect
+                    sont immédiatement bloqués.
+                  </li>
+                  <li>
+                    <strong>Visibilité publique :</strong> Le commerce et ses produits sont retirés
+                    de l'annuaire et des recherches publiques.
+                  </li>
+                  <li>
+                    <strong>Données sensibles :</strong> Le RIB conventionnel et la photo de vitrine
+                    sont neutralisés.
+                  </li>
+                  <li>
+                    <strong>Protection des clients :</strong> L'historique des commandes passées et
+                    les points de fidélité acquis par les clients restent intégralement préservés.
+                  </li>
+                </ul>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+
+          {revokeError && (
+            <div className="rounded-lg bg-destructive/10 border border-destructive/40 p-3 text-xs text-destructive flex items-center gap-2">
+              <AlertCircle className="size-4 shrink-0" />
+              <span>{revokeError}</span>
+            </div>
+          )}
+
+          {revokeSuccessMessage && (
+            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/40 p-3 text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
+              <Check className="size-4 shrink-0" />
+              <span>{revokeSuccessMessage}</span>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsRevokeStoreOpen(false)}
+              disabled={isSubmittingRevoke}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={handleConfirmRevokeStore}
+              disabled={isSubmittingRevoke || !!revokeSuccessMessage}
+              className="gap-2 font-medium"
+            >
+              {isSubmittingRevoke ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  <span>Révocation en cours...</span>
+                </>
+              ) : (
+                <>
+                  <Ban className="size-4" />
+                  <span>Confirmer la révocation</span>
                 </>
               )}
             </Button>

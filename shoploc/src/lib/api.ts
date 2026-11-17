@@ -249,6 +249,59 @@ export async function getStoreById(id: string | number): Promise<Store> {
 }
 
 /**
+ * Revokes a partner store from the local animation program (SLE-70, SLE-255).
+ * Only accessible by ADMIN users.
+ */
+export async function revokeStore(storeId: string | number): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/revoke`);
+  const token = getAuthToken();
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    const message =
+      errorBody.message ||
+      (res.status === 409
+        ? 'Ce commerce est déjà révoqué.'
+        : res.status === 403
+          ? 'Accès refusé : privilèges administrateur requis.'
+          : `Impossible de révoquer le commerce (HTTP ${res.status})`);
+    throw new Error(message);
+  }
+
+  const data: StoreResponse = await res.json();
+  return data;
+}
+
+/**
+ * Retrieves the stores belonging to the currently authenticated merchant (anti-IDOR, SLE-70).
+ */
+export async function getMyStores(serverToken?: string): Promise<StoreResponse[]> {
+  const endpoint = getApiEndpoint('/v1/stores/me');
+  const token = serverToken || getAuthToken();
+
+  const res = await fetchWithTimeout(endpoint, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer vos commerces (HTTP ${res.status})`);
+  }
+
+  const data: StoreResponse[] = await res.json();
+  return data;
+}
+
+/**
  * Retrieves registered partner accounts from users-service (SLE-87).
  * Filters across name, company name, and email.
  */
