@@ -1,4 +1,11 @@
-import type { Store, StoreCreateRequest, StoreResponse, PartnerAccount } from '@/types/store';
+import type {
+  Store,
+  StoreCreateRequest,
+  StorePatchRequest,
+  StoreResponse,
+  StoreAbsence,
+  PartnerAccount,
+} from '@/types/store';
 import type { AdminPartnerSummary, AdminPartnerDetail } from '@/types/partner';
 import type {
   Product,
@@ -21,7 +28,11 @@ import type {
   UserPaymentTransaction,
 } from '@/types/payment';
 import type { CreateOrderRequest, OrderResponse } from '@/types/order';
-import type { PhysicalSaleRequest, PhysicalSaleResponse } from '@/types/sales';
+import type {
+  PhysicalSaleRequest,
+  PhysicalSaleResponse,
+  StoreTurnoverResponse,
+} from '@/types/sales';
 import type {
   UserRegistrationRequest,
   UserLoginRequest,
@@ -473,6 +484,232 @@ export async function createStore(
   }
 
   const data: StoreResponse = await res.json();
+  return data;
+}
+
+/**
+ * Partially updates store information (SLE-54, SLE-245).
+ */
+export async function patchStore(
+  storeId: string | number,
+  payload: StorePatchRequest
+): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la mise à jour du commerce (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {
+      // Ignore
+    }
+    throw new Error(errorDetail);
+  }
+
+  const data: StoreResponse = await res.json();
+  return data;
+}
+
+/**
+ * Récupère la liste des absences d'un commerce (SLE-54).
+ */
+export async function getStoreAbsences(storeId: string | number): Promise<StoreAbsence[]> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/absences`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      ...authHeaders,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer les absences du commerce (${res.status})`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Ajoute une absence à la liste d'un commerce (SLE-54).
+ */
+export async function addStoreAbsence(
+  storeId: string | number,
+  absence: { startDate: string; endDate?: string | null; reason?: string | null }
+): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/absences`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify(absence),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de l'ajout de l'absence (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {
+      // Ignore
+    }
+    throw new Error(errorDetail);
+  }
+
+  return res.json();
+}
+
+/**
+ * Modifie une absence existante d'un commerce (SLE-54).
+ */
+export async function updateStoreAbsence(
+  storeId: string | number,
+  absenceId: number,
+  absence: { startDate: string; endDate?: string | null; reason?: string | null }
+): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/absences/${absenceId}`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify(absence),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la modification de l'absence (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {
+      // Ignore
+    }
+    throw new Error(errorDetail);
+  }
+
+  return res.json();
+}
+
+/**
+ * Supprime une absence spécifique ou toutes les absences d'un commerce (SLE-54).
+ */
+export async function deleteStoreAbsence(
+  storeId: string | number,
+  absenceId?: number
+): Promise<StoreResponse> {
+  const endpoint =
+    absenceId != null
+      ? getApiEndpoint(`/v1/stores/${storeId}/absences/${absenceId}`)
+      : getApiEndpoint(`/v1/stores/${storeId}/absence`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  try {
+    const res = await fetchWithTimeout(endpoint, {
+      method: 'DELETE',
+      headers: {
+        ...authHeaders,
+      },
+    });
+
+    if (res.ok) {
+      const data: StoreResponse = await res.json();
+      return data;
+    }
+  } catch {
+    // Fallback to PATCH clearAbsence if DELETE is not supported by proxy
+  }
+
+  if (absenceId == null) {
+    return patchStore(storeId, { clearAbsence: true });
+  }
+  throw new Error("Impossible de supprimer l'absence sélectionnée");
+}
+
+/**
+ * Updates a store's storefront image via S3 multipart endpoint (SLE-54, SLE-246).
+ */
+export async function updateStoreImage(
+  storeId: string | number,
+  imageFile: File
+): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/image`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const formData = new FormData();
+  formData.append('image', imageFile);
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PATCH',
+    headers: {
+      ...authHeaders,
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la mise à jour de l'image (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {
+      // Ignore
+    }
+    throw new Error(errorDetail);
+  }
+
+  const data: StoreResponse = await res.json();
+  return data;
+}
+
+/**
+ * Retrieves automated turnover metrics generated by the ShopLoc application for a store (SLE-54).
+ */
+export async function getStoreTurnover(storeId: string | number): Promise<StoreTurnoverResponse> {
+  const endpoint = getApiEndpoint(`/v1/sales/stores/${storeId}/turnover`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      ...authHeaders,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Erreur lors de la récupération du chiffre d'affaires (${res.status})`);
+  }
+
+  const data: StoreTurnoverResponse = await res.json();
   return data;
 }
 

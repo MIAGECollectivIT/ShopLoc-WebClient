@@ -5,6 +5,7 @@ import { MerchantCatalogDashboard } from '@/components/MerchantCatalogDashboard'
 import { MerchantGiftsDashboard } from '@/components/MerchantGiftsDashboard';
 import { MerchantLoyaltyRateCard } from '@/components/MerchantLoyaltyRateCard';
 import { MerchantLoyaltyScanner } from '@/components/MerchantLoyaltyScanner';
+import { MerchantStoreProfileForm } from '@/components/MerchantStoreProfileForm';
 import { ClientProductCatalog } from '@/components/ClientProductCatalog';
 import { StoreLoyaltyBanner } from '@/components/StoreLoyaltyBanner';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,7 @@ import {
   Package,
   QrCode,
   Gift,
+  Building2,
   Store as StoreIcon,
   Undo2,
 } from 'lucide-react';
@@ -28,9 +30,14 @@ interface StoreProductsViewProps {
 export function StoreProductsView({ store }: StoreProductsViewProps) {
   const { user, role, isAuthenticated, isLoading } = useAuth();
   const [mounted, setMounted] = React.useState(false);
+  const [currentStore, setCurrentStore] = React.useState<Store>(store);
   const [viewMode, setViewMode] = React.useState<
-    'merchant' | 'gifts' | 'loyalty' | 'scan' | 'client'
+    'merchant' | 'gifts' | 'loyalty' | 'scan' | 'profile' | 'client'
   >('merchant');
+
+  React.useEffect(() => {
+    setCurrentStore(store);
+  }, [store]);
 
   React.useEffect(() => {
     setMounted(true);
@@ -41,6 +48,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
         param === 'gifts' ||
         param === 'loyalty' ||
         param === 'scan' ||
+        param === 'profile' ||
         param === 'client'
       ) {
         setViewMode(param);
@@ -48,7 +56,9 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
     }
   }, []);
 
-  const handleTabChange = (mode: 'merchant' | 'gifts' | 'loyalty' | 'scan' | 'client') => {
+  const handleTabChange = (
+    mode: 'merchant' | 'gifts' | 'loyalty' | 'scan' | 'profile' | 'client'
+  ) => {
     setViewMode(mode);
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
@@ -201,6 +211,19 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
 
             <button
               type="button"
+              onClick={() => handleTabChange('profile')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer ${
+                viewMode === 'profile'
+                  ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/70'
+              }`}
+            >
+              <Building2 className="size-4 shrink-0" />
+              <span>Profil & Horaires</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => handleTabChange('scan')}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer ${
                 viewMode === 'scan'
@@ -225,11 +248,18 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
       )}
 
       {viewMode === 'loyalty' && (
-        <MerchantLoyaltyRateCard storeId={storeIdNumber} storeName={store.name} />
+        <MerchantLoyaltyRateCard storeId={storeIdNumber} storeName={currentStore.name} />
+      )}
+
+      {viewMode === 'profile' && (
+        <MerchantStoreProfileForm
+          store={currentStore}
+          onStoreUpdated={(updated) => setCurrentStore((prev) => ({ ...prev, ...updated }))}
+        />
       )}
 
       {viewMode === 'scan' && (
-        <MerchantLoyaltyScanner storeId={storeIdNumber} storeName={store.name} />
+        <MerchantLoyaltyScanner storeId={storeIdNumber} storeName={currentStore.name} />
       )}
 
       {viewMode === 'client' && (
