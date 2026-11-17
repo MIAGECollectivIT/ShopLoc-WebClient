@@ -101,7 +101,20 @@ export function GlobalGiftCatalog() {
     async function loadStores() {
       try {
         const fetchedStores = await getStores();
-        if (isMounted) setStores(fetchedStores);
+        if (isMounted) {
+          setStores(fetchedStores);
+          setSelectedStoreId((current) => {
+            if (current && current !== 'ALL') {
+              const matched = fetchedStores.find(
+                (s) => String(s.uid) === current || String(s.id) === current
+              );
+              if (matched && matched.id != null) {
+                return String(matched.id);
+              }
+            }
+            return current;
+          });
+        }
       } catch {
         // Fallback gracefully
       }
@@ -208,14 +221,14 @@ export function GlobalGiftCatalog() {
               className="bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-semibold gap-1.5 px-2.5 py-1"
             >
               <Sparkles className="size-3.5" />
-              <span>Récompenses & Fidélité locale</span>
+              <span>Récompenses locale</span>
             </Badge>
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
               Échangez vos points contre des cadeaux
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Découvrez tous les lots physiques et cadeaux offerts par vos commerçants de proximité.
-              Cumulez des points lors de vos achats pour débloquer ces récompenses exclusives.
+              Découvrez les cadeaux offerts par vos commerçants de proximité. Cumulez des points et
+              récupérez votre cadeau lors de votre prochain achat.
             </p>
           </div>
 

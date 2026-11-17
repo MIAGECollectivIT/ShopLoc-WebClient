@@ -3,13 +3,16 @@ import { getStoreLoyaltyRate } from '@/lib/api';
 import type { MerchantLoyaltyRate } from '@/types/loyalty';
 import { Coins, Sparkles, Gift } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { ROUTES } from '@/config/routes';
 
 interface StoreLoyaltyBannerProps {
   storeId: number | string;
   initialRate?: MerchantLoyaltyRate | null;
+  onViewGifts?: () => void;
 }
 
-export function StoreLoyaltyBanner({ storeId, initialRate }: StoreLoyaltyBannerProps) {
+export function StoreLoyaltyBanner({ storeId, initialRate, onViewGifts }: StoreLoyaltyBannerProps) {
   const [rate, setRate] = React.useState<MerchantLoyaltyRate | null>(initialRate || null);
   const [isLoading, setIsLoading] = React.useState(!initialRate);
 
@@ -83,9 +86,26 @@ export function StoreLoyaltyBanner({ storeId, initialRate }: StoreLoyaltyBannerP
           </div>
         </div>
 
-        <div className="hidden sm:flex items-center gap-1.5 self-center rounded-lg bg-background/80 px-3 py-1.5 border border-border/80 text-xs text-muted-foreground shadow-2xs">
-          <Coins className="size-3.5 text-amber-500" />
-          <span>Cumulez sur votre cagnotte ShopLoc</span>
+        <div className="flex items-center shrink-0 self-end sm:self-center">
+          {onViewGifts ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={onViewGifts}
+              className="h-8 text-xs gap-1.5 font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs transition-colors shrink-0 cursor-pointer"
+            >
+              <Coins className="size-3.5 text-amber-400" />
+              <span>Utiliser mes points</span>
+            </Button>
+          ) : (
+            <a
+              href={`${ROUTES.gifts.path}?storeId=${storeId}`}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs transition-colors shrink-0"
+            >
+              <Coins className="size-3.5 text-amber-400" />
+              <span>Utiliser mes points</span>
+            </a>
+          )}
         </div>
       </div>
     </div>
