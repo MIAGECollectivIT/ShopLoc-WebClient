@@ -1432,22 +1432,13 @@ export function AdminPartnerDetailView({
                   </p>
                 </div>
               </div>
-              <DialogDescription className="space-y-3 pt-3 text-left">
+              <DialogDescription className="pt-2 text-left">
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Vous êtes sur le point de réactiver le commerce{' '}
                   <strong className="text-foreground">{storeToReactivate?.name}</strong>. Cette
                   action réintègre l'établissement dans le réseau actif et le rend à nouveau visible
                   auprès des citoyens.
                 </p>
-                <div className="rounded-lg bg-muted/60 p-3 text-xs space-y-1.5 border">
-                  <p className="font-semibold text-foreground">
-                    Obligation conventionnelle (RMT-001) :
-                  </p>
-                  <p className="text-muted-foreground">
-                    Conformément aux règles de gestion, la ré-adhésion nécessite la saisie d'un
-                    nouveau RIB ou IBAN valide afin de rétablir les versements.
-                  </p>
-                </div>
               </DialogDescription>
             </DialogHeader>
 
