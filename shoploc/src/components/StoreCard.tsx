@@ -1,4 +1,4 @@
-import { MapPin, Store as StoreIcon, ShieldCheck } from 'lucide-react';
+import { MapPin, Store as StoreIcon, ShieldCheck, Ban } from 'lucide-react';
 import type { Store } from '@/types/store';
 import { resolveStoreImageUrl } from '@/lib/image';
 import { computeStoreOpenStatus } from '@/lib/opening-hours';
@@ -66,47 +66,66 @@ export function StoreCard({ store }: StoreCardProps) {
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center justify-between gap-1.5 leading-snug">
           <span className="break-words font-semibold">{store.name}</span>
-          {isMyStore && (
-            <Badge
-              variant="secondary"
-              className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[10px] shrink-0 gap-1 font-semibold whitespace-nowrap"
-            >
-              <ShieldCheck className="size-3" />
-              Votre commerce
-            </Badge>
-          )}
+          <div className="flex items-center gap-1">
+            {store.status === 'REVOKED' ? (
+              <Badge
+                variant="destructive"
+                className="text-[10px] shrink-0 gap-1 font-semibold whitespace-nowrap"
+              >
+                <Ban className="size-3" />
+                Partenariat révoqué
+              </Badge>
+            ) : isMyStore ? (
+              <Badge
+                variant="secondary"
+                className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[10px] shrink-0 gap-1 font-semibold whitespace-nowrap"
+              >
+                <ShieldCheck className="size-3" />
+                Votre commerce
+              </Badge>
+            ) : null}
+          </div>
         </CardTitle>
         <CardDescription className="flex items-start gap-1">
           <MapPin className="size-3.5 shrink-0 mt-0.5" />
           <span className="break-words leading-tight">{store.address}</span>
         </CardDescription>
 
-        {(store.openingHours ||
-          store.absenceStartDate ||
-          (store.absences && store.absences.length > 0)) && (
+        {store.status === 'REVOKED' ? (
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs pt-1.5 leading-normal">
-            <span
-              className={`size-2 rounded-full shrink-0 ${
-                openStatus.badgeVariant === 'open'
-                  ? 'bg-emerald-500 animate-pulse'
-                  : openStatus.badgeVariant === 'absent'
-                    ? 'bg-amber-500'
-                    : 'bg-rose-500'
-              }`}
-            />
-            <span className="font-semibold text-foreground break-words">
-              {openStatus.badgeVariant === 'open'
-                ? 'Ouvert actuellement'
-                : openStatus.badgeVariant === 'absent'
-                  ? 'Fermé pour absence'
-                  : 'Fermé actuellement'}
+            <span className="size-2 rounded-full shrink-0 bg-destructive" />
+            <span className="font-semibold text-destructive break-words">
+              Commerce neutralisé — Partenariat clôturé
             </span>
-            {openStatus.statusText && (
-              <span className="text-muted-foreground text-[11px] break-words">
-                &bull; {openStatus.statusText}
-              </span>
-            )}
           </div>
+        ) : (
+          (store.openingHours ||
+            store.absenceStartDate ||
+            (store.absences && store.absences.length > 0)) && (
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs pt-1.5 leading-normal">
+              <span
+                className={`size-2 rounded-full shrink-0 ${
+                  openStatus.badgeVariant === 'open'
+                    ? 'bg-emerald-500 animate-pulse'
+                    : openStatus.badgeVariant === 'absent'
+                      ? 'bg-amber-500'
+                      : 'bg-rose-500'
+                }`}
+              />
+              <span className="font-semibold text-foreground break-words">
+                {openStatus.badgeVariant === 'open'
+                  ? 'Ouvert actuellement'
+                  : openStatus.badgeVariant === 'absent'
+                    ? 'Fermé pour absence'
+                    : 'Fermé actuellement'}
+              </span>
+              {openStatus.statusText && (
+                <span className="text-muted-foreground text-[11px] break-words">
+                  &bull; {openStatus.statusText}
+                </span>
+              )}
+            </div>
+          )
         )}
       </CardHeader>
 
@@ -120,17 +139,27 @@ export function StoreCard({ store }: StoreCardProps) {
               {store.category}
             </Badge>
           )}
-          <Badge variant="secondary" className="text-xs">
-            Partenaire
-          </Badge>
+          {store.status === 'REVOKED' ? (
+            <Badge variant="destructive" className="text-xs">
+              Révoqué
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-xs">
+              Partenaire
+            </Badge>
+          )}
         </div>
         {(store.uid || store.id) && (
           <Button
-            variant={isMyStore ? 'default' : 'outline'}
+            variant={isMyStore && store.status !== 'REVOKED' ? 'default' : 'outline'}
             size="sm"
             render={<a href={ROUTES.storeDetail(store.uid || store.id!)} />}
           >
-            {isMyStore ? 'Gérer mon commerce' : 'Détails'}
+            {isMyStore
+              ? store.status === 'REVOKED'
+                ? 'Consulter (révoqué)'
+                : 'Gérer mon commerce'
+              : 'Détails'}
           </Button>
         )}
       </CardFooter>

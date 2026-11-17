@@ -30,6 +30,38 @@ if (store?.uid && id && /^\d+$/.test(id)) {
       </a>
     </div>
 
+    {store && store.status === 'REVOKED' && (
+      <div class="rounded-xl border border-destructive/40 bg-destructive/10 p-4 sm:p-5 flex items-start gap-3 text-destructive shadow-xs">
+        <div class="p-2 rounded-lg bg-destructive/15 shrink-0 mt-0.5">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="size-5"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="m4.9 4.9 14.2 14.2" />
+          </svg>
+        </div>
+        <div class="space-y-1">
+          <h3 class="font-bold text-sm sm:text-base leading-tight">
+            Commerce Partenaire Neutralisé (Statut : REVOKED)
+          </h3>
+          <p class="text-xs sm:text-sm text-destructive/90 leading-relaxed">
+            Ce commerce ne fait plus partie du programme d'animation ShopLoc. Le catalogue en ligne,
+            les ventes physiques et les commandes Click & Collect sont définitivement suspendus pour
+            cet établissement.
+          </p>
+        </div>
+      </div>
+    )}
+
     {store && (
       <div class="space-y-6">
         {/* Store Banner Card with Real-time Open/Closed Badge and Schedule */}
