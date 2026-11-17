@@ -1,6 +1,8 @@
 export interface LoyaltyGift {
   id: number;
   storeId: number;
+  storeName?: string | null;
+  category?: string | null;
   name: string;
   description?: string | null;
   pointsCost: number;

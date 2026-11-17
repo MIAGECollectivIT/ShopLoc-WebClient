@@ -1,0 +1,21 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import PageContainer from '../components/PageContainer.astro';
+import { ROUTES } from '../config/routes';
+import { GlobalGiftCatalog } from '../components/GlobalGiftCatalog';
+---
+
+<Layout
+  title="Catalogue des cadeaux fidélité — ShopLoc"
+  description="Consultez les lots physiques et cadeaux proposés par les commerçants partenaires avec leur valeur en points."
+>
+  <PageContainer
+    title="Cadeaux & Récompenses fidélité"
+    description="Découvrez les lots physiques proposés par vos commerces locaux et échangez vos points fidélité."
+    icon={ROUTES.gifts.icon}
+  >
+    <GlobalGiftCatalog client:load />
+  </PageContainer>
+</Layout>

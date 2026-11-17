@@ -1582,6 +1582,37 @@ export async function updateStoreLoyaltyRate(
 }
 
 /**
+ * Retrieves the global public catalog of active loyalty gifts with optional filters (SLE-39 / SLE-223 / SLE-224).
+ */
+export async function getPublicGifts(params?: {
+  storeId?: number | string;
+  category?: string;
+}): Promise<LoyaltyGift[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.storeId && params.storeId !== 'ALL') {
+    searchParams.set('storeId', String(params.storeId));
+  }
+  if (params?.category && params.category !== 'ALL') {
+    searchParams.set('category', params.category);
+  }
+  const queryString = searchParams.toString();
+  const endpoint = getApiEndpoint(`/v1/loyalty/gifts${queryString ? `?${queryString}` : ''}`);
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer le catalogue des cadeaux (${res.status})`);
+  }
+
+  return (await res.json()) as LoyaltyGift[];
+}
+
+/**
  * Retrieves the list of loyalty gifts for a store (SLE-60 / SLE-192).
  * By default returns active gifts. Set includeInactive to true to retrieve all gifts (for merchants/admins).
  */

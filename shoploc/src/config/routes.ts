@@ -10,6 +10,7 @@ import {
   Users,
   CreditCard,
   Wallet,
+  Gift,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react';
@@ -47,6 +48,11 @@ export const ROUTES = {
     path: '/catalog',
     label: 'Catalogue',
     icon: BookOpen,
+  },
+  gifts: {
+    path: '/gifts',
+    label: 'Cadeaux fidélité',
+    icon: Gift,
   },
   cart: {
     path: '/cart',
@@ -98,4 +104,4 @@ export const ROUTES = {
   adminPartnerDetail: (id: string | number) => `/admin/partners/${id}`,
 } as const;
 
-export const NAV_ROUTES: RouteConfig[] = [ROUTES.home, ROUTES.stores, ROUTES.catalog];
+export const NAV_ROUTES: RouteConfig[] = [ROUTES.home, ROUTES.stores, ROUTES.catalog, ROUTES.gifts];
