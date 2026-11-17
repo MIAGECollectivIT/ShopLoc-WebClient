@@ -39,11 +39,12 @@ export function MerchantStoresList() {
         }
         if (!active) return;
 
-        // Filter stores belonging to this merchant (or all if admin)
+        // Filter stores belonging to this merchant (or all if admin), excluding revoked stores
+        const activeStores = allStores.filter((s) => s.status !== 'REVOKED');
         const myStores =
-          role === 'MERCHANT' && allStores.length > 0
-            ? allStores
-            : allStores.filter((s) => {
+          role === 'MERCHANT' && activeStores.length > 0
+            ? activeStores
+            : activeStores.filter((s) => {
                 if (role === 'ADMIN') return true;
                 if (!user) return false;
                 // Standard check: store creator matches current user dbId or public id

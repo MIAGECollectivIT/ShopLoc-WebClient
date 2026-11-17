@@ -45,7 +45,6 @@ import {
   ExternalLink,
   PlusCircle,
   CreditCard,
-  Fingerprint,
   Link2,
   Loader2,
   AlertCircle,
@@ -70,7 +69,9 @@ export function AdminPartnerDetailView({
   initialStores = [],
 }: AdminPartnerDetailViewProps) {
   const [currentPartner, setCurrentPartner] = React.useState<AdminPartnerDetail>(partner);
-  const [stores, setStores] = React.useState<Store[]>(initialStores);
+  const [stores, setStores] = React.useState<Store[]>(() =>
+    initialStores.filter((s) => s.status !== 'REVOKED')
+  );
   const [loadingStores, setLoadingStores] = React.useState<boolean>(
     initialStores.length === 0 && (partner.storeIds?.length || 0) > 0
   );
@@ -152,7 +153,7 @@ export function AdminPartnerDetailView({
 
         const results = await Promise.all(storePromises);
         if (!isCancelled) {
-          setStores(results);
+          setStores(results.filter((s) => s.status !== 'REVOKED'));
         }
       } finally {
         if (!isCancelled) {
@@ -351,23 +352,15 @@ export function AdminPartnerDetailView({
 
     const storeIdentifier = storeToRevoke.uid || storeToRevoke.id!;
     try {
-      const revoked = await revokeStore(storeIdentifier);
+      await revokeStore(storeIdentifier);
       setStores((prev) =>
-        prev.map((s) =>
-          s.id === storeToRevoke.id || (s.uid && s.uid === storeToRevoke.uid)
-            ? {
-                ...s,
-                status: 'REVOKED',
-                rib: 'REVOKED',
-                url: revoked.url ?? s.url,
-                revokedAt: revoked.revokedAt || new Date().toISOString(),
-                revokedBy: revoked.revokedBy || 'ADMIN',
-              }
-            : s
-        )
+        prev.filter((s) => s.id !== storeToRevoke.id && (!s.uid || s.uid !== storeToRevoke.uid))
       );
+      if (storeToRevoke.id && currentPartner.id) {
+        removeStoreFromPartner(currentPartner.id, storeToRevoke.id).catch(() => {});
+      }
       setRevokeSuccessMessage(
-        `Le commerce "${storeToRevoke.name}" a été révoqué avec succès du programme d'animation.`
+        `Le commerce "${storeToRevoke.name}" a été révoqué avec succès et retiré des commerces affiliés.`
       );
       setTimeout(() => {
         setIsRevokeStoreOpen(false);
@@ -577,20 +570,6 @@ export function AdminPartnerDetailView({
                   </CardDescription>
                 )}
               </div>
-            </div>
-
-            {/* UID badge - Database ID completely hidden from the view */}
-            <div className="flex flex-wrap sm:flex-col items-start sm:items-end gap-1.5 text-xs text-muted-foreground font-mono">
-              {currentPartner.publicId && (
-                <Badge
-                  variant="outline"
-                  className="font-mono text-xs flex items-center gap-1.5 px-2.5 py-1"
-                  title="Identifiant public UUID du partenaire"
-                >
-                  <Fingerprint className="size-3.5 text-muted-foreground" />
-                  <span>UID : {currentPartner.publicId}</span>
-                </Badge>
-              )}
             </div>
           </div>
         </CardHeader>
