@@ -52,6 +52,25 @@ export interface UserVfpStatus {
   lastEvaluatedAt?: string | null;
 }
 
+/**
+ * VFP progression metrics, maintenance requirements, and revocation countdown (SLE-51 / SLE-238).
+ */
+export interface UserVfpProgress {
+  userId: string;
+  isVfp: boolean;
+  currentTransactionCount: number;
+  threshold: number;
+  remainingTransactionsToQualify: number;
+  remainingTransactionsToMaintain: number;
+  daysRemainingBeforeRevocation?: number | null;
+  hoursRemainingBeforeRevocation?: number | null;
+  estimatedRevocationDate?: string | null;
+  expiringTransactionsCount: number;
+  windowStart: string;
+  windowEnd: string;
+  evaluatedAt: string;
+}
+
 export type PointsTransactionType = 'EARN' | 'REDEEM';
 
 /**

@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Crown, Sparkles } from 'lucide-react';
 
@@ -6,22 +7,31 @@ interface VfpBadgeProps {
   size?: 'sm' | 'md' | 'lg';
   showText?: boolean;
   showInactive?: boolean;
+  label?: string;
   className?: string;
+  onClick?: (e: React.MouseEvent<HTMLElement>) => void;
+  interactive?: boolean;
 }
 
 /**
- * Reusable distinctive UI badge highlighting Very Faithful Person (VFP) status (SLE-45 / SLE-204).
+ * Reusable distinctive UI badge highlighting Very Faithful Person (VFP) status (SLE-50 / SLE-235 / SLE-236).
+ * Supports explicit labeling (e.g. 'Membre VFP'), standard inactive status, and interactive click trigger (SLE-237).
  */
 export function VfpBadge({
   isVfp,
   size = 'sm',
   showText = true,
   showInactive = false,
+  label,
   className = '',
+  onClick,
+  interactive = false,
 }: VfpBadgeProps) {
   if (!isVfp && !showInactive) {
     return null;
   }
+
+  const isClickable = Boolean(onClick || interactive);
 
   const sizeClasses = {
     sm: 'text-[10px] px-1.5 py-0 h-4 gap-1',
@@ -35,17 +45,37 @@ export function VfpBadge({
     lg: 'size-4',
   }[size];
 
+  const interactiveClasses = isClickable
+    ? 'cursor-pointer hover:opacity-90 hover:scale-[1.03] active:scale-[0.98] transition-all select-none focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-500/50'
+    : '';
+
+  const defaultVfpLabel = label || (size === 'sm' ? 'Membre VFP' : 'Membre VFP');
+  const defaultStandardLabel = label || 'Standard';
+
   if (isVfp) {
     return (
       <Badge
         variant="secondary"
-        className={`inline-flex items-center font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/40 shadow-xs ${sizeClasses} ${className}`}
-        title="Statut Very Faithful Person (VFP) actif : Transports en commun et stationnement gratuit accordés"
+        role={isClickable ? 'button' : undefined}
+        tabIndex={isClickable ? 0 : undefined}
+        onClick={onClick}
+        onKeyDown={(e) => {
+          if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            onClick?.(e as unknown as React.MouseEvent<HTMLElement>);
+          }
+        }}
+        className={`inline-flex items-center font-semibold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/40 shadow-xs ${sizeClasses} ${interactiveClasses} ${className}`}
+        title={
+          isClickable
+            ? 'Statut Membre VFP actif : Cliquez pour voir le détail des avantages (Stationnement, Transports, Réductions)'
+            : 'Statut Membre VFP actif : Transports en commun et stationnement gratuit accordés'
+        }
       >
         <Crown
           className={`${iconSizes} text-amber-600 dark:text-amber-400 shrink-0 fill-amber-500/20`}
         />
-        {showText && <span>VFP</span>}
+        {showText && <span>{defaultVfpLabel}</span>}
       </Badge>
     );
   }
@@ -53,11 +83,24 @@ export function VfpBadge({
   return (
     <Badge
       variant="outline"
-      className={`inline-flex items-center text-muted-foreground border-muted-foreground/30 ${sizeClasses} ${className}`}
-      title="Statut standard (seuil de 10 transactions sur 15 jours non atteint)"
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onClick?.(e as unknown as React.MouseEvent<HTMLElement>);
+        }
+      }}
+      className={`inline-flex items-center text-muted-foreground border-muted-foreground/30 ${sizeClasses} ${interactiveClasses} ${className}`}
+      title={
+        isClickable
+          ? 'Statut standard : Cliquez pour voir les critères et avantages du statut VFP'
+          : 'Statut standard (seuil de 10 transactions sur 15 jours non atteint)'
+      }
     >
       <Sparkles className={`${iconSizes} text-muted-foreground/60 shrink-0`} />
-      {showText && <span>Standard</span>}
+      {showText && <span>{defaultStandardLabel}</span>}
     </Badge>
   );
 }

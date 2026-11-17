@@ -20,9 +20,7 @@ let error: string | null = null;
 const targetRoute = getApiEndpoint('/v1/stores');
 
 try {
-  console.log(`[PAGE /stores] Début de la récupération des boutiques via la route: ${targetRoute}`);
   stores = await getStores();
-  console.log(`[PAGE /stores] Récupération réussie: ${stores.length} boutique(s) trouvée(s).`);
 } catch (err: unknown) {
   // Log internal details to server logs only to avoid exposing topology to end-users
   console.error(`[PAGE /stores] Erreur lors de l'appel à [${targetRoute}]:`, err);
@@ -66,7 +64,7 @@ try {
     {!error && stores.length > 0 && (
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {stores.map((store) => (
-          <StoreCard store={store} />
+          <StoreCard store={store} client:visible />
         ))}
       </div>
     )}

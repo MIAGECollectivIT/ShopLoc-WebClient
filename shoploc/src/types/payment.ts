@@ -18,3 +18,13 @@ export interface PaymentAuthorizationResponse {
   rule: string;
   paymentMethod?: string;
 }
+
+export interface UserPaymentTransaction {
+  transactionId: string;
+  reference: string;
+  amount: number;
+  currency: string;
+  status: string;
+  authorizationCode: string;
+  createdAt: string;
+}
