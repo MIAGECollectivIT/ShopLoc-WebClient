@@ -182,7 +182,7 @@ export function ClientProfileView() {
         </CardHeader>
         <CardFooter className="flex justify-center pt-2">
           <a
-            href="/api/auth/logout"
+            href="/login?logout=1"
             data-astro-reload=""
             className={buttonVariants({
               variant: 'default',

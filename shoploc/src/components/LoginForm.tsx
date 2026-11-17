@@ -14,7 +14,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Field, FieldLabel, FieldError } from '@/components/ui/field';
 import { PasswordInput } from './PasswordInput';
 import { loginZodSchema, type LoginFormData } from '@/lib/validation/login';
-import { loginUser } from '@/lib/api';
+import { loginUser, logoutUser } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { ROUTES } from '@/config/routes';
 import type { UserResponse } from '@/types/user';
@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 
 export function LoginForm() {
-  const { isAuthenticated, user: authUser, logout, isLoading } = useAuth();
+  const { isAuthenticated, user: authUser, isLoading } = useAuth();
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -197,10 +197,10 @@ export function LoginForm() {
             variant="ghost"
             size="sm"
             className="w-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 mt-1"
-            onClick={() => {
-              logout();
+            onClick={async () => {
+              await logoutUser();
               setLoggedInUser(null);
-              window.location.href = '/api/auth/logout';
+              window.location.href = '/login';
             }}
           >
             <LogOut className="size-4 mr-2" />
