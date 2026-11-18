@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import {
   getOrderByReference,
   getStoreById,
+  getStoreLoyaltyRate,
   getUserPointsBalance,
   downloadOrderReceiptPdf,
   triggerBlobDownload,
@@ -38,6 +39,30 @@ interface SettlementBreakdown {
   pointsDeductionEuro?: number;
 }
 
+function calculateLoyaltyPoints(
+  amount: number,
+  euroAmount: number = 1,
+  pointsReward: number = 1
+): number {
+  if (
+    !amount ||
+    amount <= 0 ||
+    !euroAmount ||
+    euroAmount <= 0 ||
+    !pointsReward ||
+    pointsReward <= 0
+  ) {
+    return 0;
+  }
+  const rawPoints = (amount * pointsReward) / euroAmount;
+  const halfSteps = Math.floor(rawPoints * 2);
+  return halfSteps / 2;
+}
+
+function formatPoints(pts: number): string {
+  return pts % 1 === 0 ? pts.toFixed(0) : pts.toFixed(1);
+}
+
 export interface OrderConfirmationPageViewProps {
   initialOrderReference?: string;
 }
@@ -56,6 +81,9 @@ export function OrderConfirmationPageView({
   const [orderError, setOrderError] = React.useState<string | null>(null);
 
   const [storeAddresses, setStoreAddresses] = React.useState<Record<number, string>>({});
+  const [storeRates, setStoreRates] = React.useState<
+    Record<number, { euroAmount: number; pointsReward: number }>
+  >({});
   const [paymentReceipt, setPaymentReceipt] = React.useState<PaymentAuthorizationResponse | null>(
     null
   );
@@ -145,19 +173,35 @@ export function OrderConfirmationPageView({
       .then(async (fetchedOrder) => {
         setOrder(fetchedOrder);
 
-        // Fetch store addresses for Click & Collect pickup
+        // Fetch store addresses and loyalty rates for Click & Collect pickup
         const addresses: Record<number, string> = {};
-        for (const summary of fetchedOrder.storeSummaries) {
-          try {
-            const store: Store = await getStoreById(summary.storeId);
-            if (store.address) {
-              addresses[summary.storeId] = store.address;
+        const rates: Record<number, { euroAmount: number; pointsReward: number }> = {};
+
+        await Promise.all(
+          fetchedOrder.storeSummaries.map(async (summary) => {
+            try {
+              const store: Store = await getStoreById(summary.storeId);
+              if (store.address) {
+                addresses[summary.storeId] = store.address;
+              }
+            } catch {
+              addresses[summary.storeId] = 'Adresse communiquée sur le ticket de caisse';
             }
-          } catch {
-            addresses[summary.storeId] = 'Adresse communiquée sur le ticket de caisse';
-          }
-        }
+
+            try {
+              const rateData = await getStoreLoyaltyRate(summary.storeId);
+              rates[summary.storeId] = {
+                euroAmount: rateData.euroAmount || 1,
+                pointsReward: rateData.pointsReward || 1,
+              };
+            } catch {
+              rates[summary.storeId] = { euroAmount: 1, pointsReward: 1 };
+            }
+          })
+        );
+
         setStoreAddresses(addresses);
+        setStoreRates(rates);
       })
       .catch((err: unknown) => {
         setOrderError(err instanceof Error ? err.message : 'Impossible de récupérer la commande');
@@ -498,6 +542,7 @@ export function OrderConfirmationPageView({
           const storeItems = order.items.filter((item) => item.storeId === summary.storeId);
           const address =
             storeAddresses[summary.storeId] || 'Adresse disponible chez le commerçant';
+          const rate = storeRates[summary.storeId] || { euroAmount: 1, pointsReward: 1 };
 
           return (
             <Card key={summary.storeId} className="border-border shadow-xs">
@@ -521,27 +566,42 @@ export function OrderConfirmationPageView({
 
               <CardContent className="p-4 pt-3">
                 <div className="divide-y divide-border/40 text-xs">
-                  {storeItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="py-2 flex items-center justify-between gap-3 first:pt-0 last:pb-0"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="size-5 rounded-md bg-muted flex items-center justify-center font-mono font-semibold text-[11px] shrink-0">
-                          {item.quantity}×
-                        </span>
-                        <span className="font-medium text-foreground">{item.productName}</span>
+                  {storeItems.map((item) => {
+                    const itemPoints = calculateLoyaltyPoints(
+                      item.totalPrice,
+                      rate.euroAmount,
+                      rate.pointsReward
+                    );
+                    return (
+                      <div
+                        key={item.id}
+                        className="py-2.5 flex items-center justify-between gap-3 first:pt-0 last:pb-0"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="size-5 rounded-md bg-muted flex items-center justify-center font-mono font-semibold text-[11px] shrink-0">
+                            {item.quantity}×
+                          </span>
+                          <span className="font-medium text-foreground truncate">
+                            {item.productName}
+                          </span>
+                        </div>
+                        <div className="text-right font-mono shrink-0">
+                          <span className="font-bold text-foreground">
+                            {item.totalPrice.toFixed(2)} €
+                          </span>
+                          <span className="block text-[10px] text-muted-foreground">
+                            ({item.unitPrice.toFixed(2)} € / u)
+                          </span>
+                          {itemPoints > 0 && (
+                            <div className="flex items-center justify-end gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">
+                              <Sparkles className="size-3 shrink-0" />
+                              <span>+{formatPoints(itemPoints)} pts fidélité</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-right font-mono shrink-0">
-                        <span className="font-bold text-foreground">
-                          {item.totalPrice.toFixed(2)} €
-                        </span>
-                        <span className="block text-[10px] text-muted-foreground">
-                          ({item.unitPrice.toFixed(2)} € / u)
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
