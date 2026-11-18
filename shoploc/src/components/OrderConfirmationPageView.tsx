@@ -6,6 +6,8 @@ import { useAuth } from '@/lib/auth';
 import {
   getOrderByReference,
   getStoreById,
+  getStoreLoyaltyRate,
+  getUserPointsBalance,
   downloadOrderReceiptPdf,
   triggerBlobDownload,
 } from '@/lib/api';
@@ -25,6 +27,7 @@ import {
   FileDown,
   Mail,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 
 interface SettlementBreakdown {
@@ -34,6 +37,30 @@ interface SettlementBreakdown {
   totalAmount?: number;
   pointsUsed?: number;
   pointsDeductionEuro?: number;
+}
+
+function calculateLoyaltyPoints(
+  amount: number,
+  euroAmount: number = 1,
+  pointsReward: number = 1
+): number {
+  if (
+    !amount ||
+    amount <= 0 ||
+    !euroAmount ||
+    euroAmount <= 0 ||
+    !pointsReward ||
+    pointsReward <= 0
+  ) {
+    return 0;
+  }
+  const rawPoints = (amount * pointsReward) / euroAmount;
+  const halfSteps = Math.floor(rawPoints * 2);
+  return halfSteps / 2;
+}
+
+function formatPoints(pts: number): string {
+  return pts % 1 === 0 ? pts.toFixed(0) : pts.toFixed(1);
 }
 
 export interface OrderConfirmationPageViewProps {
@@ -54,12 +81,20 @@ export function OrderConfirmationPageView({
   const [orderError, setOrderError] = React.useState<string | null>(null);
 
   const [storeAddresses, setStoreAddresses] = React.useState<Record<number, string>>({});
+  const [storeRates, setStoreRates] = React.useState<
+    Record<number, { euroAmount: number; pointsReward: number }>
+  >({});
   const [paymentReceipt, setPaymentReceipt] = React.useState<PaymentAuthorizationResponse | null>(
     null
   );
   const [settlementInfo, setSettlementInfo] = React.useState<SettlementBreakdown | null>(null);
   const [isDownloading, setIsDownloading] = React.useState(false);
   const [downloadError, setDownloadError] = React.useState<string | null>(null);
+
+  // Loyalty points credited
+  const [loyaltyPointsEarned, setLoyaltyPointsEarned] = React.useState<number | null>(null);
+  const [currentLoyaltyBalance, setCurrentLoyaltyBalance] = React.useState<number | null>(null);
+  const [loadingLoyalty, setLoadingLoyalty] = React.useState(false);
 
   const handleDownloadPdf = async () => {
     if (!order) return;
@@ -138,19 +173,35 @@ export function OrderConfirmationPageView({
       .then(async (fetchedOrder) => {
         setOrder(fetchedOrder);
 
-        // Fetch store addresses for Click & Collect pickup
+        // Fetch store addresses and loyalty rates for Click & Collect pickup
         const addresses: Record<number, string> = {};
-        for (const summary of fetchedOrder.storeSummaries) {
-          try {
-            const store: Store = await getStoreById(summary.storeId);
-            if (store.address) {
-              addresses[summary.storeId] = store.address;
+        const rates: Record<number, { euroAmount: number; pointsReward: number }> = {};
+
+        await Promise.all(
+          fetchedOrder.storeSummaries.map(async (summary) => {
+            try {
+              const store: Store = await getStoreById(summary.storeId);
+              if (store.address) {
+                addresses[summary.storeId] = store.address;
+              }
+            } catch {
+              addresses[summary.storeId] = 'Adresse communiquée sur le ticket de caisse';
             }
-          } catch {
-            addresses[summary.storeId] = 'Adresse communiquée sur le ticket de caisse';
-          }
-        }
+
+            try {
+              const rateData = await getStoreLoyaltyRate(summary.storeId);
+              rates[summary.storeId] = {
+                euroAmount: rateData.euroAmount || 1,
+                pointsReward: rateData.pointsReward || 1,
+              };
+            } catch {
+              rates[summary.storeId] = { euroAmount: 1, pointsReward: 1 };
+            }
+          })
+        );
+
         setStoreAddresses(addresses);
+        setStoreRates(rates);
       })
       .catch((err: unknown) => {
         setOrderError(err instanceof Error ? err.message : 'Impossible de récupérer la commande');
@@ -159,6 +210,57 @@ export function OrderConfirmationPageView({
         setLoadingOrder(false);
       });
   }, [mounted, orderReference, token]);
+
+  // Fetch credited loyalty points for this order
+  React.useEffect(() => {
+    if (!mounted || !order || (order.status !== 'PAID' && order.status !== 'COMPLETED')) {
+      return;
+    }
+
+    let isSubscribed = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const checkLoyaltyPoints = async (attempts = 3) => {
+      try {
+        setLoadingLoyalty(true);
+        const res = await getUserPointsBalance(undefined, token || undefined);
+        if (!isSubscribed) return;
+
+        const effectiveBalance = typeof res.balance === 'number' ? res.balance : (res.points ?? 0);
+        setCurrentLoyaltyBalance(effectiveBalance);
+
+        const match = res.transactions?.find(
+          (t) => t.transactionReference === order.orderReference
+        );
+        if (match) {
+          setLoyaltyPointsEarned(match.points);
+          setLoadingLoyalty(false);
+          return;
+        }
+
+        // Retry if asynchronous Kafka event is still in transit
+        if (attempts > 1) {
+          timer = setTimeout(() => {
+            if (isSubscribed) {
+              checkLoyaltyPoints(attempts - 1);
+            }
+          }, 1200);
+        } else {
+          setLoadingLoyalty(false);
+        }
+      } catch (err) {
+        console.warn('Impossible de charger les points fidélité:', err);
+        if (isSubscribed) setLoadingLoyalty(false);
+      }
+    };
+
+    checkLoyaltyPoints();
+
+    return () => {
+      isSubscribed = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [mounted, order, token]);
 
   if (!mounted || authLoading || loadingOrder) {
     return (
@@ -306,6 +408,43 @@ export function OrderConfirmationPageView({
 
         {/* 2. Financial breakdown of the transaction */}
         <CardContent className="p-6 space-y-4">
+          {/* Loyalty points credited*/}
+          {loyaltyPointsEarned !== null && loyaltyPointsEarned > 0 ? (
+            <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <Sparkles className="size-5" />
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-amber-950 dark:text-amber-300 block">
+                    Points de fidélité crédités
+                  </span>
+                  <span className="text-[11px] text-muted-foreground block">
+                    Attribués automatiquement selon le barème de chaque commerce
+                  </span>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="font-mono text-lg sm:text-xl font-extrabold text-amber-600 dark:text-amber-400 block">
+                  +{loyaltyPointsEarned.toFixed(1)} pts
+                </span>
+                {currentLoyaltyBalance !== null && (
+                  <span className="text-[11px] text-muted-foreground block">
+                    Nouveau solde :{' '}
+                    <strong className="font-mono text-foreground">
+                      {currentLoyaltyBalance.toFixed(1)} pts
+                    </strong>
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : loadingLoyalty ? (
+            <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 flex items-center gap-3 text-xs text-muted-foreground animate-pulse">
+              <Sparkles className="size-4 text-amber-500 shrink-0" />
+              <span>Attribution automatique de vos points fidélité en cours...</span>
+            </div>
+          ) : null}
+
           <div className="flex items-center gap-2 font-semibold text-sm text-foreground">
             <Receipt className="size-4 text-primary" />
             <span>Détail financier de l’opération</span>
@@ -403,6 +542,7 @@ export function OrderConfirmationPageView({
           const storeItems = order.items.filter((item) => item.storeId === summary.storeId);
           const address =
             storeAddresses[summary.storeId] || 'Adresse disponible chez le commerçant';
+          const rate = storeRates[summary.storeId] || { euroAmount: 1, pointsReward: 1 };
 
           return (
             <Card key={summary.storeId} className="border-border shadow-xs">
@@ -426,27 +566,42 @@ export function OrderConfirmationPageView({
 
               <CardContent className="p-4 pt-3">
                 <div className="divide-y divide-border/40 text-xs">
-                  {storeItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="py-2 flex items-center justify-between gap-3 first:pt-0 last:pb-0"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="size-5 rounded-md bg-muted flex items-center justify-center font-mono font-semibold text-[11px] shrink-0">
-                          {item.quantity}×
-                        </span>
-                        <span className="font-medium text-foreground">{item.productName}</span>
+                  {storeItems.map((item) => {
+                    const itemPoints = calculateLoyaltyPoints(
+                      item.totalPrice,
+                      rate.euroAmount,
+                      rate.pointsReward
+                    );
+                    return (
+                      <div
+                        key={item.id}
+                        className="py-2.5 flex items-center justify-between gap-3 first:pt-0 last:pb-0"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="size-5 rounded-md bg-muted flex items-center justify-center font-mono font-semibold text-[11px] shrink-0">
+                            {item.quantity}×
+                          </span>
+                          <span className="font-medium text-foreground truncate">
+                            {item.productName}
+                          </span>
+                        </div>
+                        <div className="text-right font-mono shrink-0">
+                          <span className="font-bold text-foreground">
+                            {item.totalPrice.toFixed(2)} €
+                          </span>
+                          <span className="block text-[10px] text-muted-foreground">
+                            ({item.unitPrice.toFixed(2)} € / u)
+                          </span>
+                          {itemPoints > 0 && (
+                            <div className="flex items-center justify-end gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">
+                              <Sparkles className="size-3 shrink-0" />
+                              <span>+{formatPoints(itemPoints)} pts fidélité</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-right font-mono shrink-0">
-                        <span className="font-bold text-foreground">
-                          {item.totalPrice.toFixed(2)} €
-                        </span>
-                        <span className="block text-[10px] text-muted-foreground">
-                          ({item.unitPrice.toFixed(2)} € / u)
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
