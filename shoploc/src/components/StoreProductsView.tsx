@@ -8,6 +8,7 @@ import { MerchantLoyaltyScanner } from '@/components/MerchantLoyaltyScanner';
 import { MerchantStoreProfileForm } from '@/components/MerchantStoreProfileForm';
 import { ClientProductCatalog } from '@/components/ClientProductCatalog';
 import { StoreLoyaltyBanner } from '@/components/StoreLoyaltyBanner';
+import { StoreClientGiftsCatalog } from '@/components/StoreClientGiftsCatalog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/config/routes';
@@ -23,6 +24,7 @@ import {
   Undo2,
   Ban,
   AlertCircle,
+  ShoppingBag,
 } from 'lucide-react';
 
 interface StoreProductsViewProps {
@@ -36,6 +38,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
   const [viewMode, setViewMode] = React.useState<
     'merchant' | 'gifts' | 'loyalty' | 'scan' | 'profile' | 'client'
   >('merchant');
+  const [clientActiveTab, setClientActiveTab] = React.useState<'products' | 'gifts'>('products');
 
   React.useEffect(() => {
     setCurrentStore(store);
@@ -45,6 +48,9 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
     setMounted(true);
     if (typeof window !== 'undefined') {
       const param = new URLSearchParams(window.location.search).get('tab');
+      if (param === 'gifts') {
+        setClientActiveTab('gifts');
+      }
       if (
         param === 'merchant' ||
         param === 'gifts' ||
@@ -115,14 +121,53 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
     );
   }
 
+  const renderClientStorefront = () => (
+    <div className="space-y-6">
+      <StoreLoyaltyBanner
+        storeId={numericStoreId}
+        onViewGifts={() => setClientActiveTab('gifts')}
+      />
+
+      {/* Client view mode switcher (Products vs Gifts) */}
+      <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border/80 w-fit">
+        <button
+          type="button"
+          onClick={() => setClientActiveTab('products')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+            clientActiveTab === 'products'
+              ? 'bg-background text-foreground font-semibold shadow-xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <ShoppingBag className="size-3.5" />
+          <span>Articles Click & Collect</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setClientActiveTab('gifts')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+            clientActiveTab === 'gifts'
+              ? 'bg-background text-foreground font-semibold shadow-xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Gift className="size-3.5 text-primary" />
+          <span>Cadeaux Fidélité</span>
+        </button>
+      </div>
+
+      {clientActiveTab === 'products' ? (
+        <ClientProductCatalog storeId={storeIdentifier} storeName={currentStore.name} />
+      ) : (
+        <StoreClientGiftsCatalog storeId={numericStoreId} storeName={currentStore.name} />
+      )}
+    </div>
+  );
+
   // If citizen or unauthenticated visitor, show the loyalty banner and client storefront directly
   if (!isOwnerOrAdmin) {
-    return (
-      <div className="space-y-6 pt-6">
-        <StoreLoyaltyBanner storeId={numericStoreId} />
-        <ClientProductCatalog storeId={storeIdentifier} storeName={currentStore.name} />
-      </div>
-    );
+    return <div className="pt-6">{renderClientStorefront()}</div>;
   }
 
   // If merchant owner or admin: show modern management control card & tabs
@@ -313,8 +358,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
               <span>Retour à la gestion</span>
             </Button>
           </div>
-          <StoreLoyaltyBanner storeId={numericStoreId} />
-          <ClientProductCatalog storeId={storeIdentifier} storeName={store.name} />
+          {renderClientStorefront()}
         </div>
       )}
     </div>
