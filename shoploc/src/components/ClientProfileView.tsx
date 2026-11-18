@@ -18,6 +18,7 @@ import { ManageVehiclesDialog } from './ManageVehiclesDialog';
 import { UserActivityGaugeCard } from './UserActivityGaugeCard';
 import { VfpBadge } from './VfpBadge';
 import { VfpBenefitsDialog } from './VfpBenefitsDialog';
+import { VfpParkingSessionCard } from './VfpParkingSessionCard';
 import type { VfpRevocationForecast } from '@/lib/vfp';
 import {
   Card,
@@ -420,6 +421,15 @@ export function ClientProfileView() {
               )}
             </CardContent>
           </Card>
+
+          {isClient && (
+            <VfpParkingSessionCard
+              userId={effectiveUser.id}
+              isVfp={Boolean(vfpStatus?.isVfp)}
+              licensePlates={licensePlates}
+              onManageVehicles={() => setIsManageVehiclesOpen(true)}
+            />
+          )}
 
           {/* License Plates Card (displayed only for clients) */}
           {isClient && (

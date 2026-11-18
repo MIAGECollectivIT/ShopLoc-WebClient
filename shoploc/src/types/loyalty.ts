@@ -100,3 +100,15 @@ export interface UserPointsBalanceResponse {
   updatedAt: string;
   transactions: PointsTransaction[];
 }
+
+export interface ParkingSessionRequest {
+  licensePlate: string;
+}
+
+export interface ParkingSessionAcknowledgment {
+  status: string;
+  ticketReference: string;
+  licensePlate: string;
+  startedAt: string;
+  expiresAt: string;
+}
