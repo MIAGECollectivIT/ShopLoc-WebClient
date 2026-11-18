@@ -1509,12 +1509,51 @@ export async function deleteVehicle(licensePlate: string): Promise<void> {
   }
 }
 
+// In-memory cache for UUID -> numeric store ID mapping
+const storeNumericIdCache = new Map<string, number>();
+
+/**
+ * Resolves a store identifier (which might be a numeric ID or a UUID string) to its numeric DB id.
+ * Required by services like Loyalty Service that strictly expect a Java Long for storeId.
+ */
+export async function resolveNumericStoreId(
+  storeIdentifier: string | number
+): Promise<number | string> {
+  if (typeof storeIdentifier === 'number') {
+    return storeIdentifier;
+  }
+  if (!storeIdentifier) {
+    return storeIdentifier;
+  }
+  const str = String(storeIdentifier).trim();
+  if (/^\d+$/.test(str)) {
+    return Number(str);
+  }
+  if (storeNumericIdCache.has(str)) {
+    return storeNumericIdCache.get(str)!;
+  }
+  // If it's a UUID, resolve it via store-service
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
+    try {
+      const store = await getStoreById(str);
+      if (typeof store?.id === 'number') {
+        storeNumericIdCache.set(str, store.id);
+        return store.id;
+      }
+    } catch {
+      // Fallback if lookup fails
+    }
+  }
+  return storeIdentifier;
+}
+
 /**
  * Retrieves the configured loyalty rate for a store (or the default rate 1 € = 1 pt).
  * Publicly accessible for customers and merchants.
  */
 export async function getStoreLoyaltyRate(storeId: number | string): Promise<MerchantLoyaltyRate> {
-  const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${storeId}/rates`);
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
+  const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${resolvedStoreId}/rates`);
   const res = await fetchWithTimeout(endpoint, {
     method: 'GET',
     headers: {
@@ -1524,7 +1563,7 @@ export async function getStoreLoyaltyRate(storeId: number | string): Promise<Mer
 
   if (res.status === 404 || res.status === 400) {
     return {
-      storeId,
+      storeId: resolvedStoreId,
       euroAmount: 1,
       pointsReward: 1,
     };
@@ -1545,7 +1584,8 @@ export async function updateStoreLoyaltyRate(
   storeId: number | string,
   data: MerchantLoyaltyRateRequest
 ): Promise<MerchantLoyaltyRate> {
-  const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${storeId}/rates`);
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
+  const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${resolvedStoreId}/rates`);
   const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'PUT',
@@ -1582,6 +1622,38 @@ export async function updateStoreLoyaltyRate(
 }
 
 /**
+ * Retrieves the global public catalog of active loyalty gifts with optional filters (SLE-39 / SLE-223 / SLE-224).
+ */
+export async function getPublicGifts(params?: {
+  storeId?: number | string;
+  category?: string;
+}): Promise<LoyaltyGift[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.storeId && params.storeId !== 'ALL') {
+    const resolvedStoreId = await resolveNumericStoreId(params.storeId);
+    searchParams.set('storeId', String(resolvedStoreId));
+  }
+  if (params?.category && params.category !== 'ALL') {
+    searchParams.set('category', params.category);
+  }
+  const queryString = searchParams.toString();
+  const endpoint = getApiEndpoint(`/v1/loyalty/gifts${queryString ? `?${queryString}` : ''}`);
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer le catalogue des cadeaux (${res.status})`);
+  }
+
+  return (await res.json()) as LoyaltyGift[];
+}
+
+/**
  * Retrieves the list of loyalty gifts for a store (SLE-60 / SLE-192).
  * By default returns active gifts. Set includeInactive to true to retrieve all gifts (for merchants/admins).
  */
@@ -1589,8 +1661,9 @@ export async function getStoreGifts(
   storeId: number | string,
   includeInactive: boolean = false
 ): Promise<LoyaltyGift[]> {
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
   const query = includeInactive ? '?includeInactive=true' : '';
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts${query}`);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts${query}`);
   const res = await fetchWithTimeout(endpoint, {
     method: 'GET',
     headers: {
@@ -1612,7 +1685,8 @@ export async function getStoreGiftById(
   storeId: number | string,
   giftId: number | string
 ): Promise<LoyaltyGift> {
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}`);
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts/${giftId}`);
   const res = await fetchWithTimeout(endpoint, {
     method: 'GET',
     headers: {
@@ -1638,7 +1712,8 @@ export async function createGift(
   data: GiftCreateRequest,
   imageFile?: File
 ): Promise<LoyaltyGift> {
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts`);
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts`);
   const token = getAuthToken();
 
   let body: BodyInit;
@@ -1694,7 +1769,8 @@ export async function updateGift(
   data: GiftUpdateRequest,
   imageFile?: File
 ): Promise<LoyaltyGift> {
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}`);
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts/${giftId}`);
   const token = getAuthToken();
 
   let body: BodyInit;
@@ -1749,7 +1825,8 @@ export async function adjustGiftStock(
   giftId: number | string,
   delta: number
 ): Promise<LoyaltyGift> {
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}/stock`);
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts/${giftId}/stock`);
   const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'PATCH',
@@ -1783,7 +1860,8 @@ export async function adjustGiftStock(
  * Deletes a gift item from the catalog (SLE-60 / SLE-192).
  */
 export async function deleteGift(storeId: number | string, giftId: number | string): Promise<void> {
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}`);
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts/${giftId}`);
   const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'DELETE',
