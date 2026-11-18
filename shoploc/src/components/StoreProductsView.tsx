@@ -100,7 +100,11 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
   }, [isAuthenticated, user, role, store.userId, store.id, store.uid]);
 
   const storeIdentifier: string | number = currentStore.uid || currentStore.id || '';
-  const numericStoreId: number | string = currentStore.id ?? currentStore.uid ?? '';
+  const numericStoreId: number =
+    typeof currentStore.id === 'number'
+      ? currentStore.id
+      : Number(currentStore.id) ||
+        (typeof store.id === 'number' ? store.id : Number(store.id) || 1);
 
   if (!mounted || isLoading) {
     return (
