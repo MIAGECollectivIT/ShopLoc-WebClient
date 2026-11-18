@@ -100,6 +100,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
   }, [isAuthenticated, user, role, store.userId, store.id, store.uid]);
 
   const storeIdentifier: string | number = currentStore.uid || currentStore.id || '';
+  const numericStoreId: number | string = currentStore.id ?? currentStore.uid ?? '';
 
   if (!mounted || isLoading) {
     return (
@@ -114,7 +115,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
   if (!isOwnerOrAdmin) {
     return (
       <div className="space-y-6 pt-6">
-        <StoreLoyaltyBanner storeId={storeIdentifier} />
+        <StoreLoyaltyBanner storeId={numericStoreId} />
         <ClientProductCatalog storeId={storeIdentifier} storeName={currentStore.name} />
       </div>
     );
@@ -272,11 +273,11 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
       )}
 
       {viewMode === 'gifts' && (
-        <MerchantGiftsDashboard storeId={storeIdentifier} storeName={store.name} />
+        <MerchantGiftsDashboard storeId={numericStoreId} storeName={store.name} />
       )}
 
       {viewMode === 'loyalty' && (
-        <MerchantLoyaltyRateCard storeId={storeIdentifier} storeName={currentStore.name} />
+        <MerchantLoyaltyRateCard storeId={numericStoreId} storeName={currentStore.name} />
       )}
 
       {viewMode === 'profile' && (
@@ -287,7 +288,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
       )}
 
       {viewMode === 'scan' && (
-        <MerchantLoyaltyScanner storeId={storeIdentifier} storeName={currentStore.name} />
+        <MerchantLoyaltyScanner storeId={numericStoreId} storeName={currentStore.name} />
       )}
 
       {viewMode === 'client' && (
@@ -308,7 +309,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
               <span>Retour à la gestion</span>
             </Button>
           </div>
-          <StoreLoyaltyBanner storeId={storeIdentifier} />
+          <StoreLoyaltyBanner storeId={numericStoreId} />
           <ClientProductCatalog storeId={storeIdentifier} storeName={store.name} />
         </div>
       )}

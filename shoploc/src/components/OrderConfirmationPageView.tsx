@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import {
   getOrderByReference,
   getStoreById,
+  getUserPointsBalance,
   downloadOrderReceiptPdf,
   triggerBlobDownload,
 } from '@/lib/api';
@@ -25,6 +26,7 @@ import {
   FileDown,
   Mail,
   Loader2,
+  Sparkles,
 } from 'lucide-react';
 
 interface SettlementBreakdown {
@@ -60,6 +62,11 @@ export function OrderConfirmationPageView({
   const [settlementInfo, setSettlementInfo] = React.useState<SettlementBreakdown | null>(null);
   const [isDownloading, setIsDownloading] = React.useState(false);
   const [downloadError, setDownloadError] = React.useState<string | null>(null);
+
+  // Loyalty points credited
+  const [loyaltyPointsEarned, setLoyaltyPointsEarned] = React.useState<number | null>(null);
+  const [currentLoyaltyBalance, setCurrentLoyaltyBalance] = React.useState<number | null>(null);
+  const [loadingLoyalty, setLoadingLoyalty] = React.useState(false);
 
   const handleDownloadPdf = async () => {
     if (!order) return;
@@ -159,6 +166,57 @@ export function OrderConfirmationPageView({
         setLoadingOrder(false);
       });
   }, [mounted, orderReference, token]);
+
+  // Fetch credited loyalty points for this order
+  React.useEffect(() => {
+    if (!mounted || !order || (order.status !== 'PAID' && order.status !== 'COMPLETED')) {
+      return;
+    }
+
+    let isSubscribed = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const checkLoyaltyPoints = async (attempts = 3) => {
+      try {
+        setLoadingLoyalty(true);
+        const res = await getUserPointsBalance(undefined, token || undefined);
+        if (!isSubscribed) return;
+
+        const effectiveBalance = typeof res.balance === 'number' ? res.balance : (res.points ?? 0);
+        setCurrentLoyaltyBalance(effectiveBalance);
+
+        const match = res.transactions?.find(
+          (t) => t.transactionReference === order.orderReference
+        );
+        if (match) {
+          setLoyaltyPointsEarned(match.points);
+          setLoadingLoyalty(false);
+          return;
+        }
+
+        // Retry if asynchronous Kafka event is still in transit
+        if (attempts > 1) {
+          timer = setTimeout(() => {
+            if (isSubscribed) {
+              checkLoyaltyPoints(attempts - 1);
+            }
+          }, 1200);
+        } else {
+          setLoadingLoyalty(false);
+        }
+      } catch (err) {
+        console.warn('Impossible de charger les points fidélité:', err);
+        if (isSubscribed) setLoadingLoyalty(false);
+      }
+    };
+
+    checkLoyaltyPoints();
+
+    return () => {
+      isSubscribed = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [mounted, order, token]);
 
   if (!mounted || authLoading || loadingOrder) {
     return (
@@ -306,6 +364,43 @@ export function OrderConfirmationPageView({
 
         {/* 2. Financial breakdown of the transaction */}
         <CardContent className="p-6 space-y-4">
+          {/* Loyalty points credited*/}
+          {loyaltyPointsEarned !== null && loyaltyPointsEarned > 0 ? (
+            <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <Sparkles className="size-5" />
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-amber-950 dark:text-amber-300 block">
+                    Points de fidélité crédités
+                  </span>
+                  <span className="text-[11px] text-muted-foreground block">
+                    Attribués automatiquement selon le barème de chaque commerce
+                  </span>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <span className="font-mono text-lg sm:text-xl font-extrabold text-amber-600 dark:text-amber-400 block">
+                  +{loyaltyPointsEarned.toFixed(1)} pts
+                </span>
+                {currentLoyaltyBalance !== null && (
+                  <span className="text-[11px] text-muted-foreground block">
+                    Nouveau solde :{' '}
+                    <strong className="font-mono text-foreground">
+                      {currentLoyaltyBalance.toFixed(1)} pts
+                    </strong>
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : loadingLoyalty ? (
+            <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 flex items-center gap-3 text-xs text-muted-foreground animate-pulse">
+              <Sparkles className="size-4 text-amber-500 shrink-0" />
+              <span>Attribution automatique de vos points fidélité en cours...</span>
+            </div>
+          ) : null}
+
           <div className="flex items-center gap-2 font-semibold text-sm text-foreground">
             <Receipt className="size-4 text-primary" />
             <span>Détail financier de l’opération</span>
