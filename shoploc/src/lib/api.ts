@@ -16,6 +16,7 @@ import type {
 import type {
   MerchantLoyaltyRate,
   MerchantLoyaltyRateRequest,
+  ParkingSessionAcknowledgment,
   UserActivityEvaluation,
   UserPointsBalanceResponse,
   UserVfpStatus,
@@ -2642,4 +2643,38 @@ export async function debitWallet(request: WalletDebitRequest, token?: string): 
   }
 
   return (await res.json()) as Wallet;
+}
+
+const PARKING_ERROR_MESSAGES: Record<number, string> = {
+  400: "Plaque d'immatriculation invalide ou non enregistrée sur votre profil.",
+  401: 'Vous devez être connecté pour activer votre stationnement gratuit.',
+  403: 'Le stationnement gratuit de 20 minutes est réservé aux détenteurs du statut VFP actif.',
+  409: 'Vous avez déjà utilisé votre session de stationnement gratuit aujourd’hui.',
+  502: 'Le service de stationnement est temporairement indisponible. Veuillez réessayer.',
+};
+
+export async function activateVfpParkingSession(
+  licensePlate: string
+): Promise<ParkingSessionAcknowledgment> {
+  const endpoint = getApiEndpoint('/v1/loyalty/vfp/parking-sessions');
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ licensePlate }),
+  });
+
+  if (!res.ok) {
+    const mappedMessage = PARKING_ERROR_MESSAGES[res.status];
+    if (mappedMessage) {
+      throw new Error(mappedMessage);
+    }
+    throw new Error(`Impossible d'activer la session de stationnement (HTTP ${res.status}).`);
+  }
+
+  return (await res.json()) as ParkingSessionAcknowledgment;
 }
