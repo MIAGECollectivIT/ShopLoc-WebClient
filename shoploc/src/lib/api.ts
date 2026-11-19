@@ -21,6 +21,7 @@ import type {
   UserPointsBalanceResponse,
   UserVfpStatus,
   UserVfpProgress,
+  VfpDailyEligibility,
 } from '@/types/loyalty';
 import type { LoyaltyGift, GiftCreateRequest, GiftUpdateRequest } from '@/types/gift';
 import type {
@@ -2677,4 +2678,22 @@ export async function activateVfpParkingSession(
   }
 
   return (await res.json()) as ParkingSessionAcknowledgment;
+}
+
+export async function getVfpDailyEligibility(): Promise<VfpDailyEligibility> {
+  const endpoint = getApiEndpoint('/v1/loyalty/vfp/daily-eligibility');
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Impossible de vérifier l'éligibilité journalière VFP (HTTP ${res.status}).`);
+  }
+
+  return (await res.json()) as VfpDailyEligibility;
 }

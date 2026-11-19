@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { activateVfpParkingSession } from '@/lib/api';
+import { activateVfpParkingSession, getVfpDailyEligibility } from '@/lib/api';
 import type { ParkingSessionAcknowledgment } from '@/types/loyalty';
 import { FrenchLicensePlateBadge } from './FrenchLicensePlateBadge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -36,7 +36,7 @@ interface VfpParkingSessionCardProps {
 }
 
 type BenefitId = 'parking' | 'transit';
-type FeedbackDialogKind = 'vfp-required' | 'transit-soon' | null;
+type FeedbackDialogKind = 'vfp-required' | 'transit-soon' | 'benefit-used' | null;
 
 const STORAGE_KEY_PREFIX = 'shoploc_vfp_parking_';
 
@@ -67,6 +67,17 @@ function getStorageKey(userId: string): string {
   return `${STORAGE_KEY_PREFIX}${userId}`;
 }
 
+function clearPersistedSession(userId: string): void {
+  if (typeof window === 'undefined' || !userId) {
+    return;
+  }
+  try {
+    window.localStorage.removeItem(getStorageKey(userId));
+  } catch {
+    // Ignore storage access errors in private browsing
+  }
+}
+
 function readPersistedSession(userId: string): ParkingSessionAcknowledgment | null {
   if (typeof window === 'undefined' || !userId) {
     return null;
@@ -76,7 +87,7 @@ function readPersistedSession(userId: string): ParkingSessionAcknowledgment | nu
     if (!raw) return null;
     const parsed = JSON.parse(raw) as ParkingSessionAcknowledgment;
     if (!parsed.expiresAt || Date.parse(parsed.expiresAt) <= Date.now()) {
-      window.localStorage.removeItem(getStorageKey(userId));
+      clearPersistedSession(userId);
       return null;
     }
     return parsed;
@@ -131,6 +142,37 @@ export function VfpParkingSessionCard({
   const [copiedReference, setCopiedReference] = React.useState(false);
   const [isParkingDialogOpen, setIsParkingDialogOpen] = React.useState(false);
   const [feedbackDialog, setFeedbackDialog] = React.useState<FeedbackDialogKind>(null);
+  const [consumedToday, setConsumedToday] = React.useState(false);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    if (!userId || !isVfp) {
+      setConsumedToday(false);
+      return undefined;
+    }
+    getVfpDailyEligibility()
+      .then((eligibility) => {
+        if (!isMounted) return;
+        const used = eligibility.parkingUsedToday || eligibility.transitUsedToday;
+        setConsumedToday(used);
+        if (
+          eligibility.activeParkingSession &&
+          Date.parse(eligibility.activeParkingSession.expiresAt) > Date.now()
+        ) {
+          setAcknowledgment(eligibility.activeParkingSession);
+          persistSession(userId, eligibility.activeParkingSession);
+        } else {
+          setAcknowledgment(null);
+          clearPersistedSession(userId);
+        }
+      })
+      .catch(() => {
+        // Non-blocking: activation endpoint still enforces daily eligibility
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [userId, isVfp]);
 
   React.useEffect(() => {
     if (licensePlates.length > 0 && !licensePlates.includes(selectedPlate)) {
@@ -151,10 +193,15 @@ export function VfpParkingSessionCard({
   }, [acknowledgment]);
 
   const isSessionActive = acknowledgment !== null && Date.parse(acknowledgment.expiresAt) > nowMs;
+  const isBenefitLockedToday = isVfp && !isSessionActive && consumedToday;
 
   function handleBenefitClick(benefitId: BenefitId) {
     if (!isVfp) {
       setFeedbackDialog('vfp-required');
+      return;
+    }
+    if (isBenefitLockedToday) {
+      setFeedbackDialog('benefit-used');
       return;
     }
     if (benefitId === 'transit') {
@@ -175,6 +222,7 @@ export function VfpParkingSessionCard({
     try {
       const result = await activateVfpParkingSession(selectedPlate);
       setAcknowledgment(result);
+      setConsumedToday(true);
       setNowMs(Date.now());
       persistSession(userId, result);
       setIsParkingDialogOpen(false);
@@ -205,17 +253,18 @@ export function VfpParkingSessionCard({
         {BENEFIT_OPTIONS.map((benefit) => {
           const Icon = benefit.icon;
           const isParkingActive = benefit.id === 'parking' && isSessionActive;
+          const isDisabledState = !isVfp || isBenefitLockedToday;
 
           return (
             <Button
               key={benefit.id}
               type="button"
               variant="outline"
-              // Keep button clickable when non-VFP so feedback dialog can still open
-              aria-disabled={!isVfp}
+              // Keep button clickable when locked so feedback dialog can still open
+              aria-disabled={isDisabledState}
               onClick={() => handleBenefitClick(benefit.id)}
               className={`h-auto w-full justify-between px-4 py-3 text-left whitespace-normal ${
-                !isVfp
+                isDisabledState
                   ? 'border-dashed opacity-60 text-muted-foreground hover:opacity-80'
                   : isParkingActive
                     ? 'border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/15'
@@ -231,13 +280,17 @@ export function VfpParkingSessionCard({
                 <div className="min-w-0">
                   <span className="block text-sm font-semibold truncate">{benefit.title}</span>
                   <span className="block text-[11px] font-normal text-muted-foreground truncate">
-                    {!isVfp ? 'Seulement pour les membres VFP' : benefit.subtitle}
+                    {!isVfp
+                      ? 'Seulement pour les membres VFP'
+                      : isBenefitLockedToday
+                        ? 'Déjà utilisé aujourd’hui'
+                        : benefit.subtitle}
                   </span>
                 </div>
               </div>
 
               <div className="flex items-center gap-1.5 shrink-0">
-                {!isVfp && <Lock className="size-3.5 text-muted-foreground" />}
+                {isDisabledState && <Lock className="size-3.5 text-muted-foreground" />}
                 <Badge
                   variant={isParkingActive ? 'default' : 'secondary'}
                   className={`text-[11px] font-semibold ${
@@ -433,6 +486,11 @@ export function VfpParkingSessionCard({
                   <Crown className="size-5 text-amber-500" />
                   <span>Réservé aux membres VFP</span>
                 </>
+              ) : feedbackDialog === 'benefit-used' ? (
+                <>
+                  <Lock className="size-5 text-muted-foreground" />
+                  <span>Avantage journalier déjà utilisé</span>
+                </>
               ) : (
                 <>
                   <Bus className="size-5 text-primary" />
@@ -443,7 +501,9 @@ export function VfpParkingSessionCard({
             <DialogDescription>
               {feedbackDialog === 'vfp-required'
                 ? 'Cet avantage est réservé aux clients disposant du statut Very Faithful Person (VFP) actif. Effectuez au moins 10 achats sur 15 jours glissants pour le débloquer.'
-                : 'L’activation des titres de transport en commun gratuits sera disponible prochainement.'}
+                : feedbackDialog === 'benefit-used'
+                  ? 'Vous avez déjà bénéficié de votre avantage gratuit aujourd’hui. Un nouvel avantage sera disponible demain.'
+                  : 'L’activation des titres de transport en commun gratuits sera disponible prochainement.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
