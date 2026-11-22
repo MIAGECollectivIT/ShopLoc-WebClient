@@ -30,6 +30,7 @@ import {
   Settings,
   Bell,
   Shield,
+  ShieldCheck,
   MapPin,
   HelpCircle,
   LogOut,
@@ -319,7 +320,13 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                 <SidebarGroupContent>
                   <SidebarMenu>
                     <SidebarMenuItem>
-                      <SidebarMenuButton render={<a href="/admin/partners" />}>
+                      <SidebarMenuButton render={<a href={ROUTES.adminDashboard.path} />}>
+                        <ShieldCheck className="size-4 text-primary" />
+                        <span className="font-medium text-foreground">Supervision & Comptes</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton render={<a href={ROUTES.adminPartners.path} />}>
                         <UsersIcon className="size-4 text-primary" />
                         <span className="font-medium text-foreground">Gestion Partenaires</span>
                       </SidebarMenuButton>

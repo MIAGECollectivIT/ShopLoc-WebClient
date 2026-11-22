@@ -321,3 +321,61 @@ export const storeGeneralPatchSchema = z.object({
     .max(255, 'La catégorie ne doit pas dépasser 255 caractères'),
 });
 export type StoreGeneralPatchData = z.infer<typeof storeGeneralPatchSchema>;
+
+export const adminStoreEditSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Le nom de l'établissement est obligatoire")
+    .max(255, 'Le nom ne doit pas dépasser 255 caractères'),
+  category: z
+    .string()
+    .trim()
+    .min(1, "La catégorie d'activité est obligatoire")
+    .max(255, 'La catégorie ne doit pas dépasser 255 caractères'),
+  address: z
+    .string()
+    .trim()
+    .max(255, "L'adresse ne doit pas dépasser 255 caractères")
+    .optional()
+    .or(z.literal('')),
+  url: z
+    .string()
+    .trim()
+    .max(500, "L'URL ne doit pas dépasser 500 caractères")
+    .refine(
+      (val) => {
+        if (!val || val.trim() === '') return true;
+        try {
+          const urlToTest =
+            val.startsWith('http://') || val.startsWith('https://') ? val : `https://${val}`;
+          new URL(urlToTest);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "L'URL doit être valide (ex: https://mon-commerce.fr)" }
+    )
+    .optional()
+    .or(z.literal('')),
+  userId: z
+    .union([z.number().positive(), z.string().transform((v) => (v ? Number(v) : undefined))])
+    .optional(),
+  rib: z
+    .string()
+    .trim()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val.trim() === '') return true;
+        return isValidRibOrIban(val);
+      },
+      {
+        message:
+          'Le format ou la clé algorithmique du RIB/IBAN est invalide (RIB français 23 car. ou IBAN valide)',
+      }
+    )
+    .or(z.literal('')),
+});
+export type AdminStoreEditFormValues = z.infer<typeof adminStoreEditSchema>;
