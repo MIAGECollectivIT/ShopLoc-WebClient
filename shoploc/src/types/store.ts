@@ -47,6 +47,7 @@ export interface StorePatchRequest {
   category?: string;
   rib?: string;
   url?: string;
+  userId?: number;
   openingHours?: string;
   absenceStartDate?: string;
   absenceEndDate?: string;

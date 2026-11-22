@@ -17,8 +17,10 @@ export interface UserLoginRequest {
 
 export interface UserResponse {
   id: string;
+  numericId?: number;
   email: string;
   role: UserRole;
+  isLocked?: boolean;
   firstName: string;
   lastName: string;
   birthDate: string;
@@ -27,6 +29,23 @@ export interface UserResponse {
   licensePlates?: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AdminUserUpdateRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  role?: UserRole;
+}
+
+export interface AdminUserPageResponse {
+  content: UserResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
 }
 
 export interface AuthResponse {

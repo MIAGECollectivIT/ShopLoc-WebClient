@@ -11,6 +11,7 @@ import {
   CreditCard,
   Wallet,
   Gift,
+  ShieldCheck,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react';
@@ -95,6 +96,11 @@ export const ROUTES = {
     path: '/profile',
     label: 'Mon Profil',
     icon: User,
+  },
+  adminDashboard: {
+    path: '/admin',
+    label: 'Administration',
+    icon: ShieldCheck,
   },
   adminPartners: {
     path: '/admin/partners',

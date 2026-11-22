@@ -41,6 +41,8 @@ import type {
   UserResponse,
   AuthResponse,
   UserRole,
+  AdminUserUpdateRequest,
+  AdminUserPageResponse,
   VehicleResponse,
   CustomerIdentificationResponse,
 } from '@/types/user';
@@ -407,6 +409,145 @@ export async function getAdminPartners(
 
   const partners: AdminPartnerSummary[] = await res.json();
   return partners;
+}
+
+/**
+ * Retrieves all registered users with multi-criteria filtering and pagination (SLE-68, SLE-252).
+ * Restricted to administrators.
+ */
+export async function getAdminUsers(params?: {
+  query?: string;
+  role?: UserRole;
+  locked?: boolean;
+  from?: string;
+  to?: string;
+  page?: number;
+  size?: number;
+  authToken?: string;
+}): Promise<AdminUserPageResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.query && params.query.trim()) {
+    searchParams.set('query', params.query.trim());
+  }
+  if (params?.role) {
+    searchParams.set('role', params.role);
+  }
+  if (params?.locked !== undefined) {
+    searchParams.set('locked', String(params.locked));
+  }
+  if (params?.from) {
+    searchParams.set('from', params.from);
+  }
+  if (params?.to) {
+    searchParams.set('to', params.to);
+  }
+  if (params?.page !== undefined) {
+    searchParams.set('page', String(params.page));
+  }
+  if (params?.size !== undefined) {
+    searchParams.set('size', String(params.size));
+  }
+
+  const endpoint = getUsersApiEndpoint(`/v1/admin/users?${searchParams.toString()}`);
+  const token = params?.authToken || getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise pour accéder à la liste des utilisateurs.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès réservé aux administrateurs de la plateforme.');
+  }
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer les utilisateurs (HTTP ${res.status})`);
+  }
+
+  return await res.json();
+}
+
+/**
+ * Retrieves a specific user details by ID (SLE-68).
+ */
+export async function getAdminUserById(id: string, authToken?: string): Promise<UserResponse> {
+  const endpoint = getUsersApiEndpoint(`/v1/admin/users/${encodeURIComponent(id)}`);
+  const token = authToken || getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès réservé aux administrateurs.');
+  }
+  if (!res.ok) {
+    throw new Error(`Utilisateur introuvable (HTTP ${res.status})`);
+  }
+
+  return await res.json();
+}
+
+/**
+ * Updates a user profile as administrator (SLE-68).
+ */
+export async function updateAdminUser(
+  id: string,
+  payload: AdminUserUpdateRequest,
+  authToken?: string
+): Promise<UserResponse> {
+  const endpoint = getUsersApiEndpoint(`/v1/admin/users/${encodeURIComponent(id)}`);
+  const token = authToken || getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      err.message || `Impossible de mettre à jour l'utilisateur (HTTP ${res.status})`
+    );
+  }
+
+  return await res.json();
+}
+
+/**
+ * Unlocks a temporarily locked user account (failed login attempts) (SLE-68).
+ */
+export async function unlockAdminUser(id: string, authToken?: string): Promise<UserResponse> {
+  const endpoint = getUsersApiEndpoint(`/v1/admin/users/${encodeURIComponent(id)}/unlock`);
+  const token = authToken || getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      err.message || `Impossible de déverrouiller l'utilisateur (HTTP ${res.status})`
+    );
+  }
+
+  return await res.json();
 }
 
 /**
