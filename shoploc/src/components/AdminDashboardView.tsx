@@ -5,7 +5,8 @@ import type { Store as StoreType } from '@/types/store';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AdminUsersTab } from './AdminUsersTab';
 import { AdminStoresTab } from './AdminStoresTab';
-import { Users, Store, ShieldCheck, ArrowRight } from 'lucide-react';
+import { AdminSettingsTab } from './AdminSettingsTab';
+import { Users, Store, ShieldCheck, ArrowRight, Settings } from 'lucide-react';
 import { ROUTES } from '@/config/routes';
 import { Button } from '@/components/ui/button';
 
@@ -27,7 +28,7 @@ export function AdminDashboardView({
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get('tab');
-      if (tabParam === 'users' || tabParam === 'stores') {
+      if (tabParam === 'users' || tabParam === 'stores' || tabParam === 'settings') {
         setActiveTab(tabParam);
       }
     }
@@ -86,7 +87,7 @@ export function AdminDashboardView({
 
       {/* Tabs Navigation */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-6">
-        <TabsList className="grid w-full grid-cols-2 max-w-md h-10">
+        <TabsList className="grid w-full grid-cols-3 max-w-xl h-10">
           <TabsTrigger
             value="users"
             className={cn(
@@ -111,6 +112,18 @@ export function AdminDashboardView({
             <Store className="size-4" />
             <span>Commerces Partenaires</span>
           </TabsTrigger>
+          <TabsTrigger
+            value="settings"
+            className={cn(
+              'gap-2 text-xs transition-all',
+              activeTab === 'settings'
+                ? 'bg-background text-foreground shadow-sm font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Settings className="size-4" />
+            <span>Paramètres & Notifications</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="users" className="focus-visible:outline-none">
@@ -119,6 +132,10 @@ export function AdminDashboardView({
 
         <TabsContent value="stores" className="focus-visible:outline-none">
           <AdminStoresTab initialStores={initialStores} />
+        </TabsContent>
+
+        <TabsContent value="settings" className="focus-visible:outline-none">
+          <AdminSettingsTab />
         </TabsContent>
       </Tabs>
     </div>
