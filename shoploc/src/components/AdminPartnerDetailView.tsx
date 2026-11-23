@@ -9,11 +9,9 @@ import {
   getAdminPartners,
   removeStoreFromPartner,
   revokeStore,
-  reactivateStore,
   patchStore,
 } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
-import { isValidRibOrIban } from '@/lib/validation/store';
 import { resolveStoreImageUrl } from '@/lib/image';
 import {
   Card,
@@ -58,7 +56,6 @@ import {
   AlertTriangle,
   Ban,
   ShieldAlert,
-  RotateCcw,
 } from 'lucide-react';
 
 interface AdminPartnerDetailViewProps {
@@ -111,16 +108,6 @@ export function AdminPartnerDetailView({
   const [isSubmittingRevoke, setIsSubmittingRevoke] = React.useState<boolean>(false);
   const [revokeError, setRevokeError] = React.useState<string | null>(null);
   const [revokeSuccessMessage, setRevokeSuccessMessage] = React.useState<string | null>(null);
-
-  // Modal dialog state for reactivating partner store
-  const [isReactivateStoreOpen, setIsReactivateStoreOpen] = React.useState<boolean>(false);
-  const [storeToReactivate, setStoreToReactivate] = React.useState<Store | null>(null);
-  const [reactivateRib, setReactivateRib] = React.useState<string>('');
-  const [isSubmittingReactivate, setIsSubmittingReactivate] = React.useState<boolean>(false);
-  const [reactivateError, setReactivateError] = React.useState<string | null>(null);
-  const [reactivateSuccessMessage, setReactivateSuccessMessage] = React.useState<string | null>(
-    null
-  );
 
   // Load store details for affiliated store IDs if not provided in SSR
   React.useEffect(() => {
@@ -394,81 +381,6 @@ export function AdminPartnerDetailView({
       );
     } finally {
       setIsSubmittingRevoke(false);
-    }
-  };
-
-  const handleOpenReactivateStore = (store: Store) => {
-    setStoreToReactivate(store);
-    setReactivateRib('');
-    setReactivateError(null);
-    setReactivateSuccessMessage(null);
-    setIsReactivateStoreOpen(true);
-  };
-
-  const handleConfirmReactivateStore = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!storeToReactivate || (!storeToReactivate.id && !storeToReactivate.uid)) return;
-    const trimmedRib = reactivateRib.trim().toUpperCase();
-    if (!trimmedRib) {
-      setReactivateError('Le nouveau RIB / IBAN est obligatoire pour réactiver le commerce.');
-      return;
-    }
-    if (!isValidRibOrIban(trimmedRib)) {
-      setReactivateError(
-        'Le format ou la clé algorithmique du RIB/IBAN est invalide (RIB français 23 car. ou IBAN valide).'
-      );
-      return;
-    }
-
-    setIsSubmittingReactivate(true);
-    setReactivateError(null);
-
-    const storeIdentifier = storeToReactivate.uid || storeToReactivate.id!;
-    const partnerIdNum = typeof currentPartner.id === 'number' ? currentPartner.id : undefined;
-    try {
-      const reactivated = await reactivateStore(storeIdentifier, trimmedRib, partnerIdNum);
-      if (storeToReactivate.id && (currentPartner.publicId || currentPartner.id)) {
-        await addStoreToPartner(
-          currentPartner.publicId || currentPartner.id,
-          storeToReactivate.id
-        ).catch(() => {});
-      }
-      setStores((prev) =>
-        prev.map((s) =>
-          s.id === storeToReactivate.id || (s.uid && s.uid === storeToReactivate.uid)
-            ? {
-                ...s,
-                status: 'ACTIVE',
-                rib: reactivated.rib || trimmedRib,
-                url: reactivated.url ?? s.url,
-                revokedAt: undefined,
-                revokedBy: undefined,
-              }
-            : s
-        )
-      );
-      setCurrentPartner((prev) => ({
-        ...prev,
-        storeIds:
-          storeToReactivate.id && !prev.storeIds?.includes(storeToReactivate.id)
-            ? [...(prev.storeIds || []), storeToReactivate.id]
-            : prev.storeIds,
-      }));
-      setReactivateSuccessMessage(
-        `Le commerce "${storeToReactivate.name}" a été réactivé avec succès dans le programme.`
-      );
-      setTimeout(() => {
-        setIsReactivateStoreOpen(false);
-        setStoreToReactivate(null);
-      }, 1500);
-    } catch (err: unknown) {
-      setReactivateError(
-        err instanceof Error
-          ? err.message
-          : 'Erreur lors de la réactivation du commerce partenaire.'
-      );
-    } finally {
-      setIsSubmittingReactivate(false);
     }
   };
 
@@ -1404,101 +1316,6 @@ export function AdminPartnerDetailView({
               )}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal Dialog: Reactivate Partner Store */}
-      <Dialog open={isReactivateStoreOpen} onOpenChange={setIsReactivateStoreOpen}>
-        <DialogContent className="max-w-md">
-          <form onSubmit={handleConfirmReactivateStore}>
-            <DialogHeader>
-              <div className="flex items-center gap-3">
-                <div className="rounded-full bg-emerald-500/10 p-2.5 text-emerald-600 dark:text-emerald-400">
-                  <RotateCcw className="size-6" />
-                </div>
-                <div>
-                  <DialogTitle className="text-base font-semibold">
-                    Réactiver le commerce partenaire
-                  </DialogTitle>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Programme d'animation locale ShopLoc
-                  </p>
-                </div>
-              </div>
-              <DialogDescription className="pt-2 text-left">
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Vous êtes sur le point de réactiver le commerce{' '}
-                  <strong className="text-foreground">{storeToReactivate?.name}</strong>. Cette
-                  action réintègre l'établissement dans le réseau actif et le rend à nouveau visible
-                  auprès des citoyens.
-                </p>
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-2 py-4">
-              <label htmlFor="reactivate-rib" className="text-xs font-medium text-foreground">
-                Nouveau RIB ou IBAN <span className="text-destructive">*</span>
-              </label>
-              <Input
-                id="reactivate-rib"
-                type="text"
-                value={reactivateRib}
-                onChange={(e) => setReactivateRib(e.target.value)}
-                placeholder="FR76 3000 6000 0112 3456 7890 189"
-                required
-                disabled={isSubmittingReactivate}
-                className="font-mono text-xs uppercase"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Format IBAN français (27 caractères) ou RIB classique (23 chiffres).
-              </p>
-            </div>
-
-            {reactivateError && (
-              <div className="rounded-lg bg-destructive/10 border border-destructive/40 p-3 text-xs text-destructive flex items-center gap-2 mb-4">
-                <AlertCircle className="size-4 shrink-0" />
-                <span>{reactivateError}</span>
-              </div>
-            )}
-
-            {reactivateSuccessMessage && (
-              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/40 p-3 text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-2 mb-4">
-                <Check className="size-4 shrink-0" />
-                <span>{reactivateSuccessMessage}</span>
-              </div>
-            )}
-
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsReactivateStoreOpen(false)}
-                disabled={isSubmittingReactivate}
-              >
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                variant="default"
-                size="sm"
-                disabled={isSubmittingReactivate || !!reactivateSuccessMessage}
-                className="gap-2 font-medium bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                {isSubmittingReactivate ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    <span>Réactivation en cours...</span>
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="size-4" />
-                    <span>Confirmer la réactivation</span>
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
         </DialogContent>
       </Dialog>
     </div>
