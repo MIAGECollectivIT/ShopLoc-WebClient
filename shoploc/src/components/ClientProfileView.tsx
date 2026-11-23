@@ -589,7 +589,7 @@ export function ClientProfileView() {
               </Card>
             )}
 
-            {/* Compact Loyalty Points Balance Card (SLE-38 / SLE-177) */}
+            {/* Compact Loyalty Points Balance Card */}
             <Card className="border-border bg-gradient-to-br from-card via-card to-emerald-500/5 rounded-2xl shadow-sm border-l-4 border-l-emerald-500">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -623,7 +623,7 @@ export function ClientProfileView() {
               </CardContent>
             </Card>
 
-            {/* Dynamic Activity Gauge & VFP Status (SLE-44 / SLE-45 / SLE-164 / SLE-236) */}
+            {/* Dynamic Activity Gauge & VFP Status */}
             <UserActivityGaugeCard
               userId={effectiveUser.id}
               initialVfpStatus={vfpStatus}
@@ -657,7 +657,7 @@ export function ClientProfileView() {
         )}
       </div>
 
-      {/* Modal d'explication des avantages et privilèges VFP (SLE-50 / SLE-237) */}
+      {/* Modal d'explication des avantages et privilèges VFP */}
       <VfpBenefitsDialog
         isOpen={isBenefitsModalOpen}
         onClose={() => setIsBenefitsModalOpen(false)}

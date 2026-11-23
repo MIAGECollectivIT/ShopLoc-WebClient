@@ -14,8 +14,8 @@ interface VfpBadgeProps {
 }
 
 /**
- * Reusable distinctive UI badge highlighting Very Faithful Person (VFP) status (SLE-50 / SLE-235 / SLE-236).
- * Supports explicit labeling (e.g. 'Membre VFP'), standard inactive status, and interactive click trigger (SLE-237).
+ * Reusable distinctive UI badge highlighting Very Faithful Person (VFP) status.
+ * Supports explicit labeling (e.g. 'Membre VFP'), standard inactive status, and interactive click trigger.
  */
 export function VfpBadge({
   isVfp,

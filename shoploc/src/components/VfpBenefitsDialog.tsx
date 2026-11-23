@@ -33,9 +33,9 @@ interface VfpBenefitsDialogProps {
 }
 
 /**
- * Modal dialog detailing advantages and privileges tied to the Very Faithful Person (VFP) status (SLE-50 / SLE-237).
- * Outlines parking privileges (SLE-48), free public transit (SLE-47), exclusive gift catalog (SLE-49),
- * dynamic sliding window qualification rules (SLE-44 / SLE-45), and countdown to potential revocation (SLE-51).
+ * Modal dialog detailing advantages and privileges tied to the Very Faithful Person (VFP) status.
+ * Outlines parking privileges, free public transit, exclusive gift catalog,
+ * dynamic sliding window qualification rules, and countdown to potential revocation.
  */
 export function VfpBenefitsDialog({
   isOpen,
@@ -166,12 +166,6 @@ export function VfpBenefitsDialog({
             <div className="space-y-1">
               <h5 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <span>Stationnement gratuit (20 min)</span>
-                <Badge
-                  variant="secondary"
-                  className="text-[10px] px-1.5 py-0 h-4 bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20"
-                >
-                  SLE-48
-                </Badge>
               </h5>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Bénéficiez d&apos;une franchise de{' '}
@@ -189,12 +183,6 @@ export function VfpBenefitsDialog({
             <div className="space-y-1">
               <h5 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <span>Transports en commun offerts</span>
-                <Badge
-                  variant="secondary"
-                  className="text-[10px] px-1.5 py-0 h-4 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20"
-                >
-                  SLE-47
-                </Badge>
               </h5>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Profitez de la{' '}
@@ -213,12 +201,6 @@ export function VfpBenefitsDialog({
             <div className="space-y-1">
               <h5 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <span>Catalogue cadeaux &amp; Réductions réservées</span>
-                <Badge
-                  variant="secondary"
-                  className="text-[10px] px-1.5 py-0 h-4 bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20"
-                >
-                  SLE-49
-                </Badge>
               </h5>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 Accédez à une sélection exclusive de{' '}

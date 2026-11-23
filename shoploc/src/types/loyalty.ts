@@ -28,7 +28,7 @@ export interface MerchantLoyaltyRateResponse {
 
 /**
  * Dynamic evaluation of customer purchasing activity over a 15-day sliding window
- * for Very Faithful Person (VFP) qualification (SLE-44 / SLE-164).
+ * for Very Faithful Person (VFP) qualification.
  */
 export interface UserActivityEvaluation {
   userId: string;
@@ -40,7 +40,7 @@ export interface UserActivityEvaluation {
 }
 
 /**
- * Very Faithful Person (VFP) qualification status and audit timestamps (SLE-45 / SLE-204).
+ * Very Faithful Person (VFP) qualification status and audit timestamps.
  */
 export interface UserVfpStatus {
   userId: string;
@@ -53,7 +53,7 @@ export interface UserVfpStatus {
 }
 
 /**
- * VFP progression metrics, maintenance requirements, and revocation countdown (SLE-51 / SLE-238).
+ * VFP progression metrics, maintenance requirements, and revocation countdown.
  */
 export interface UserVfpProgress {
   userId: string;
@@ -74,7 +74,7 @@ export interface UserVfpProgress {
 export type PointsTransactionType = 'EARN' | 'REDEEM';
 
 /**
- * Loyalty points movement entry returned by Loyalty Service (SLE-38 / SLE-176).
+ * Loyalty points movement entry returned by Loyalty Service.
  */
 export interface PointsTransaction {
   id: number;
@@ -90,7 +90,7 @@ export interface PointsTransaction {
 }
 
 /**
- * Customer loyalty points balance and transaction history (SLE-38 / SLE-176 / SLE-177 / SLE-178).
+ * Customer loyalty points balance and transaction history.
  */
 export interface UserPointsBalanceResponse {
   userId: string;

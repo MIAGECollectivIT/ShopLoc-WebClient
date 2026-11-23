@@ -16,7 +16,7 @@ export interface StoreSearchBarProps {
 }
 
 /**
- * Filter and search toolbar ISO to GlobalProductCatalog (SLE-215).
+ * Filter and search toolbar ISO to GlobalProductCatalog.
  * Features real-time search with debounce, category select dropdown, sorting, and filter reset.
  */
 export function StoreSearchBar({

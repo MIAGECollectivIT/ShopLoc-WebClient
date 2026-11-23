@@ -103,7 +103,7 @@ export function WalletBalanceCard({
           </div>
         )}
 
-        {/* Loyalty Points Balance Block (SLE-38 / SLE-177) */}
+        {/* Loyalty Points Balance Block */}
         {isLoading ? (
           <Skeleton className="h-20 w-full rounded-xl" />
         ) : (

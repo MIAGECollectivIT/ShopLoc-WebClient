@@ -13,7 +13,6 @@ export interface VfpRevocationForecast {
  * Calculates when the user's VFP status will be revoked in the current state (without new purchases).
  * Evaluates the 15-day sliding window: each purchase expires exactly 15 days after its creation.
  * The status is revoked as soon as the total count of valid transactions within the window drops below threshold (10).
- * (SLE-51 / SLE-240).
  */
 export function calculateVfpRevocationForecast(
   transactions: UserPaymentTransaction[],

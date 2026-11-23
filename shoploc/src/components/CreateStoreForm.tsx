@@ -291,7 +291,7 @@ function StoreImageUploadField({
 }
 
 /**
- * Creation form component for partner establishments (SLE-69, SLE-85).
+ * Creation form component for partner establishments.
  * Validates fields in real-time and links the new store to an existing partner account.
  * Powered by React Hook Form, Base UI Field primitives, and Zod validation.
  */
@@ -390,7 +390,7 @@ export function CreateStoreForm() {
             </div>
           )}
 
-          {/* Partner user account selection (SLE-87) */}
+          {/* Partner user account selection */}
           <Field>
             <FieldLabel htmlFor="userId">
               <span>Compte partenaire propriétaire</span>
@@ -523,7 +523,7 @@ export function CreateStoreForm() {
             onRemoveImage={handleRemoveImage}
           />
 
-          {/* Bank RIB / IBAN (SLE-86) */}
+          {/* Bank RIB / IBAN */}
           <Field>
             <div className="flex items-center justify-between">
               <FieldLabel htmlFor="rib">

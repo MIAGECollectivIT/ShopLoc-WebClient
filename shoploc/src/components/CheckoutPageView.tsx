@@ -97,7 +97,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
           return;
         }
 
-        // Fetch citizen wallet balance (SLE-17)
+        // Fetch citizen wallet balance
         if (user?.id) {
           try {
             const walletData = await getWallet(token || undefined);
@@ -126,7 +126,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
   // 100% wallet payment is possible if wallet balance covers entire total
   const canUseWallet = walletBalance !== null && currentWalletBalance >= totalAmount;
 
-  // Mixed payment (wallet + credit card) is possible as long as wallet has a positive balance (SLE-213)
+  // Mixed payment (wallet + credit card) is possible as long as wallet has a positive balance
   const canUseMixed = walletBalance !== null && currentWalletBalance > 0;
 
   // Maximum debit on wallet for mixed mode (leaving at least 0.01 € for card payment if totalAmount > 0.01)
@@ -166,7 +166,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
     }
   };
 
-  // Finalize payment by digital wallet (100% wallet) (SLE-18)
+  // Finalize payment by digital wallet (100% wallet)
   const handleWalletPayment = async () => {
     if (!order) return;
     setIsProcessingPayment(true);
@@ -179,7 +179,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
           ? primaryStore?.storeName
           : 'Commandes ShopLoc multi-commerces';
 
-      // 1. Debit wallet on backend (SLE-18)
+      // 1. Debit wallet on backend
       const updatedWallet = await debitWallet(
         {
           amount: totalAmount,
@@ -233,7 +233,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
     }
   };
 
-  // Finalize payment by credit card (100% CB) or mixed (wallet + CB) (SLE-213)
+  // Finalize payment by credit card (100% CB) or mixed (wallet + CB)
   const handlePaymentApproved = async (receipt?: PaymentAuthorizationResponse) => {
     if (!order) return;
     setIsProcessingPayment(true);
@@ -242,7 +242,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
     try {
       let updatedWalletBalance: number | undefined;
 
-      // 1. In MIXED mode, automatically debit the wallet part first (SLE-213)
+      // 1. In MIXED mode, automatically debit the wallet part first
       if (settlementMode === 'MIXED' && walletPart > 0) {
         const primaryStore = order.storeSummaries?.[0];
         const storeName =
@@ -469,7 +469,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
               </div>
             </button>
 
-            {/* Mode 3: Mixed (Portefeuille + Carte Bancaire) (SLE-213) */}
+            {/* Mode 3: Mixed (Portefeuille + Carte Bancaire) */}
             <button
               type="button"
               onClick={() => canUseMixed && handleSelectMode('MIXED')}
@@ -521,7 +521,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
             </div>
           )}
 
-          {/* Interactive slider for mixed mode (SLE-213) */}
+          {/* Interactive slider for mixed mode */}
           {settlementMode === 'MIXED' && (
             <div className="p-4 bg-muted/40 rounded-xl space-y-3 border border-border/60">
               <div className="flex justify-between items-center text-xs">
