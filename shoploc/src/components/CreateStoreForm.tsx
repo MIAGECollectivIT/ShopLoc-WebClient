@@ -74,7 +74,7 @@ function useStoreImageUpload() {
     if (!file) return;
 
     if (!isValidStoreImageType(file.type)) {
-      setImageError('Format non supporté (JPEG, PNG, WebP, GIF ou SVG uniquement)');
+      setImageError('Format non supporté (JPEG, PNG, WebP ou GIF uniquement)');
       return;
     }
 
@@ -281,9 +281,7 @@ function StoreImageUploadField({
             <Upload className="size-4" />
             <span>Choisir une photo</span>
           </Button>
-          <span className="text-xs text-muted-foreground">
-            PNG, JPG, WebP, GIF ou SVG jusqu'à 10 Mo
-          </span>
+          <span className="text-xs text-muted-foreground">PNG, JPG, WebP ou GIF jusqu'à 10 Mo</span>
         </div>
       )}
 

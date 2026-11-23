@@ -23,7 +23,6 @@ export const ACCEPTED_STORE_IMAGE_TYPES = [
   'image/png',
   'image/webp',
   'image/gif',
-  'image/svg+xml',
 ] as const;
 
 export type StoreImageMimeType = (typeof ACCEPTED_STORE_IMAGE_TYPES)[number];
@@ -204,6 +203,25 @@ export function formatRibOrIban(value: string): string {
 }
 
 /**
+ * Validates that an optional store URL starts strictly with http:// or https://
+ * and rejects dangerous pseudo-protocols like javascript: or data: to prevent Stored XSS.
+ */
+export function isValidHttpUrl(val?: string | null): boolean {
+  if (!val || val.trim() === '') return true;
+  const trimmed = val.trim();
+  const lower = trimmed.toLowerCase();
+  if (lower.includes('javascript:') || lower.includes('data:') || lower.includes('vbscript:')) {
+    return false;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Zod schema for store creation form validation (SLE-86).
  * User-facing validation messages remain strictly in French.
  */
@@ -227,20 +245,10 @@ export const createStoreZodSchema = z.object({
     .string()
     .trim()
     .max(500, "L'URL ne doit pas dépasser 500 caractères")
-    .refine(
-      (val) => {
-        if (!val || val.trim() === '') return true;
-        try {
-          const urlToTest =
-            val.startsWith('http://') || val.startsWith('https://') ? val : `https://${val}`;
-          new URL(urlToTest);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { message: "L'URL doit être valide (ex: https://mon-commerce.fr)" }
-    )
+    .refine((val) => isValidHttpUrl(val), {
+      message:
+        "L'URL doit débuter obligatoirement par http:// ou https:// (ex: https://mon-commerce.fr)",
+    })
     .optional()
     .or(z.literal('')),
   rib: z
@@ -343,20 +351,10 @@ export const adminStoreEditSchema = z.object({
     .string()
     .trim()
     .max(500, "L'URL ne doit pas dépasser 500 caractères")
-    .refine(
-      (val) => {
-        if (!val || val.trim() === '') return true;
-        try {
-          const urlToTest =
-            val.startsWith('http://') || val.startsWith('https://') ? val : `https://${val}`;
-          new URL(urlToTest);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { message: "L'URL doit être valide (ex: https://mon-commerce.fr)" }
-    )
+    .refine((val) => isValidHttpUrl(val), {
+      message:
+        "L'URL doit débuter obligatoirement par http:// ou https:// (ex: https://mon-commerce.fr)",
+    })
     .optional()
     .or(z.literal('')),
   userId: z

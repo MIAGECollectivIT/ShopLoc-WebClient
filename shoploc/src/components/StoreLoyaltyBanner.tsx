@@ -1,10 +1,9 @@
 import * as React from 'react';
 import { getStoreLoyaltyRate } from '@/lib/api';
 import type { MerchantLoyaltyRate } from '@/types/loyalty';
-import { Coins, Sparkles, Gift } from 'lucide-react';
+import { Sparkles, Gift } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ROUTES } from '@/config/routes';
 
 interface StoreLoyaltyBannerProps {
   storeId: number | string;
@@ -85,6 +84,19 @@ export function StoreLoyaltyBanner({ storeId, initialRate, onViewGifts }: StoreL
             </p>
           </div>
         </div>
+
+        {onViewGifts && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onViewGifts}
+            className="text-xs h-8 gap-1.5 shrink-0 border-primary/30 hover:bg-primary/10 text-primary cursor-pointer"
+          >
+            <Gift className="size-3.5" />
+            <span>Voir les cadeaux fidélité</span>
+          </Button>
+        )}
       </div>
     </div>
   );

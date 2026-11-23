@@ -15,6 +15,7 @@ import {
   adminStoreEditSchema,
   type AdminStoreEditFormValues,
   STORE_CATEGORIES,
+  isValidRibOrIban,
 } from '@/lib/validation/store';
 import { ROUTES } from '@/config/routes';
 import { Badge } from '@/components/ui/badge';
@@ -308,8 +309,14 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
     if (!storeId) return;
 
     const trimmedRib = reactivateRib.trim().toUpperCase();
-    if (!trimmedRib || trimmedRib.length < 15) {
-      setReactivateRibError('Veuillez renseigner un RIB / IBAN valide (au moins 15 caractères).');
+    if (!trimmedRib) {
+      setReactivateRibError('Le RIB ou IBAN est obligatoire pour réactiver le commerce.');
+      return;
+    }
+    if (!isValidRibOrIban(trimmedRib)) {
+      setReactivateRibError(
+        'Le format ou la clé algorithmique du RIB/IBAN est invalide (RIB français 23 car. ou IBAN valide).'
+      );
       return;
     }
 
