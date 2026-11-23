@@ -46,6 +46,11 @@ import type {
   VehicleResponse,
   CustomerIdentificationResponse,
 } from '@/types/user';
+import type { CitizenCardEmailSettingResponse } from '@/types/settings';
+export type {
+  CitizenCardEmailSettingResponse,
+  CitizenCardEmailSettingUpdateRequest,
+} from '@/types/settings';
 import {
   getAuthToken,
   getAuthUser,
@@ -2759,4 +2764,92 @@ export async function getVfpDailyEligibility(): Promise<VfpDailyEligibility> {
   }
 
   return (await res.json()) as VfpDailyEligibility;
+}
+
+/**
+ * Retrieves the configured email address for citizen physical card notifications.
+ * Restricted to administrators.
+ */
+export async function getCitizenCardEmailSetting(
+  authToken?: string
+): Promise<CitizenCardEmailSettingResponse> {
+  const endpoint = getUsersApiEndpoint('/v1/admin/settings/citizen-card-email');
+  const token = authToken || getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise pour accéder aux paramètres.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès réservé aux administrateurs de la plateforme.');
+  }
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer le paramètre d'email (HTTP ${res.status})`);
+  }
+
+  const raw = (await res.json()) as Record<string, unknown>;
+  const resolvedEmail = String(raw.email || raw.effectiveEmail || raw.defaultEmail || '');
+  const resolvedDefault = String(raw.defaultEmail || '');
+  const resolvedCustomized = Boolean(raw.isCustomized ?? raw.customized ?? false);
+  return {
+    email: resolvedEmail,
+    defaultEmail: resolvedDefault,
+    isCustomized: resolvedCustomized,
+    updatedAt: raw.updatedAt ? String(raw.updatedAt) : null,
+    updatedBy: raw.updatedBy ? String(raw.updatedBy) : null,
+    effectiveEmail: resolvedEmail,
+    customized: resolvedCustomized,
+  };
+}
+
+/**
+ * Updates the email address for citizen physical card notifications.
+ * Restricted to administrators.
+ */
+export async function updateCitizenCardEmailSetting(
+  email: string,
+  authToken?: string
+): Promise<CitizenCardEmailSettingResponse> {
+  const endpoint = getUsersApiEndpoint('/v1/admin/settings/citizen-card-email');
+  const token = authToken || getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise pour modifier les paramètres.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès réservé aux administrateurs de la plateforme.');
+  }
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => null);
+    const message = errorBody?.message || `Erreur lors de la mise à jour (HTTP ${res.status})`;
+    throw new Error(message);
+  }
+
+  const raw = (await res.json()) as Record<string, unknown>;
+  const resolvedEmail = String(raw.email || raw.effectiveEmail || raw.defaultEmail || '');
+  const resolvedDefault = String(raw.defaultEmail || '');
+  const resolvedCustomized = Boolean(raw.isCustomized ?? raw.customized ?? false);
+  return {
+    email: resolvedEmail,
+    defaultEmail: resolvedDefault,
+    isCustomized: resolvedCustomized,
+    updatedAt: raw.updatedAt ? String(raw.updatedAt) : null,
+    updatedBy: raw.updatedBy ? String(raw.updatedBy) : null,
+    effectiveEmail: resolvedEmail,
+    customized: resolvedCustomized,
+  };
 }

@@ -3,15 +3,14 @@ export const prerender = false;
 
 import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
-import { AdminDashboardView } from '../../components/AdminDashboardView';
-import { getAdminUsers, getStores } from '../../lib/api';
+import { AdminNavHeader } from '../../components/AdminNavHeader';
+import { AdminUsersTab } from '../../components/AdminUsersTab';
+import { getAdminUsers } from '../../lib/api';
 import { ShieldCheck } from 'lucide-react';
 import type { UserResponse } from '../../types/user';
-import type { Store } from '../../types/store';
 
 const token = Astro.locals.token || '';
 let initialUsers: UserResponse[] = [];
-let initialStores: Store[] = [];
 
 if (token) {
   try {
@@ -21,30 +20,20 @@ if (token) {
     console.warn('[PAGE /admin] Failed to fetch initial users server-side:', err);
   }
 }
-
-try {
-  initialStores = await getStores(true);
-} catch (err: unknown) {
-  console.warn('[PAGE /admin] Failed to fetch initial stores server-side:', err);
-}
-
-const defaultTab = Astro.url.searchParams.get('tab') || 'users';
 ---
 
 <Layout
-  title="Supervision de l'écosystème - Administration ShopLoc"
-  description="Supervisez l'ensemble des comptes utilisateurs et des commerces partenaires affiliés."
+  title="Supervision des comptes utilisateurs - Administration ShopLoc"
+  description="Supervisez l'ensemble des comptes citoyens et commerçants enregistrés sur la plateforme."
 >
   <PageContainer
     title="Supervision de l'écosystème"
     description="Consultez et administrez l'ensemble des comptes utilisateurs enregistrés et des commerces affiliés."
     icon={ShieldCheck}
   >
-    <AdminDashboardView
-      client:load
-      initialUsers={initialUsers}
-      initialStores={initialStores}
-      defaultTab={defaultTab}
-    />
+    <div class="space-y-6">
+      <AdminNavHeader client:load activeNav="users" />
+      <AdminUsersTab client:load initialUsers={initialUsers} />
+    </div>
   </PageContainer>
 </Layout>

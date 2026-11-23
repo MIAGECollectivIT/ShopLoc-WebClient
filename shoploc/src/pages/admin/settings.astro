@@ -1,0 +1,38 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import PageContainer from '../../components/PageContainer.astro';
+import { AdminNavHeader } from '../../components/AdminNavHeader';
+import { AdminSettingsTab } from '../../components/AdminSettingsTab';
+import { getCitizenCardEmailSetting } from '../../lib/api';
+import { Settings } from 'lucide-react';
+import type { CitizenCardEmailSettingResponse } from '../../types/settings';
+
+const token = Astro.locals.token || '';
+let initialSetting: CitizenCardEmailSettingResponse | null = null;
+
+if (token) {
+  try {
+    initialSetting = await getCitizenCardEmailSetting(token);
+  } catch (err: unknown) {
+    console.warn('[PAGE /admin/settings] Failed to fetch initial setting server-side:', err);
+  }
+}
+---
+
+<Layout
+  title="Configuration générale du système - Administration ShopLoc"
+  description="Paramètres applicatifs, adresses des services municipaux et gestion des notifications."
+>
+  <PageContainer
+    title="Paramètres & Notifications"
+    description="Personnalisez les adresses e-mail des services municipaux et configurez les notifications de la plateforme."
+    icon={Settings}
+  >
+    <div class="space-y-6">
+      <AdminNavHeader client:load activeNav="settings" />
+      <AdminSettingsTab client:load initialSetting={initialSetting} />
+    </div>
+  </PageContainer>
+</Layout>
