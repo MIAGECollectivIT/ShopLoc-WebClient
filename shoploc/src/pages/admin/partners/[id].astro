@@ -36,7 +36,7 @@ if (!id) {
           }
         })
       );
-      initialStores = storeResults;
+      initialStores = storeResults.filter((s): s is Store => s !== null && s.status !== 'REVOKED');
     }
   } catch (err: unknown) {
     console.error(`[PAGE /admin/partners/${id}] Error fetching partner:`, err);

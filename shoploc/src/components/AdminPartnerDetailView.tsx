@@ -71,7 +71,9 @@ export function AdminPartnerDetailView({
   initialStores = [],
 }: AdminPartnerDetailViewProps) {
   const [currentPartner, setCurrentPartner] = React.useState<AdminPartnerDetail>(partner);
-  const [stores, setStores] = React.useState<Store[]>(() => initialStores);
+  const [stores, setStores] = React.useState<Store[]>(() =>
+    initialStores.filter((s) => s.status !== 'REVOKED')
+  );
   const [loadingStores, setLoadingStores] = React.useState<boolean>(
     initialStores.length === 0 && (partner.storeIds?.length || 0) > 0
   );
@@ -152,7 +154,7 @@ export function AdminPartnerDetailView({
 
         const results = await Promise.all(storePromises);
         if (!isCancelled) {
-          setStores(results);
+          setStores(results.filter((s) => s.status !== 'REVOKED'));
         }
       } finally {
         if (!isCancelled) {
@@ -366,14 +368,22 @@ export function AdminPartnerDetailView({
     const storeIdentifier = storeToRevoke.uid || storeToRevoke.id!;
     try {
       await revokeStore(storeIdentifier);
+      if (storeToRevoke.id && (currentPartner.publicId || currentPartner.id)) {
+        await removeStoreFromPartner(
+          currentPartner.publicId || currentPartner.id,
+          storeToRevoke.id
+        ).catch(() => {});
+      }
       setStores((prev) =>
-        prev.map((s) =>
-          s.id === storeToRevoke.id || (s.uid && s.uid === storeToRevoke.uid)
-            ? { ...s, status: 'REVOKED' }
-            : s
-        )
+        prev.filter((s) => s.id !== storeToRevoke.id && (!s.uid || s.uid !== storeToRevoke.uid))
       );
-      setRevokeSuccessMessage(`Le commerce "${storeToRevoke.name}" a été révoqué avec succès.`);
+      setCurrentPartner((prev) => ({
+        ...prev,
+        storeIds: (prev.storeIds || []).filter((id) => id !== storeToRevoke.id),
+      }));
+      setRevokeSuccessMessage(
+        `Le commerce "${storeToRevoke.name}" a été révoqué avec succès et retiré des commerces actifs.`
+      );
       setTimeout(() => {
         setIsRevokeStoreOpen(false);
         setStoreToRevoke(null);
@@ -819,29 +829,16 @@ export function AdminPartnerDetailView({
                   </div>
 
                   <CardFooter className="p-3 pt-2.5 border-t bg-muted/10 flex items-center justify-center gap-2 flex-wrap">
-                    {store.status !== 'REVOKED' ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenRevokeStore(store)}
-                        className="gap-1 text-xs h-7 px-2.5 text-rose-700 border-rose-300 hover:bg-rose-50 hover:text-rose-800 dark:text-rose-400 dark:border-rose-900/50"
-                        title="Révoquer ce commerce partenaire"
-                      >
-                        <ShieldAlert className="size-3" />
-                        <span>Révoquer</span>
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenReactivateStore(store)}
-                        className="gap-1 text-xs h-7 px-2.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-400 dark:border-emerald-900/50"
-                        title="Réactiver ce commerce partenaire avec un nouveau RIB"
-                      >
-                        <RotateCcw className="size-3" />
-                        <span>Réactiver</span>
-                      </Button>
-                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenRevokeStore(store)}
+                      className="gap-1 text-xs h-7 px-2.5 text-rose-700 border-rose-300 hover:bg-rose-50 hover:text-rose-800 dark:text-rose-400 dark:border-rose-900/50"
+                      title="Révoquer ce commerce partenaire"
+                    >
+                      <ShieldAlert className="size-3" />
+                      <span>Révoquer</span>
+                    </Button>
 
                     <Button
                       variant="outline"
