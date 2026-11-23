@@ -15,11 +15,6 @@ import { StoreOpenStatusBadge } from '../../components/StoreOpenStatusBadge';
 const { id } = Astro.params;
 const { store: initialStore } = Astro.props as { store?: Store };
 const store = initialStore ?? (id ? await getStoreById(id).catch(() => null) : null);
-
-// Canonical redirect to UUID if store was accessed with numeric DB id
-if (store?.uid && id && /^\d+$/.test(id)) {
-  return Astro.redirect(ROUTES.storeDetail(store.uid));
-}
 ---
 
 <Layout title={store?.name || 'Détail boutique'}>
@@ -67,9 +62,9 @@ if (store?.uid && id && /^\d+$/.test(id)) {
         {/* Store Banner Card with Real-time Open/Closed Badge and Schedule */}
         <Card className="overflow-hidden border-border bg-card shadow-xs">
           <div class="relative">
-            {resolveStoreImageUrl(store.url, store.uid || store.id) ? (
+            {resolveStoreImageUrl(store.url, store.uid) ? (
               <img
-                src={resolveStoreImageUrl(store.url, store.uid || store.id)}
+                src={resolveStoreImageUrl(store.url, store.uid)}
                 alt={store.name}
                 class="h-64 sm:h-72 w-full object-cover"
               />

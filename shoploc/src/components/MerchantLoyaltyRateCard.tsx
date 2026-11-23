@@ -28,13 +28,13 @@ import {
 } from 'lucide-react';
 
 interface MerchantLoyaltyRateCardProps {
-  storeId: number | string;
+  storeUid: string;
   storeName?: string;
   onRateUpdated?: (rate: MerchantLoyaltyRate) => void;
 }
 
 export function MerchantLoyaltyRateCard({
-  storeId,
+  storeUid,
   storeName,
   onRateUpdated,
 }: MerchantLoyaltyRateCardProps) {
@@ -61,7 +61,7 @@ export function MerchantLoyaltyRateCard({
     setIsLoading(true);
     setLoadError(null);
     try {
-      const data = await getStoreLoyaltyRate(storeId);
+      const data = await getStoreLoyaltyRate(storeUid);
       setInitialRate(data);
       setEuroAmount(Number(data.euroAmount).toFixed(2));
       setPointsReward(String(data.pointsReward));
@@ -71,7 +71,7 @@ export function MerchantLoyaltyRateCard({
     } finally {
       setIsLoading(false);
     }
-  }, [storeId]);
+  }, [storeUid]);
 
   React.useEffect(() => {
     fetchRate();
@@ -118,7 +118,7 @@ export function MerchantLoyaltyRateCard({
     setIsSubmitting(true);
     try {
       const parsedValues = loyaltyRateSchema.parse({ euroAmount, pointsReward });
-      const updated = await updateStoreLoyaltyRate(storeId, {
+      const updated = await updateStoreLoyaltyRate(storeUid, {
         euroAmount: parsedValues.euroAmount,
         pointsReward: parsedValues.pointsReward,
       });

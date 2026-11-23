@@ -1,7 +1,6 @@
 export interface CartItem {
-  productId: number;
-  storeId: number;
-  storeUid?: string;
+  productUid: string;
+  storeUid: string;
   storeName?: string;
   name: string;
   price: number;
@@ -11,8 +10,7 @@ export interface CartItem {
 }
 
 export interface StoreCartGroup {
-  storeId: number;
-  storeUid?: string;
+  storeUid: string;
   storeName: string;
   items: CartItem[];
   subtotal: number;
@@ -28,9 +26,8 @@ export interface CartSummary {
 }
 
 export interface AddToCartPayload {
-  productId: number;
-  storeId: number;
-  storeUid?: string;
+  productUid: string;
+  storeUid: string;
   storeName?: string;
   name: string;
   price: number;

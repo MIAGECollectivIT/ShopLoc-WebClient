@@ -15,11 +15,11 @@ import { InteractiveGiftCard, InteractiveGiftCardSkeleton } from './InteractiveG
 import { Gift, Coins, RefreshCw, AlertCircle } from 'lucide-react';
 
 export interface StoreClientGiftsCatalogProps {
-  storeId: number | string;
+  storeUid: string;
   storeName?: string;
 }
 
-export function StoreClientGiftsCatalog({ storeId, storeName }: StoreClientGiftsCatalogProps) {
+export function StoreClientGiftsCatalog({ storeUid, storeName }: StoreClientGiftsCatalogProps) {
   const { user, token, isAuthenticated } = useAuth();
 
   const [gifts, setGifts] = React.useState<LoyaltyGift[]>([]);
@@ -64,7 +64,7 @@ export function StoreClientGiftsCatalog({ storeId, storeName }: StoreClientGifts
     setIsLoading(true);
     setError(null);
     try {
-      const items = await getPublicGifts({ storeId });
+      const items = await getPublicGifts({ storeUid });
       setGifts(items);
     } catch (err: unknown) {
       setError(
@@ -75,7 +75,7 @@ export function StoreClientGiftsCatalog({ storeId, storeName }: StoreClientGifts
     } finally {
       setIsLoading(false);
     }
-  }, [storeId]);
+  }, [storeUid]);
 
   React.useEffect(() => {
     loadGifts();
@@ -152,7 +152,7 @@ export function StoreClientGiftsCatalog({ storeId, storeName }: StoreClientGifts
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {gifts.map((gift) => (
             <InteractiveGiftCard
-              key={gift.id}
+              key={gift.uid}
               gift={gift}
               userPoints={userPoints}
               isAuthenticated={isAuthenticated}

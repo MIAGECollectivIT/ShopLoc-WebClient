@@ -72,7 +72,7 @@ export function AdminPartnerDetailView({
     initialStores.filter((s) => s.status !== 'REVOKED')
   );
   const [loadingStores, setLoadingStores] = React.useState<boolean>(
-    initialStores.length === 0 && (partner.storeIds?.length || 0) > 0
+    initialStores.length === 0 && (partner.storeUids?.length || 0) > 0
   );
 
   // Modal dialog state for linking an existing store
@@ -109,30 +109,31 @@ export function AdminPartnerDetailView({
   const [revokeError, setRevokeError] = React.useState<string | null>(null);
   const [revokeSuccessMessage, setRevokeSuccessMessage] = React.useState<string | null>(null);
 
-  // Load store details for affiliated store IDs if not provided in SSR
+  // Load store details for affiliated store UIDs if not provided in SSR
   React.useEffect(() => {
     let isCancelled = false;
 
     async function loadStores() {
-      if (!currentPartner.storeIds || currentPartner.storeIds.length === 0) {
+      if (!currentPartner.storeUids || currentPartner.storeUids.length === 0) {
         setStores([]);
         setLoadingStores(false);
         return;
       }
 
-      if (initialStores.length >= currentPartner.storeIds.length) {
+      if (initialStores.length >= currentPartner.storeUids.length) {
         setLoadingStores(false);
         return;
       }
 
       setLoadingStores(true);
       try {
-        const storePromises = currentPartner.storeIds.map(async (storeId) => {
+        const storePromises = currentPartner.storeUids.map(async (storeUid) => {
           try {
-            return await getStoreById(storeId);
+            return await getStoreById(storeUid);
           } catch {
             return {
-              id: storeId,
+              uid: storeUid,
+              ownerUid: currentPartner.publicId,
               name: 'Commerce affilié',
               address: 'Informations non disponibles',
             } as Store;
@@ -155,7 +156,7 @@ export function AdminPartnerDetailView({
     return () => {
       isCancelled = true;
     };
-  }, [currentPartner.storeIds, initialStores]);
+  }, [currentPartner.storeUids, currentPartner.publicId, initialStores]);
 
   // Open dialog and fetch municipal stores not yet affiliated
   const handleOpenAddStoreDialog = async () => {
@@ -168,11 +169,11 @@ export function AdminPartnerDetailView({
     try {
       const allStores = await getStores(true);
       // Filter out stores already affiliated
-      const affiliatedIds = new Set(stores.map((s) => s.id));
-      const unlinked = allStores.filter((s) => s.id !== undefined && !affiliatedIds.has(s.id));
+      const affiliatedIds = new Set(stores.map((s) => s.uid));
+      const unlinked = allStores.filter((s) => Boolean(s.uid) && !affiliatedIds.has(s.uid));
       setAvailableStores(unlinked);
-      if (unlinked.length > 0 && unlinked[0].id) {
-        setSelectedStoreId(String(unlinked[0].id));
+      if (unlinked.length > 0 && unlinked[0].uid) {
+        setSelectedStoreId(unlinked[0].uid);
       }
     } catch (err: unknown) {
       setAddStoreError(
@@ -192,25 +193,24 @@ export function AdminPartnerDetailView({
     setIsSubmittingStore(true);
     setAddStoreError(null);
 
-    const storeIdNum = Number(selectedStoreId);
     try {
-      await addStoreToPartner(currentPartner.publicId || currentPartner.id, storeIdNum);
+      await addStoreToPartner(currentPartner.publicId, selectedStoreId);
 
       // Add to local state
-      const targetStore = availableStores.find((s) => s.id === storeIdNum);
+      const targetStore = availableStores.find((s) => s.uid === selectedStoreId);
       if (targetStore) {
         setStores((prev) => [...prev, targetStore]);
       } else {
-        const fetched = await getStoreById(storeIdNum).catch(() => null);
+        const fetched = await getStoreById(selectedStoreId).catch(() => null);
         if (fetched) setStores((prev) => [...prev, fetched]);
       }
 
       setCurrentPartner((prev) => {
-        const existingIds = prev.storeIds ? [...prev.storeIds] : [];
-        if (!existingIds.includes(storeIdNum)) {
-          existingIds.push(storeIdNum);
+        const existingUids = prev.storeUids ? [...prev.storeUids] : [];
+        if (!existingUids.includes(selectedStoreId)) {
+          existingUids.push(selectedStoreId);
         }
-        return { ...prev, storeIds: existingIds };
+        return { ...prev, storeUids: existingUids };
       });
 
       setIsAddStoreOpen(false);
@@ -243,7 +243,7 @@ export function AdminPartnerDetailView({
     setIsSubmittingEdit(true);
     setEditError(null);
     try {
-      const updated = await updateAdminPartner(currentPartner.publicId || currentPartner.id, {
+      const updated = await updateAdminPartner(currentPartner.publicId, {
         firstName: editFirstName.trim(),
         lastName: editLastName.trim(),
         birthDate: editBirthDate,
@@ -276,12 +276,10 @@ export function AdminPartnerDetailView({
     try {
       const allPartners = await getAdminPartners('', 100);
       // Exclude current partner
-      const targets = allPartners.filter(
-        (p) => String(p.id) !== String(currentPartner.id) && p.publicId !== currentPartner.publicId
-      );
+      const targets = allPartners.filter((p) => p.publicId !== currentPartner.publicId);
       setReassignPartners(targets);
       if (targets.length > 0) {
-        setSelectedTargetPartnerId(targets[0].publicId || String(targets[0].id));
+        setSelectedTargetPartnerId(targets[0].publicId);
       }
     } catch (err: unknown) {
       console.warn('Impossible de charger la liste des partenaires pour réassignation:', err);
@@ -292,18 +290,15 @@ export function AdminPartnerDetailView({
 
   // Confirm unlinking or reassignment of store (mandatory reassignment)
   const handleConfirmDesaffectStore = async () => {
-    if (!storeToDesaffect || !storeToDesaffect.id) return;
+    if (!storeToDesaffect || !storeToDesaffect.uid) return;
 
     if (!selectedTargetPartnerId) {
       setDesaffectError('Veuillez sélectionner un commerçant partenaire repreneur.');
       return;
     }
 
-    const targetPartner = reassignPartners.find(
-      (p) => (p.publicId || String(p.id)) === selectedTargetPartnerId
-    );
-    const targetUserId = targetPartner?.id ? Number(targetPartner.id) : undefined;
-    if (!targetUserId) {
+    const targetPartner = reassignPartners.find((p) => p.publicId === selectedTargetPartnerId);
+    if (!targetPartner) {
       setDesaffectError('Impossible de déterminer le compte partenaire cible.');
       return;
     }
@@ -311,22 +306,19 @@ export function AdminPartnerDetailView({
     setIsSubmittingDesaffect(true);
     setDesaffectError(null);
 
-    const storeIdNum = storeToDesaffect.id;
+    const storeUid = storeToDesaffect.uid;
     try {
       // 1. Mettre à jour la propriété dans Store-Service
-      await patchStore(storeIdNum, { userId: targetUserId });
-
+      await patchStore(storeUid, { ownerUid: selectedTargetPartnerId });
       // 2. Synchroniser le rattachement dans Users-Service
-      await addStoreToPartner(selectedTargetPartnerId, storeIdNum);
-      await removeStoreFromPartner(currentPartner.publicId || currentPartner.id, storeIdNum).catch(
-        () => {}
-      );
+      await addStoreToPartner(selectedTargetPartnerId, storeUid);
+      await removeStoreFromPartner(currentPartner.publicId, storeUid).catch(() => {});
 
       // Remove from current partner's store list in local state
-      setStores((prev) => prev.filter((s) => s.id !== storeIdNum));
+      setStores((prev) => prev.filter((s) => s.uid !== storeUid));
       setCurrentPartner((prev) => ({
         ...prev,
-        storeIds: (prev.storeIds || []).filter((id) => id !== storeIdNum),
+        storeUids: (prev.storeUids || []).filter((uid) => uid !== storeUid),
       }));
 
       setIsDesaffectOpen(false);
@@ -348,25 +340,20 @@ export function AdminPartnerDetailView({
   };
 
   const handleConfirmRevokeStore = async () => {
-    if (!storeToRevoke || (!storeToRevoke.id && !storeToRevoke.uid)) return;
+    if (!storeToRevoke || !storeToRevoke.uid) return;
     setIsSubmittingRevoke(true);
     setRevokeError(null);
 
-    const storeIdentifier = storeToRevoke.uid || storeToRevoke.id!;
+    const storeUid = storeToRevoke.uid;
     try {
-      await revokeStore(storeIdentifier);
-      if (storeToRevoke.id && (currentPartner.publicId || currentPartner.id)) {
-        await removeStoreFromPartner(
-          currentPartner.publicId || currentPartner.id,
-          storeToRevoke.id
-        ).catch(() => {});
+      await revokeStore(storeUid);
+      if (currentPartner.publicId) {
+        await removeStoreFromPartner(currentPartner.publicId, storeUid).catch(() => {});
       }
-      setStores((prev) =>
-        prev.filter((s) => s.id !== storeToRevoke.id && (!s.uid || s.uid !== storeToRevoke.uid))
-      );
+      setStores((prev) => prev.filter((s) => s.uid !== storeUid));
       setCurrentPartner((prev) => ({
         ...prev,
-        storeIds: (prev.storeIds || []).filter((id) => id !== storeToRevoke.id),
+        storeUids: (prev.storeUids || []).filter((uid) => uid !== storeUid),
       }));
       setRevokeSuccessMessage(
         `Le commerce "${storeToRevoke.name}" a été révoqué avec succès et retiré des commerces actifs.`
@@ -396,7 +383,7 @@ export function AdminPartnerDetailView({
   }, [availableStores, storeSearchQuery]);
 
   const selectedStore = React.useMemo(() => {
-    return availableStores.find((s) => String(s.id) === selectedStoreId);
+    return availableStores.find((s) => s.uid === selectedStoreId);
   }, [availableStores, selectedStoreId]);
 
   const filteredReassignPartners = React.useMemo(() => {
@@ -411,7 +398,7 @@ export function AdminPartnerDetailView({
   }, [reassignPartners, reassignSearchQuery]);
 
   const selectedTargetPartner = React.useMemo(() => {
-    return reassignPartners.find((p) => (p.publicId || String(p.id)) === selectedTargetPartnerId);
+    return reassignPartners.find((p) => p.publicId === selectedTargetPartnerId);
   }, [reassignPartners, selectedTargetPartnerId]);
 
   const fullName =
@@ -676,10 +663,10 @@ export function AdminPartnerDetailView({
         {!loadingStores && stores.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {stores.map((store) => {
-              const imageUrl = resolveStoreImageUrl(store.url, store.uid || store.id);
+              const imageUrl = resolveStoreImageUrl(store.url, store.uid);
               return (
                 <Card
-                  key={store.id}
+                  key={store.uid}
                   className="overflow-hidden flex flex-col justify-between hover:border-primary/50 transition-colors"
                 >
                   <div>
@@ -763,11 +750,11 @@ export function AdminPartnerDetailView({
                       <span>Désaffecter</span>
                     </Button>
 
-                    {(store.uid || store.id) && (
+                    {store.uid && (
                       <Button
                         variant="outline"
                         size="sm"
-                        render={<a href={ROUTES.storeDetail(store.uid || store.id!)} />}
+                        render={<a href={ROUTES.storeDetail(store.uid)} />}
                         className="gap-1 text-xs h-7 px-2.5"
                       >
                         <span>Consulter</span>
@@ -958,11 +945,11 @@ export function AdminPartnerDetailView({
 
               <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                 {filteredAvailableStores.map((store) => {
-                  const isSelected = selectedStoreId === String(store.id);
+                  const isSelected = selectedStoreId === store.uid;
                   return (
                     <div
-                      key={store.id}
-                      onClick={() => setSelectedStoreId(String(store.id))}
+                      key={store.uid}
+                      onClick={() => setSelectedStoreId(store.uid)}
                       className={`p-3 rounded-lg border cursor-pointer transition-all flex items-center justify-between gap-3 text-left ${
                         isSelected
                           ? 'border-primary bg-primary/5 ring-1 ring-primary'
@@ -1123,7 +1110,7 @@ export function AdminPartnerDetailView({
 
                   <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                     {filteredReassignPartners.map((targetPartner) => {
-                      const targetIdentifier = targetPartner.publicId || String(targetPartner.id);
+                      const targetIdentifier = targetPartner.publicId;
                       const isSelected = selectedTargetPartnerId === targetIdentifier;
                       return (
                         <div

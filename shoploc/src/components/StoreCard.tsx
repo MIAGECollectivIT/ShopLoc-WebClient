@@ -14,7 +14,7 @@ interface StoreCardProps {
 
 export function StoreCard({ store }: StoreCardProps) {
   const { user, role } = useAuth();
-  const resolvedImageUrl = resolveStoreImageUrl(store.url, store.uid || store.id);
+  const resolvedImageUrl = resolveStoreImageUrl(store.url, store.uid);
   const openStatus = computeStoreOpenStatus(
     store.openingHours,
     store.absenceStartDate,
@@ -23,12 +23,7 @@ export function StoreCard({ store }: StoreCardProps) {
   );
 
   const isMyStore =
-    role === 'MERCHANT' &&
-    ((store.userId != null &&
-      ((user?.dbId != null && String(user.dbId) === String(store.userId)) ||
-        (user?.id != null && String(user.id) === String(store.userId)))) ||
-      ((user?.email === 'suzanne.morel@shop-loc.fr' || user?.dbId === 2) &&
-        (store.id === 1 || store.id === 2)));
+    role === 'MERCHANT' && Boolean(store.ownerUid && user?.id && store.ownerUid === user.id);
 
   return (
     <Card className={isMyStore ? 'ring-2 ring-primary/40 border-primary/50' : undefined}>
@@ -149,11 +144,11 @@ export function StoreCard({ store }: StoreCardProps) {
             </Badge>
           )}
         </div>
-        {(store.uid || store.id) && (
+        {store.uid && (
           <Button
             variant={isMyStore && store.status !== 'REVOKED' ? 'default' : 'outline'}
             size="sm"
-            render={<a href={ROUTES.storeDetail(store.uid || store.id!)} />}
+            render={<a href={ROUTES.storeDetail(store.uid)} />}
           >
             {isMyStore
               ? store.status === 'REVOKED'

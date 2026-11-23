@@ -123,7 +123,7 @@ interface StoreCreationSuccessCardProps {
 }
 
 function StoreCreationSuccessCard({ store, onReset }: StoreCreationSuccessCardProps) {
-  const resolvedImageUrl = resolveStoreImageUrl(store.url, store.uid || store.id);
+  const resolvedImageUrl = resolveStoreImageUrl(store.url, store.uid);
 
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-md border-primary/20">
@@ -157,7 +157,9 @@ function StoreCreationSuccessCard({ store, onReset }: StoreCreationSuccessCardPr
             </div>
             <div>
               <span className="text-muted-foreground block">Compte propriétaire</span>
-              <span className="font-medium mt-0.5 block">Partenaire #{store.userId}</span>
+              <span className="font-medium mt-0.5 block font-mono text-[11px]">
+                {store.ownerUid}
+              </span>
             </div>
             {store.url && (
               <div className="sm:col-span-2 space-y-2 pt-1">
@@ -323,7 +325,7 @@ export function CreateStoreForm() {
       address: '',
       url: '',
       rib: '',
-      userId: '',
+      ownerUid: '',
     },
     mode: 'onTouched',
   });
@@ -339,7 +341,7 @@ export function CreateStoreForm() {
         address: values.address.trim(),
         url: values.url?.trim() || undefined,
         rib: cleanRibOrIban(values.rib),
-        userId: Number(values.userId),
+        ownerUid: values.ownerUid,
       };
 
       const response = await createStore(payload, imageFile);
@@ -392,23 +394,23 @@ export function CreateStoreForm() {
 
           {/* Partner user account selection */}
           <Field>
-            <FieldLabel htmlFor="userId">
+            <FieldLabel htmlFor="ownerUid">
               <span>Compte partenaire propriétaire</span>
               <span className="text-destructive">*</span>
             </FieldLabel>
             <Controller
-              name="userId"
+              name="ownerUid"
               control={control}
               render={({ field }) => (
                 <PartnerSelect
-                  id="userId"
+                  id="ownerUid"
                   value={field.value}
                   onValueChange={(val) => field.onChange(val)}
                   disabled={isSubmitting}
                 />
               )}
             />
-            <FieldError>{errors.userId?.message}</FieldError>
+            <FieldError>{errors.ownerUid?.message}</FieldError>
           </Field>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

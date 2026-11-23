@@ -63,16 +63,8 @@ export function parseUserFromToken(token: string): AuthUser | null {
     const jsonString = decodeBase64(parts[1]);
     const payload = JSON.parse(jsonString);
 
-    let parsedDbId: number | undefined;
-    if (typeof payload.dbId === 'number') {
-      parsedDbId = payload.dbId;
-    } else if (payload.dbId && !Number.isNaN(Number(payload.dbId))) {
-      parsedDbId = Number(payload.dbId);
-    }
-
     return {
-      id: payload.userId || payload.sub,
-      dbId: parsedDbId,
+      id: payload.userId || payload.sub || '',
       email: payload.email || '',
       role: (payload.role || payload.userRole || 'CLIENT') as UserRole,
       firstName: payload.firstName || '',
@@ -165,10 +157,10 @@ export function setAuthSession(auth: AuthResponse): void {
   }
 
   const parsedFromToken = parseUserFromToken(auth.token);
+  const resolvedId = auth.userId || (parsedFromToken ? parsedFromToken.id : '');
 
   const user: AuthUser = {
-    id: auth.userId || parsedFromToken?.id || '',
-    dbId: parsedFromToken?.dbId,
+    id: resolvedId,
     email: auth.email,
     role: auth.role,
     firstName: auth.firstName,

@@ -14,7 +14,7 @@ import { QrCode, Keyboard, Camera, AlertCircle, Sparkles, Store } from 'lucide-r
 import { cn } from 'cn';
 
 export interface MerchantLoyaltyScannerProps {
-  storeId?: number | string;
+  storeUid: string;
   storeName?: string;
   className?: string;
 }
@@ -30,7 +30,7 @@ type CashierStep = 'scan' | 'customer' | 'checkout' | 'success';
  * 4. Confirmation receipt displaying total amount and awarded loyalty points.
  */
 export function MerchantLoyaltyScanner({
-  storeId = 1,
+  storeUid,
   storeName,
   className,
 }: MerchantLoyaltyScannerProps) {
@@ -104,7 +104,7 @@ export function MerchantLoyaltyScanner({
       {/* STEP 3: Physical checkout form with decimal validation & live points simulation */}
       {cashierStep === 'checkout' && identifiedCustomer && (
         <PhysicalCheckoutForm
-          storeId={storeId}
+          storeUid={storeUid}
           storeName={storeName}
           customer={identifiedCustomer}
           onCancel={() => setCashierStep('customer')}

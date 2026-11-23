@@ -69,7 +69,7 @@ export function CustomerOrdersSection() {
   }, [fetchOrders]);
 
   const handleDownload = async (order: OrderResponse) => {
-    const targetId = order.orderReference || order.uid;
+    const targetId = order.uid;
     const isCompleted = (order.status || '').toUpperCase() === 'COMPLETED';
     try {
       setDownloadingId(targetId);
@@ -98,7 +98,7 @@ export function CustomerOrdersSection() {
   };
 
   const handleResendEmail = async (order: OrderResponse) => {
-    const targetId = order.uid || order.orderReference;
+    const targetId = order.uid;
     try {
       setResendingId(targetId);
       setDownloadError(null);
@@ -292,7 +292,7 @@ export function CustomerOrdersSection() {
       {!isLoading && !error && orders.length > 0 && (
         <div className="space-y-4">
           {orders.map((order) => {
-            const orderKey = order.uid || order.orderReference;
+            const orderKey = order.uid;
             const isPaid = (order.status || '').toUpperCase() === 'PAID';
             const isCompleted = (order.status || '').toUpperCase() === 'COMPLETED';
             const isPending = (order.status || '').toUpperCase() === 'PENDING_PAYMENT';
@@ -369,7 +369,7 @@ export function CustomerOrdersSection() {
                       <div className="flex flex-wrap gap-2">
                         {order.storeSummaries.map((summary) => (
                           <div
-                            key={summary.storeId}
+                            key={summary.storeUid}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs bg-muted/60 border border-border/40 text-foreground font-medium"
                           >
                             <span className="font-semibold">{summary.storeName}</span>
@@ -463,7 +463,7 @@ export function CustomerOrdersSection() {
                         Commande réservée (stocks verrouillés pendant 30 min)
                       </div>
                       <a
-                        href={ROUTES.checkout.detail(order.uid || order.orderReference)}
+                        href={ROUTES.checkout.detail(order.uid)}
                         className="cursor-pointer ml-auto inline-flex items-center justify-center gap-1.5 h-7 px-3 rounded-lg text-xs font-semibold !bg-amber-600 hover:!bg-amber-500 !text-white shadow-xs transition-colors"
                       >
                         <span>Finaliser le paiement</span>

@@ -24,7 +24,6 @@ import {
 interface ProductWithStore extends Product {
   storeName: string;
   storeAddress?: string;
-  storeUid?: string;
 }
 
 export function GlobalProductCatalog() {
@@ -42,9 +41,9 @@ export function GlobalProductCatalog() {
     'default'
   );
 
-  // Cart quantities per product id
-  const [quantities, setQuantities] = React.useState<Record<number, number>>({});
-  const [justAddedId, setJustAddedId] = React.useState<number | null>(null);
+  // Cart quantities per product uid
+  const [quantities, setQuantities] = React.useState<Record<string, number>>({});
+  const [justAddedUid, setJustAddedUid] = React.useState<string | null>(null);
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -58,9 +57,9 @@ export function GlobalProductCatalog() {
         setStores(fetchedStores);
 
         const storeProductsPromises = fetchedStores.map(async (st) => {
-          if (!st.id) return [];
+          if (!st.uid) return [];
           try {
-            const storeProducts = await getStoreProducts(st.id);
+            const storeProducts = await getStoreProducts(st.uid);
             return storeProducts.map((p) => ({
               ...p,
               storeName: st.name,
@@ -77,9 +76,9 @@ export function GlobalProductCatalog() {
 
         if (isMounted) {
           setProducts(flattened);
-          const initialQty: Record<number, number> = {};
+          const initialQty: Record<string, number> = {};
           flattened.forEach((p) => {
-            initialQty[p.id] = p.stockQuantity > 0 ? 1 : 0;
+            initialQty[p.uid] = p.stockQuantity > 0 ? 1 : 0;
           });
           setQuantities(initialQty);
         }
@@ -101,21 +100,20 @@ export function GlobalProductCatalog() {
     };
   }, []);
 
-  const handleQuantityChange = (productId: number, delta: number, maxStock: number) => {
+  const handleQuantityChange = (productUid: string, delta: number, maxStock: number) => {
     setQuantities((prev) => {
-      const current = prev[productId] || 1;
+      const current = prev[productUid] || 1;
       const next = Math.max(1, Math.min(maxStock, current + delta));
-      return { ...prev, [productId]: next };
+      return { ...prev, [productUid]: next };
     });
   };
 
   const handleAddToCart = (product: ProductWithStore, remainingStock: number) => {
-    const qty = Math.min(remainingStock, quantities[product.id] || 1);
+    const qty = Math.min(remainingStock, quantities[product.uid] || 1);
     if (qty <= 0 || product.stockQuantity <= 0) return;
 
     const res = addItem({
-      productId: product.id,
-      storeId: product.storeId,
+      productUid: product.uid,
       storeUid: product.storeUid,
       storeName: product.storeName,
       name: product.name,
@@ -126,9 +124,9 @@ export function GlobalProductCatalog() {
     });
 
     if (res.success) {
-      setJustAddedId(product.id);
-      setTimeout(() => setJustAddedId(null), 1200);
-      setQuantities((prev) => ({ ...prev, [product.id]: 1 }));
+      setJustAddedUid(product.uid);
+      setTimeout(() => setJustAddedUid(null), 1200);
+      setQuantities((prev) => ({ ...prev, [product.uid]: 1 }));
       setToastMessage(`${res.quantityAdded ?? qty} × "${product.name}" ajouté au panier !`);
     } else {
       setToastMessage(res.message || 'Article ajouté au panier !');
@@ -146,7 +144,7 @@ export function GlobalProductCatalog() {
         (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
       if (!matchesSearch) return false;
-      if (selectedStoreId !== 'ALL' && String(p.storeId) !== selectedStoreId) return false;
+      if (selectedStoreId !== 'ALL' && p.storeUid !== selectedStoreId) return false;
       if (inStockOnly && p.stockQuantity <= 0) return false;
       return true;
     });
@@ -202,7 +200,7 @@ export function GlobalProductCatalog() {
           >
             <option value="ALL">Tous les commerces ({stores.length})</option>
             {stores.map((s) => (
-              <option key={s.id} value={String(s.id)}>
+              <option key={s.uid} value={s.uid}>
                 {s.name}
               </option>
             ))}
@@ -297,25 +295,25 @@ export function GlobalProductCatalog() {
           {filteredProducts.map((product) => {
             const status = getStockStatus(product.stockQuantity);
             const inCartItem = cartItems.find(
-              (i) => i.productId === product.id && i.storeId === product.storeId
+              (i) => i.productUid === product.uid && i.storeUid === product.storeUid
             );
             const inCartQty = inCartItem?.quantity || 0;
             const remainingStock = Math.max(0, product.stockQuantity - inCartQty);
             const isAvailable = product.stockQuantity > 0;
             const isMaxInCart = isAvailable && remainingStock === 0;
-            const selectedQty = Math.min(remainingStock || 1, quantities[product.id] || 1);
+            const selectedQty = Math.min(remainingStock || 1, quantities[product.uid] || 1);
 
             return (
               <Card
-                key={`${product.storeId}-${product.id}`}
+                key={`${product.storeUid}-${product.uid}`}
                 className="group flex flex-col justify-between overflow-hidden border-border hover:shadow-lg transition-all duration-200 bg-card rounded-xl"
               >
                 <div>
                   {/* Image container */}
                   <div className="relative aspect-4/3 w-full bg-muted/60 overflow-hidden flex items-center justify-center border-b border-border">
                     <ProductImage
-                      storeId={product.storeId}
-                      productId={product.id}
+                      storeUid={product.storeUid}
+                      productUid={product.uid}
                       imageUrl={product.imageUrl}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -347,7 +345,7 @@ export function GlobalProductCatalog() {
                   <CardHeader className="p-4 pb-2 space-y-1.5">
                     {/* Store Origin Pill */}
                     <a
-                      href={ROUTES.storeDetail(product.storeUid || product.storeId)}
+                      href={ROUTES.storeDetail(product.storeUid)}
                       className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:underline transition-colors"
                       title="Voir le magasin"
                     >
@@ -408,7 +406,7 @@ export function GlobalProductCatalog() {
                             variant="ghost"
                             size="icon"
                             className="size-7 rounded"
-                            onClick={() => handleQuantityChange(product.id, -1, remainingStock)}
+                            onClick={() => handleQuantityChange(product.uid, -1, remainingStock)}
                             disabled={selectedQty <= 1}
                             aria-label="Diminuer la quantité"
                           >
@@ -422,7 +420,7 @@ export function GlobalProductCatalog() {
                             variant="ghost"
                             size="icon"
                             className="size-7 rounded"
-                            onClick={() => handleQuantityChange(product.id, 1, remainingStock)}
+                            onClick={() => handleQuantityChange(product.uid, 1, remainingStock)}
                             disabled={selectedQty >= remainingStock}
                             aria-label="Augmenter la quantité"
                           >
@@ -434,12 +432,12 @@ export function GlobalProductCatalog() {
                           type="button"
                           onClick={() => handleAddToCart(product, remainingStock)}
                           className={`flex-1 h-8 text-xs gap-1.5 shadow-xs transition-all ${
-                            justAddedId === product.id
+                            justAddedUid === product.uid
                               ? 'bg-emerald-600 hover:bg-emerald-600 text-white'
                               : ''
                           }`}
                         >
-                          {justAddedId === product.id ? (
+                          {justAddedUid === product.uid ? (
                             <>
                               <Check className="size-3.5 animate-in zoom-in-50" />
                               <span>Ajouté !</span>

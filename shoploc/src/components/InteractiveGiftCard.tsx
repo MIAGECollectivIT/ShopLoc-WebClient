@@ -32,8 +32,8 @@ export function InteractiveGiftCard({
         {/* Image container aligned with Product Cards */}
         <div className="relative aspect-4/3 w-full bg-muted/60 overflow-hidden flex items-center justify-center border-b border-border">
           <GiftImage
-            storeId={gift.storeId}
-            giftId={gift.id}
+            storeUid={gift.storeUid}
+            giftUid={gift.uid}
             imageUrl={gift.imageUrl}
             alt={gift.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -65,7 +65,7 @@ export function InteractiveGiftCard({
         <CardHeader className="p-4 pb-2 space-y-1">
           {gift.storeName && (
             <a
-              href={ROUTES.storeDetail(gift.storeId)}
+              href={ROUTES.storeDetail(gift.storeUid)}
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors line-clamp-1 mb-0.5"
               title={gift.storeName}
             >
@@ -120,7 +120,7 @@ export function InteractiveGiftCard({
             type="button"
             className="w-full h-8 text-xs gap-1.5 font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs cursor-pointer"
             onClick={() => {
-              window.location.href = ROUTES.storeDetail(gift.storeId);
+              window.location.href = ROUTES.storeDetail(gift.storeUid);
             }}
           >
             <Gift className="size-3.5" />

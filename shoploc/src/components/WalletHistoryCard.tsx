@@ -410,15 +410,9 @@ export function WalletHistoryCard({
           <div className="divide-y divide-border/50">
             {displayedHistoryEntries.map((entry) =>
               entry.kind === 'PTS' ? (
-                <PointsTransactionRow
-                  key={`pts-${entry.tx.id || entry.tx.transactionReference}`}
-                  tx={entry.tx}
-                />
+                <PointsTransactionRow key={`pts-${entry.tx.uid}`} tx={entry.tx} />
               ) : (
-                <EuroTransactionRow
-                  key={`eur-${entry.tx.id || entry.tx.transactionReference}`}
-                  tx={entry.tx}
-                />
+                <EuroTransactionRow key={`eur-${entry.tx.uid}`} tx={entry.tx} />
               )
             )}
           </div>

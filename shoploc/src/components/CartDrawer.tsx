@@ -121,7 +121,7 @@ export function CartDrawer() {
           ) : (
             groupedByStore.map((group) => (
               <div
-                key={group.storeId}
+                key={group.storeUid}
                 className="rounded-xl border border-border bg-background/50 overflow-hidden shadow-2xs"
               >
                 {/* Store header */}
@@ -141,14 +141,14 @@ export function CartDrawer() {
                 <div className="divide-y divide-border/60">
                   {group.items.map((item) => (
                     <div
-                      key={`${item.storeId}-${item.productId}`}
+                      key={`${item.storeUid}-${item.productUid}`}
                       className="p-3 flex items-center gap-3 hover:bg-muted/20 transition-colors"
                     >
                       {/* Product thumbnail */}
                       <div className="size-12 rounded-lg bg-muted overflow-hidden shrink-0 border border-border/80">
                         <ProductImage
-                          storeId={item.storeId}
-                          productId={item.productId}
+                          storeUid={item.storeUid}
+                          productUid={item.productUid}
                           imageUrl={item.imageUrl}
                           alt={item.name}
                           className="w-full h-full object-cover"
@@ -177,7 +177,7 @@ export function CartDrawer() {
                             size="icon"
                             className="size-6 rounded"
                             onClick={() =>
-                              updateQuantity(item.productId, item.storeId, item.quantity - 1)
+                              updateQuantity(item.productUid, item.storeUid, item.quantity - 1)
                             }
                             aria-label="Diminuer"
                           >
@@ -192,7 +192,7 @@ export function CartDrawer() {
                             size="icon"
                             className="size-6 rounded"
                             onClick={() =>
-                              updateQuantity(item.productId, item.storeId, item.quantity + 1)
+                              updateQuantity(item.productUid, item.storeUid, item.quantity + 1)
                             }
                             disabled={item.maxStock !== undefined && item.quantity >= item.maxStock}
                             aria-label="Augmenter"
@@ -206,7 +206,7 @@ export function CartDrawer() {
                           variant="ghost"
                           size="icon"
                           className="size-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => removeItem(item.productId, item.storeId)}
+                          onClick={() => removeItem(item.productUid, item.storeUid)}
                           aria-label="Supprimer l'article"
                         >
                           <Trash2 className="size-3" />

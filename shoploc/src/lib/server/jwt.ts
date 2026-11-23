@@ -5,7 +5,6 @@ export interface JwtTokenPayload {
   exp?: number;
   jti?: string;
   userId?: string;
-  dbId?: number;
   sub?: string;
   email?: string;
   role?: UserRole | string;

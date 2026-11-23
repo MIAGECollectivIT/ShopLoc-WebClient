@@ -184,7 +184,7 @@ export function StoreDirectoryView({
         /* Responsive Store Grid */
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
           {sortedStores.map((store) => (
-            <StoreCard key={store.uid || store.id || store.name} store={store} />
+            <StoreCard key={store.uid} store={store} />
           ))}
         </div>
       )}

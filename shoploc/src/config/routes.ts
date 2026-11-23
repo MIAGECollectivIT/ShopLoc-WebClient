@@ -38,8 +38,8 @@ export const ROUTES = {
     label: 'Mes commerces',
     icon: Store,
   },
-  storeDetail: (id: string | number) => `/stores/${id}`,
-  storeScan: (id: string | number) => `/stores/${id}/scan`,
+  storeDetail: (uid: string) => `/stores/${uid}`,
+  storeScan: (uid: string) => `/stores/${uid}/scan`,
   createStore: {
     path: '/stores/new',
     label: 'Ajouter un établissement',
@@ -72,13 +72,13 @@ export const ROUTES = {
   },
   checkout: {
     path: '/checkout',
-    detail: (id: string | number) => `/checkout/${id}`,
+    detail: (uid: string) => `/checkout/${uid}`,
     label: 'Règlement',
     icon: CreditCard,
   },
   orderConfirmation: {
     path: '/order-confirmation',
-    detail: (id: string | number) => `/order-confirmation/${id}`,
+    detail: (uid: string) => `/order-confirmation/${uid}`,
     label: 'Confirmation de commande',
     icon: ShoppingCart,
   },
@@ -107,7 +107,7 @@ export const ROUTES = {
     label: 'Administration Partenaires',
     icon: Users,
   },
-  adminPartnerDetail: (id: string | number) => `/admin/partners/${id}`,
+  adminPartnerDetail: (id: string) => `/admin/partners/${id}`,
 } as const;
 
 export const NAV_ROUTES: RouteConfig[] = [ROUTES.home, ROUTES.stores, ROUTES.catalog, ROUTES.gifts];

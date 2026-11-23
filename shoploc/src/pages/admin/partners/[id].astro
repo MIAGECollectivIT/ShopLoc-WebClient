@@ -22,14 +22,15 @@ if (!id) {
 } else {
   try {
     partner = await getAdminPartnerById(id, token);
-    if (partner && partner.storeIds && partner.storeIds.length > 0) {
+    if (partner && partner.storeUids && partner.storeUids.length > 0) {
       const storeResults = await Promise.all(
-        partner.storeIds.map(async (storeId) => {
+        partner.storeUids.map(async (storeUid) => {
           try {
-            return await getStoreById(storeId);
+            return await getStoreById(storeUid);
           } catch {
             return {
-              id: storeId,
+              uid: storeUid,
+              ownerUid: '',
               name: 'Commerce affilié',
               address: 'Informations non disponibles',
             } as Store;

@@ -7,14 +7,14 @@ import { Minus, Plus, Loader2, AlertCircle } from 'lucide-react';
 
 interface StockControlProps {
   product: Product;
-  storeIdentifier?: string | number;
+  storeUid?: string;
   onStockUpdated?: (updated: Product) => void;
   className?: string;
 }
 
 export function StockControl({
   product,
-  storeIdentifier,
+  storeUid,
   onStockUpdated,
   className = '',
 }: StockControlProps) {
@@ -23,7 +23,7 @@ export function StockControl({
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const targetStore = storeIdentifier || product.storeUid || product.storeId;
+  const targetStoreUid = storeUid || product.storeUid;
 
   React.useEffect(() => {
     setCurrentStock(product.stockQuantity);
@@ -37,7 +37,7 @@ export function StockControl({
     setError(null);
     setIsUpdating(true);
     try {
-      const updated = await updateProductStock(targetStore, product.id, {
+      const updated = await updateProductStock(targetStoreUid, product.uid, {
         quantityDelta: delta,
       });
       setCurrentStock(updated.stockQuantity);
@@ -62,7 +62,7 @@ export function StockControl({
     setError(null);
     setIsUpdating(true);
     try {
-      const updated = await updateProductStock(targetStore, product.id, {
+      const updated = await updateProductStock(targetStoreUid, product.uid, {
         newQuantity: parsed,
       });
       setCurrentStock(updated.stockQuantity);

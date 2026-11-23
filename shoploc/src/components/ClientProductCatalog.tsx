@@ -24,11 +24,11 @@ export type { CartItem };
 export { CART_STORAGE_KEY };
 
 interface ClientProductCatalogProps {
-  storeId: number | string;
+  storeUid: string;
   storeName?: string;
 }
 
-export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalogProps) {
+export function ClientProductCatalog({ storeUid, storeName }: ClientProductCatalogProps) {
   const { addItem, items: cartItems } = useCart();
   const [products, setProducts] = React.useState<Product[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -41,11 +41,11 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
     'default'
   );
 
-  // Selected quantities for cart per product id
-  const [quantities, setQuantities] = React.useState<Record<number, number>>({});
+  // Selected quantities for cart per product uid
+  const [quantities, setQuantities] = React.useState<Record<string, number>>({});
 
   // Visual feedback for freshly added product
-  const [justAddedId, setJustAddedId] = React.useState<number | null>(null);
+  const [justAddedUid, setJustAddedUid] = React.useState<string | null>(null);
 
   // Toast notification
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
@@ -53,14 +53,14 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
   React.useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
-    getStoreProducts(storeId)
+    getStoreProducts(storeUid)
       .then((items) => {
         if (isMounted) {
           setProducts(items);
           // Initialize quantity state
-          const initialQty: Record<number, number> = {};
+          const initialQty: Record<string, number> = {};
           items.forEach((p) => {
-            initialQty[p.id] = p.stockQuantity > 0 ? 1 : 0;
+            initialQty[p.uid] = p.stockQuantity > 0 ? 1 : 0;
           });
           setQuantities(initialQty);
         }
@@ -79,24 +79,23 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
     return () => {
       isMounted = false;
     };
-  }, [storeId]);
+  }, [storeUid]);
 
-  const handleQuantityChange = (productId: number, delta: number, maxStock: number) => {
+  const handleQuantityChange = (productUid: string, delta: number, maxStock: number) => {
     setQuantities((prev) => {
-      const current = prev[productId] || 1;
+      const current = prev[productUid] || 1;
       const next = Math.max(1, Math.min(maxStock, current + delta));
-      return { ...prev, [productId]: next };
+      return { ...prev, [productUid]: next };
     });
   };
 
   const handleAddToCart = (product: Product, remainingStock: number) => {
-    const qty = Math.min(remainingStock, quantities[product.id] || 1);
+    const qty = Math.min(remainingStock, quantities[product.uid] || 1);
     if (qty <= 0 || product.stockQuantity <= 0) return;
 
     const res = addItem({
-      productId: product.id,
-      storeId: product.storeId || (typeof storeId === 'number' ? storeId : 1),
-      storeUid: typeof storeId === 'string' ? storeId : undefined,
+      productUid: product.uid,
+      storeUid: product.storeUid || storeUid,
       storeName: storeName || 'Boutique',
       name: product.name,
       price: product.price,
@@ -106,9 +105,9 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
     });
 
     if (res.success) {
-      setJustAddedId(product.id);
-      setTimeout(() => setJustAddedId(null), 1200);
-      setQuantities((prev) => ({ ...prev, [product.id]: 1 }));
+      setJustAddedUid(product.uid);
+      setTimeout(() => setJustAddedUid(null), 1200);
+      setQuantities((prev) => ({ ...prev, [product.uid]: 1 }));
       setToastMessage(`${res.quantityAdded ?? qty} × "${product.name}" ajouté au panier !`);
     } else {
       setToastMessage(res.message || 'Article ajouté au panier !');
@@ -261,25 +260,25 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
           {filteredProducts.map((product) => {
             const status = getStockStatus(product.stockQuantity);
             const inCartItem = cartItems.find(
-              (i) => i.productId === product.id && i.storeId === storeId
+              (i) => i.productUid === product.uid && i.storeUid === storeUid
             );
             const inCartQty = inCartItem?.quantity || 0;
             const remainingStock = Math.max(0, product.stockQuantity - inCartQty);
             const isAvailable = product.stockQuantity > 0;
             const isMaxInCart = isAvailable && remainingStock === 0;
-            const selectedQty = Math.min(remainingStock || 1, quantities[product.id] || 1);
+            const selectedQty = Math.min(remainingStock || 1, quantities[product.uid] || 1);
 
             return (
               <Card
-                key={product.id}
+                key={product.uid}
                 className="group flex flex-col justify-between overflow-hidden border-border hover:shadow-lg transition-all duration-200 bg-card rounded-xl"
               >
                 <div>
                   {/* Image container */}
                   <div className="relative aspect-4/3 w-full bg-muted/60 overflow-hidden flex items-center justify-center border-b border-border">
                     <ProductImage
-                      storeId={product.storeId || storeId}
-                      productId={product.id}
+                      storeUid={product.storeUid || storeUid}
+                      productUid={product.uid}
                       imageUrl={product.imageUrl}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -362,7 +361,7 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
                             variant="ghost"
                             size="icon"
                             className="size-7 rounded"
-                            onClick={() => handleQuantityChange(product.id, -1, remainingStock)}
+                            onClick={() => handleQuantityChange(product.uid, -1, remainingStock)}
                             disabled={selectedQty <= 1}
                             aria-label="Diminuer la quantité"
                           >
@@ -376,7 +375,7 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
                             variant="ghost"
                             size="icon"
                             className="size-7 rounded"
-                            onClick={() => handleQuantityChange(product.id, 1, remainingStock)}
+                            onClick={() => handleQuantityChange(product.uid, 1, remainingStock)}
                             disabled={selectedQty >= remainingStock}
                             aria-label="Augmenter la quantité"
                           >
@@ -389,12 +388,12 @@ export function ClientProductCatalog({ storeId, storeName }: ClientProductCatalo
                           type="button"
                           onClick={() => handleAddToCart(product, remainingStock)}
                           className={`flex-1 h-8 text-xs gap-1.5 shadow-xs transition-all ${
-                            justAddedId === product.id
+                            justAddedUid === product.uid
                               ? 'bg-emerald-600 hover:bg-emerald-600 text-white'
                               : ''
                           }`}
                         >
-                          {justAddedId === product.id ? (
+                          {justAddedUid === product.uid ? (
                             <>
                               <Check className="size-3.5 animate-in zoom-in-50" />
                               <span>Ajouté !</span>

@@ -5,8 +5,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 export interface ProductImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
-  storeId?: number | string | null;
-  productId?: number | string | null;
+  storeUid?: string | null;
+  productUid?: string | null;
   imageUrl?: string | null;
   alt: string;
   fallbackText?: string;
@@ -15,8 +15,8 @@ export interface ProductImageProps extends React.ImgHTMLAttributes<HTMLImageElem
 }
 
 export function ProductImage({
-  storeId,
-  productId,
+  storeUid,
+  productUid,
   imageUrl,
   src,
   alt,
@@ -31,11 +31,11 @@ export function ProductImage({
 }: ProductImageProps) {
   const initialUrl = React.useMemo(() => {
     return resolveProductImageUrl({
-      storeId,
-      productId,
+      storeUid,
+      productUid,
       imageUrl: src || imageUrl,
     });
-  }, [storeId, productId, src, imageUrl]);
+  }, [storeUid, productUid, src, imageUrl]);
 
   const [currentSrc, setCurrentSrc] = React.useState<string | null>(initialUrl);
   const [hasTriedFallback, setHasTriedFallback] = React.useState(false);
@@ -45,15 +45,15 @@ export function ProductImage({
   // Sync if prop URL changes
   React.useEffect(() => {
     const nextUrl = resolveProductImageUrl({
-      storeId,
-      productId,
+      storeUid,
+      productUid,
       imageUrl: src || imageUrl,
     });
     setCurrentSrc(nextUrl);
     setHasTriedFallback(false);
     setIsLoading(Boolean(nextUrl));
     setHasError(!nextUrl);
-  }, [storeId, productId, src, imageUrl]);
+  }, [storeUid, productUid, src, imageUrl]);
 
   const handleLoad: React.ReactEventHandler<HTMLImageElement> = (e) => {
     setIsLoading(false);
@@ -63,8 +63,8 @@ export function ProductImage({
 
   const handleError: React.ReactEventHandler<HTMLImageElement> = (e) => {
     // If the primary URL failed and we haven't yet tried the direct backend stream endpoint
-    if (!hasTriedFallback && storeId && productId) {
-      const fallbackUrl = getProductApiImageUrl(storeId, productId);
+    if (!hasTriedFallback && storeUid && productUid) {
+      const fallbackUrl = getProductApiImageUrl(storeUid, productUid);
       if (fallbackUrl && fallbackUrl !== currentSrc) {
         setHasTriedFallback(true);
         setCurrentSrc(fallbackUrl);

@@ -25,18 +25,18 @@ export function useCart() {
   }, []);
 
   const updateQuantity = React.useCallback(
-    (productId: number, storeId: number, quantity: number) => {
-      updateCartQuantity(productId, storeId, quantity);
+    (productUid: string, storeUid: string, quantity: number) => {
+      updateCartQuantity(productUid, storeUid, quantity);
     },
     []
   );
 
-  const removeItem = React.useCallback((productId: number, storeId: number) => {
-    removeFromCart(productId, storeId);
+  const removeItem = React.useCallback((productUid: string, storeUid: string) => {
+    removeFromCart(productUid, storeUid);
   }, []);
 
-  const clearStore = React.useCallback((storeId: number) => {
-    clearStoreFromCart(storeId);
+  const clearStore = React.useCallback((storeUid: string) => {
+    clearStoreFromCart(storeUid);
   }, []);
 
   const clear = React.useCallback(() => {

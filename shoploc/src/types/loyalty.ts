@@ -4,8 +4,8 @@
  */
 
 export interface MerchantLoyaltyRate {
-  id?: number | null;
-  storeId: number | string;
+  uid?: string | null;
+  storeUid: string;
   euroAmount: number;
   pointsReward: number;
   createdAt?: string | null;
@@ -18,8 +18,8 @@ export interface MerchantLoyaltyRateRequest {
 }
 
 export interface MerchantLoyaltyRateResponse {
-  id?: number | null;
-  storeId: number;
+  uid?: string | null;
+  storeUid: string;
   euroAmount: number;
   pointsReward: number;
   createdAt?: string | null;
@@ -77,9 +77,9 @@ export type PointsTransactionType = 'EARN' | 'REDEEM';
  * Loyalty points movement entry returned by Loyalty Service.
  */
 export interface PointsTransaction {
-  id: number;
+  uid: string;
   transactionReference: string;
-  storeId?: number | null;
+  storeUid?: string | null;
   storeName?: string | null;
   type: PointsTransactionType;
   points: number;

@@ -3,7 +3,7 @@
  */
 
 export interface PhysicalSaleRequest {
-  storeId: number;
+  storeUid: string;
   clientCode: string;
   customerId?: string;
   amount: number;
@@ -12,8 +12,9 @@ export interface PhysicalSaleRequest {
 }
 
 export interface PhysicalSaleResponse {
+  uid: string;
   transactionReference: string;
-  storeId: number;
+  storeUid: string;
   merchantId: string;
   clientCode: string;
   customerId?: string;
@@ -27,7 +28,7 @@ export interface PhysicalSaleResponse {
 }
 
 export interface StoreTurnoverResponse {
-  storeId: number;
+  storeUid: string;
   currency: string;
   monthlyTurnover: number;
   annualTurnover: number;

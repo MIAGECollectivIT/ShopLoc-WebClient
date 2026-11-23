@@ -2,9 +2,9 @@ export type OrderStatus =
   'PENDING_PAYMENT' | 'PAID' | 'CANCELLED' | 'DELIVERED' | 'COMPLETED' | 'EXPIRED';
 
 export interface CreateOrderItemRequest {
-  storeId: number;
+  storeUid: string;
   storeName: string;
-  productId: number;
+  productUid: string;
   productName: string;
   unitPrice: number;
   quantity: number;
@@ -17,10 +17,10 @@ export interface CreateOrderRequest {
 }
 
 export interface OrderItemResponse {
-  id: number;
-  storeId: number;
+  uid: string;
+  storeUid: string;
   storeName: string;
-  productId: number;
+  productUid: string;
   productName: string;
   unitPrice: number;
   quantity: number;
@@ -28,7 +28,7 @@ export interface OrderItemResponse {
 }
 
 export interface OrderStoreSummaryResponse {
-  storeId: number;
+  storeUid: string;
   storeName: string;
   subtotal: number;
   itemCount: number;
@@ -36,7 +36,6 @@ export interface OrderStoreSummaryResponse {
 }
 
 export interface OrderResponse {
-  id: number;
   uid: string;
   orderReference: string;
   customerId: string;

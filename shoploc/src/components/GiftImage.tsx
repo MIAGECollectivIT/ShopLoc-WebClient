@@ -5,8 +5,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 export interface GiftImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
-  storeId?: number | string | null;
-  giftId?: number | string | null;
+  storeUid?: string | null;
+  giftUid?: string | null;
   imageUrl?: string | null;
   alt: string;
   fallbackText?: string;
@@ -15,8 +15,8 @@ export interface GiftImageProps extends React.ImgHTMLAttributes<HTMLImageElement
 }
 
 export function GiftImage({
-  storeId,
-  giftId,
+  storeUid,
+  giftUid,
   imageUrl,
   src,
   alt,
@@ -31,11 +31,11 @@ export function GiftImage({
 }: GiftImageProps) {
   const initialUrl = React.useMemo(() => {
     return resolveGiftImageUrl({
-      storeId,
-      giftId,
+      storeUid,
+      giftUid,
       imageUrl: src || imageUrl,
     });
-  }, [storeId, giftId, src, imageUrl]);
+  }, [storeUid, giftUid, src, imageUrl]);
 
   const [currentSrc, setCurrentSrc] = React.useState<string | null>(initialUrl);
   const [hasTriedFallback, setHasTriedFallback] = React.useState(false);
@@ -44,15 +44,15 @@ export function GiftImage({
 
   React.useEffect(() => {
     const nextUrl = resolveGiftImageUrl({
-      storeId,
-      giftId,
+      storeUid,
+      giftUid,
       imageUrl: src || imageUrl,
     });
     setCurrentSrc(nextUrl);
     setHasTriedFallback(false);
     setIsLoading(Boolean(nextUrl));
     setHasError(!nextUrl);
-  }, [storeId, giftId, src, imageUrl]);
+  }, [storeUid, giftUid, src, imageUrl]);
 
   const handleLoad: React.ReactEventHandler<HTMLImageElement> = (e) => {
     setIsLoading(false);
@@ -61,8 +61,8 @@ export function GiftImage({
   };
 
   const handleError: React.ReactEventHandler<HTMLImageElement> = (e) => {
-    if (!hasTriedFallback && storeId && giftId) {
-      const fallbackUrl = getGiftApiImageUrl(storeId, giftId);
+    if (!hasTriedFallback && storeUid && giftUid) {
+      const fallbackUrl = getGiftApiImageUrl(storeUid, giftUid);
       if (fallbackUrl && fallbackUrl !== currentSrc) {
         setHasTriedFallback(true);
         setCurrentSrc(fallbackUrl);

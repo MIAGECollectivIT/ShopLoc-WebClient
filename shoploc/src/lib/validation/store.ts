@@ -259,11 +259,11 @@ export const createStoreZodSchema = z.object({
       message:
         'Le format ou la clé algorithmique du RIB/IBAN est invalide (RIB français 23 car. ou IBAN valide)',
     }),
-  userId: z
-    .union([z.number().positive('Identifiant de partenaire invalide'), z.literal('')])
-    .refine((val) => typeof val === 'number' && val > 0, {
-      message: 'Veuillez sélectionner un compte partenaire',
-    }),
+  ownerUid: z
+    .string()
+    .trim()
+    .min(1, 'Veuillez sélectionner un compte partenaire')
+    .uuid('Identifiant de partenaire invalide'),
 });
 
 export const createStoreValidationSchema = createStoreZodSchema;
@@ -357,9 +357,12 @@ export const adminStoreEditSchema = z.object({
     })
     .optional()
     .or(z.literal('')),
-  userId: z
-    .union([z.number().positive(), z.string().transform((v) => (v ? Number(v) : undefined))])
-    .optional(),
+  ownerUid: z
+    .string()
+    .trim()
+    .uuid('Identifiant de partenaire invalide')
+    .optional()
+    .or(z.literal('')),
   rib: z
     .string()
     .trim()

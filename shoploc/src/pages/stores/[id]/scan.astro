@@ -10,11 +10,6 @@ import { MerchantLoyaltyScanner } from '../../../components/MerchantLoyaltyScann
 
 const { id } = Astro.params;
 const store = id ? await getStoreById(id).catch(() => null) : null;
-
-// Canonical redirect to UUID if store was accessed with numeric DB id
-if (store?.uid && id && /^\d+$/.test(id)) {
-  return Astro.redirect(ROUTES.storeScan(store.uid));
-}
 ---
 
 <Layout title={store ? `Pass Caisse - ${store.name}` : 'Pass Caisse'}>
@@ -36,11 +31,7 @@ if (store?.uid && id && /^\d+$/.test(id)) {
 
     {store && (
       <div class="space-y-6">
-        <MerchantLoyaltyScanner
-          client:only="react"
-          storeId={Number(store.id)}
-          storeName={store.name}
-        />
+        <MerchantLoyaltyScanner client:only="react" storeUid={store.uid} storeName={store.name} />
       </div>
     )}
 

@@ -34,15 +34,15 @@ import {
 } from 'lucide-react';
 
 interface StoreInfoMap {
-  [storeId: number]: {
+  [storeUid: string]: {
     address?: string;
     loading: boolean;
   };
 }
 
 interface StockIssue {
-  productId: number;
-  storeId: number;
+  productUid: string;
+  storeUid: string;
   productName: string;
   availableStock: number;
   requestedQty: number;
@@ -79,18 +79,18 @@ export function CartPageView() {
     if (!mounted || groupedByStore.length === 0) return;
 
     groupedByStore.forEach((group) => {
-      if (storeDetails[group.storeId]) return;
+      if (storeDetails[group.storeUid]) return;
 
       setStoreDetails((prev) => ({
         ...prev,
-        [group.storeId]: { loading: true },
+        [group.storeUid]: { loading: true },
       }));
 
-      getStoreById(group.storeId)
+      getStoreById(group.storeUid)
         .then((store: Store) => {
           setStoreDetails((prev) => ({
             ...prev,
-            [group.storeId]: {
+            [group.storeUid]: {
               address: store.address || undefined,
               loading: false,
             },
@@ -99,7 +99,7 @@ export function CartPageView() {
         .catch(() => {
           setStoreDetails((prev) => ({
             ...prev,
-            [group.storeId]: {
+            [group.storeUid]: {
               address: undefined,
               loading: false,
             },
@@ -126,29 +126,33 @@ export function CartPageView() {
 
       for (const group of groupedByStore) {
         try {
-          const liveProducts = await getStoreProducts(group.storeId);
-          const liveMap = new Map(liveProducts.map((p) => [p.id, p]));
+          const liveProducts = await getStoreProducts(group.storeUid);
+          const liveMap = new Map(liveProducts.map((p) => [p.uid, p]));
 
           for (const item of group.items) {
-            const liveProduct = liveMap.get(item.productId);
+            const liveProduct = liveMap.get(item.productUid);
             if (!liveProduct) {
               issues.push({
-                productId: item.productId,
-                storeId: item.storeId,
+                productUid: item.productUid,
+                storeUid: item.storeUid,
                 productName: item.name,
                 availableStock: 0,
                 requestedQty: item.quantity,
               });
             } else if (liveProduct.stockQuantity < item.quantity) {
               issues.push({
-                productId: item.productId,
-                storeId: item.storeId,
+                productUid: item.productUid,
+                storeUid: item.storeUid,
                 productName: item.name,
                 availableStock: liveProduct.stockQuantity,
                 requestedQty: item.quantity,
               });
               // Auto update maxStock in cart
-              updateQuantity(item.productId, item.storeId, Math.max(1, liveProduct.stockQuantity));
+              updateQuantity(
+                item.productUid,
+                item.storeUid,
+                Math.max(1, liveProduct.stockQuantity)
+              );
             }
           }
         } catch {
@@ -165,9 +169,9 @@ export function CartPageView() {
       // Stock is validated! Now create the order in Sales Service to lock amounts
       const orderPayloadItems = groupedByStore.flatMap((group) =>
         group.items.map((item) => ({
-          storeId: item.storeId,
-          storeName: item.storeName || `Commerce #${item.storeId}`,
-          productId: item.productId,
+          storeUid: item.storeUid,
+          storeName: item.storeName || 'Boutique partenaire',
+          productUid: item.productUid,
           productName: item.name,
           unitPrice: item.price,
           quantity: item.quantity,
@@ -187,8 +191,7 @@ export function CartPageView() {
 
       // Forward to checkout summary & payment screen using route path /checkout/:id (like /stores/:id)
       setTimeout(() => {
-        const orderUid = createdOrder.uid || createdOrder.orderReference;
-        window.location.href = ROUTES.checkout.detail(orderUid);
+        window.location.href = ROUTES.checkout.detail(createdOrder.uid);
       }, 1000);
     } catch (err: unknown) {
       setValidatedSuccess(false);
@@ -309,7 +312,7 @@ export function CartPageView() {
           </div>
           <ul className="list-disc list-inside space-y-1 pl-1 text-muted-foreground dark:text-destructive-foreground">
             {stockIssues.map((issue) => (
-              <li key={`${issue.storeId}-${issue.productId}`}>
+              <li key={`${issue.storeUid}-${issue.productUid}`}>
                 <strong>{issue.productName}</strong> :{' '}
                 {issue.availableStock === 0 ? (
                   <span className="text-destructive font-medium">
@@ -345,11 +348,11 @@ export function CartPageView() {
         {/* Left column: Stores and Items */}
         <div className="lg:col-span-2 space-y-6">
           {groupedByStore.map((group) => {
-            const storeInfo = storeDetails[group.storeId];
+            const storeInfo = storeDetails[group.storeUid];
 
             return (
               <Card
-                key={group.storeId}
+                key={group.storeUid}
                 className="overflow-hidden border-border bg-card rounded-xl shadow-xs"
               >
                 {/* Store Header */}
@@ -358,7 +361,7 @@ export function CartPageView() {
                     <div className="flex items-center gap-2">
                       <StoreIcon className="size-4 text-primary shrink-0" />
                       <a
-                        href={ROUTES.storeDetail(group.storeUid || group.storeId)}
+                        href={ROUTES.storeDetail(group.storeUid)}
                         className="font-bold text-base text-foreground hover:underline truncate"
                       >
                         {group.storeName}
@@ -387,7 +390,7 @@ export function CartPageView() {
                       className="size-7 text-muted-foreground hover:text-destructive"
                       onClick={() => {
                         if (confirm(`Retirer tous les articles de ${group.storeName} ?`)) {
-                          clearStore(group.storeId);
+                          clearStore(group.storeUid);
                         }
                       }}
                       title="Vider les articles de cette boutique"
@@ -402,12 +405,12 @@ export function CartPageView() {
                 <CardContent className="p-0 divide-y divide-border/60">
                   {group.items.map((item) => {
                     const isIssue = stockIssues.some(
-                      (si) => si.productId === item.productId && si.storeId === item.storeId
+                      (si) => si.productUid === item.productUid && si.storeUid === item.storeUid
                     );
 
                     return (
                       <div
-                        key={`${item.storeId}-${item.productId}`}
+                        key={`${item.storeUid}-${item.productUid}`}
                         className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${
                           isIssue ? 'bg-destructive/5' : 'hover:bg-muted/10'
                         }`}
@@ -416,8 +419,8 @@ export function CartPageView() {
                         <div className="flex items-center gap-3.5 min-w-0 flex-1">
                           <div className="size-16 rounded-lg bg-muted overflow-hidden shrink-0 border border-border">
                             <ProductImage
-                              storeId={item.storeId}
-                              productId={item.productId}
+                              storeUid={item.storeUid}
+                              productUid={item.productUid}
                               imageUrl={item.imageUrl}
                               alt={item.name}
                               className="w-full h-full object-cover"
@@ -449,7 +452,7 @@ export function CartPageView() {
                               size="icon"
                               className="size-7 rounded"
                               onClick={() =>
-                                updateQuantity(item.productId, item.storeId, item.quantity - 1)
+                                updateQuantity(item.productUid, item.storeUid, item.quantity - 1)
                               }
                               disabled={item.quantity <= 1}
                               aria-label="Diminuer la quantité"
@@ -465,7 +468,7 @@ export function CartPageView() {
                               size="icon"
                               className="size-7 rounded"
                               onClick={() =>
-                                updateQuantity(item.productId, item.storeId, item.quantity + 1)
+                                updateQuantity(item.productUid, item.storeUid, item.quantity + 1)
                               }
                               disabled={
                                 item.maxStock !== undefined && item.quantity >= item.maxStock
@@ -489,7 +492,7 @@ export function CartPageView() {
                             variant="ghost"
                             size="icon"
                             className="size-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => removeItem(item.productId, item.storeId)}
+                            onClick={() => removeItem(item.productUid, item.storeUid)}
                             title="Supprimer l'article"
                             aria-label={`Supprimer ${item.name}`}
                           >

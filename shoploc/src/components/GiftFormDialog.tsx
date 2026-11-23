@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 interface GiftFormDialogProps {
-  storeId: number | string;
+  storeUid: string;
   gift?: LoyaltyGift | null;
   isOpen: boolean;
   onClose: () => void;
@@ -40,7 +40,13 @@ interface GiftFormDialogProps {
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 Mo
 
-export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: GiftFormDialogProps) {
+export function GiftFormDialog({
+  storeUid,
+  gift,
+  isOpen,
+  onClose,
+  onSuccess,
+}: GiftFormDialogProps) {
   const isEditing = Boolean(gift);
 
   const [name, setName] = React.useState('');
@@ -62,7 +68,7 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
   React.useEffect(() => {
     if (!isOpen) return;
     let isMounted = true;
-    getStoreLoyaltyRate(storeId)
+    getStoreLoyaltyRate(storeUid)
       .then((rate) => {
         if (isMounted) setLoyaltyRate(rate);
       })
@@ -72,7 +78,7 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
     return () => {
       isMounted = false;
     };
-  }, [isOpen, storeId]);
+  }, [isOpen, storeUid]);
 
   const parsedPoints = Number(pointsCost);
   const equivalentEuros = React.useMemo(() => {
@@ -98,8 +104,8 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
 
       const initialPreview = gift.imageUrl?.trim()
         ? resolveGiftImageUrl({
-            storeId,
-            giftId: gift.id,
+            storeUid,
+            giftUid: gift.uid,
             imageUrl: gift.imageUrl,
           })
         : null;
@@ -119,7 +125,7 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
     }
     setErrors({});
     setServerError(null);
-  }, [gift, isOpen, storeId]);
+  }, [gift, isOpen, storeUid]);
 
   // Revoke object URL when unmounting or replacing
   React.useEffect(() => {
@@ -224,14 +230,14 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
           pointsCost: validated.pointsCost,
         };
         if (selectedFile) {
-          saved = await updateGift(storeId, gift.id, payload, selectedFile);
+          saved = await updateGift(storeUid, gift.uid, payload, selectedFile);
         } else if (isImageRemoved) {
-          saved = await updateGift(storeId, gift.id, {
+          saved = await updateGift(storeUid, gift.uid, {
             ...payload,
             imageUrl: '',
           });
         } else {
-          saved = await updateGift(storeId, gift.id, {
+          saved = await updateGift(storeUid, gift.uid, {
             ...payload,
             imageUrl: gift.imageUrl || undefined,
           });
@@ -244,7 +250,7 @@ export function GiftFormDialog({ storeId, gift, isOpen, onClose, onSuccess }: Gi
           stock: validated.stock,
           imageUrl: selectedFile ? undefined : validated.imageUrl || undefined,
         };
-        saved = await createGift(storeId, payload, selectedFile || undefined);
+        saved = await createGift(storeUid, payload, selectedFile || undefined);
       }
       onSuccess(saved);
       onClose();
