@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { AddressAutocompleteInput } from '@/components/AddressAutocompleteInput';
 import type { Store, StoreResponse, StoreAbsence } from '@/types/store';
 import type { StoreTurnoverResponse } from '@/types/sales';
 import {
@@ -77,6 +78,13 @@ export function MerchantStoreProfileForm({
 
   // Section 2: Address State
   const [address, setAddress] = React.useState<string>(store.address || '');
+  const [coords, setCoords] = React.useState<{
+    latitude?: number | null;
+    longitude?: number | null;
+  }>({
+    latitude: store.latitude,
+    longitude: store.longitude,
+  });
   const [savingAddress, setSavingAddress] = React.useState<boolean>(false);
   const [addressError, setAddressError] = React.useState<string | null>(null);
   const [addressSuccess, setAddressSuccess] = React.useState<boolean>(false);
@@ -242,6 +250,8 @@ export function MerchantStoreProfileForm({
     try {
       const updated = await patchStore(storeUid, {
         address: validation.data.address,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
       });
       setStore(updated);
       setAddressSuccess(true);
@@ -640,10 +650,14 @@ export function MerchantStoreProfileForm({
                 <label htmlFor="store-address" className="font-semibold text-foreground">
                   Adresse postale complète *
                 </label>
-                <Input
+                <AddressAutocompleteInput
                   id="store-address"
                   value={address}
-                  onChange={(e) => setAddress(e.target.value)}
+                  onChange={(val) => setAddress(val)}
+                  onSelectAddress={(res) => {
+                    setAddress(res.address);
+                    setCoords({ latitude: res.latitude, longitude: res.longitude });
+                  }}
                   placeholder="Ex: 14 Place Rihour, 59000 Lille"
                   className="h-9 text-xs"
                   required

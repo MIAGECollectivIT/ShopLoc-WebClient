@@ -14,6 +14,8 @@ export interface Store {
   uid: string;
   name: string;
   address: string;
+  latitude?: number | null;
+  longitude?: number | null;
   url?: string;
   category?: string;
   rib?: string;
@@ -38,6 +40,8 @@ export interface StoreCreateRequest {
   rib: string;
   ownerUid: string;
   url?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface StorePatchRequest {
@@ -48,6 +52,8 @@ export interface StorePatchRequest {
   url?: string;
   ownerUid?: string;
   openingHours?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   absenceStartDate?: string;
   absenceEndDate?: string;
   absenceReason?: string;
