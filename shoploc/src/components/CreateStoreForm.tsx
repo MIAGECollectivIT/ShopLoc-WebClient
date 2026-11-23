@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Field, FieldLabel, FieldError } from '@/components/ui/field';
+import { AddressAutocompleteInput } from '@/components/AddressAutocompleteInput';
 import { PartnerSelect } from '@/components/PartnerSelect';
 import {
   createStoreZodSchema,
@@ -316,6 +317,7 @@ export function CreateStoreForm() {
     control,
     reset,
     watch,
+    setValue,
     formState: { errors, isSubmitting, isValid },
   } = useForm<CreateStoreFormData>({
     resolver: zodResolver(createStoreZodSchema),
@@ -331,6 +333,11 @@ export function CreateStoreForm() {
   });
 
   const watchedRib = watch('rib') || '';
+  const watchedAddress = watch('address') || '';
+  const [coords, setCoords] = React.useState<{
+    latitude?: number | null;
+    longitude?: number | null;
+  }>({});
 
   const onSubmit = async (values: CreateStoreFormData) => {
     setErrorMessage(null);
@@ -342,6 +349,8 @@ export function CreateStoreForm() {
         url: values.url?.trim() || undefined,
         rib: cleanRibOrIban(values.rib),
         ownerUid: values.ownerUid,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
       };
 
       const response = await createStore(payload, imageFile);
@@ -483,15 +492,19 @@ export function CreateStoreForm() {
               <span className="text-destructive">*</span>
             </FieldLabel>
             <div className="relative">
-              <Input
+              <AddressAutocompleteInput
                 id="address"
-                type="text"
+                value={watchedAddress}
+                onChange={(val) => setValue('address', val, { shouldValidate: true })}
+                onSelectAddress={(res) => {
+                  setValue('address', res.address, { shouldValidate: true });
+                  setCoords({ latitude: res.latitude, longitude: res.longitude });
+                }}
                 placeholder="Ex: 12 Rue Nationale, 59000 Lille"
                 disabled={isSubmitting}
                 className={
                   errors.address ? 'border-destructive focus-visible:ring-destructive' : ''
                 }
-                {...register('address')}
               />
             </div>
             <FieldError>{errors.address?.message}</FieldError>

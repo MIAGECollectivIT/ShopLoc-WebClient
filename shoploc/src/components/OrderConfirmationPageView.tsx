@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { ClickAndCollectItineraryCard } from '@/components/ClickAndCollectItineraryCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
@@ -524,7 +525,15 @@ export function OrderConfirmationPageView({
         </CardContent>
       </Card>
 
-      {/* 3. Store breakdown & Click & Collect pickup details */}
+      {/* 3. Itinerary Tour & Store breakdown */}
+      {order.storeSummaries && order.storeSummaries.length > 0 && (
+        <ClickAndCollectItineraryCard
+          orderReference={order.orderReference}
+          storeUids={order.storeSummaries.map((s) => s.storeUid)}
+        />
+      )}
+
+      {/* 4. Store breakdown & Click & Collect pickup details */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

@@ -25,7 +25,9 @@ import {
   Mail,
   ArrowRight,
   Loader2,
+  Navigation,
 } from 'lucide-react';
+import { ClickAndCollectItineraryCard } from '@/components/ClickAndCollectItineraryCard';
 
 export function CustomerOrdersSection() {
   const { token, isAuthenticated } = useAuth();
@@ -40,6 +42,7 @@ export function CustomerOrdersSection() {
 
   const [resendingId, setResendingId] = React.useState<string | null>(null);
   const [resendSuccessId, setResendSuccessId] = React.useState<string | null>(null);
+  const [expandedItineraryRef, setExpandedItineraryRef] = React.useState<string | null>(null);
 
   const fetchOrders = React.useCallback(async () => {
     if (!isAuthenticated) {
@@ -404,6 +407,16 @@ export function CustomerOrdersSection() {
                       </span>
                     </div>
                   )}
+
+                  {/* Click & Collect Itinerary View */}
+                  {expandedItineraryRef === order.orderReference && (
+                    <div className="pt-2 border-t border-border/40">
+                      <ClickAndCollectItineraryCard
+                        orderReference={order.orderReference}
+                        className="mt-2 border-emerald-500/20 bg-muted/30"
+                      />
+                    </div>
+                  )}
                 </CardContent>
 
                 {/* Footer: Actions */}
@@ -415,7 +428,35 @@ export function CustomerOrdersSection() {
                           ? 'Articles déjà retirés en boutique • Facture disponible'
                           : 'Présentez votre QR Code ou le bon de retrait en boutique'}
                       </div>
-                      <div className="flex items-center gap-2 ml-auto">
+                      <div className="flex flex-wrap items-center gap-2 ml-auto">
+                        {order.orderReference && (
+                          <Button
+                            variant={
+                              expandedItineraryRef === order.orderReference ? 'default' : 'outline'
+                            }
+                            size="sm"
+                            onClick={() =>
+                              setExpandedItineraryRef(
+                                expandedItineraryRef === order.orderReference
+                                  ? null
+                                  : order.orderReference
+                              )
+                            }
+                            className={`cursor-pointer gap-1.5 text-xs ${
+                              expandedItineraryRef === order.orderReference
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                : 'text-foreground hover:bg-muted'
+                            }`}
+                            title="Calculer l'itinéraire optimisé de retrait"
+                          >
+                            <Navigation className="size-3.5" />
+                            <span>
+                              {expandedItineraryRef === order.orderReference
+                                ? 'Masquer itinéraire'
+                                : 'Itinéraire de retrait'}
+                            </span>
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"

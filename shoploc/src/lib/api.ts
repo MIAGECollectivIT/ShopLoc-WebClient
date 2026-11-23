@@ -31,6 +31,11 @@ import type {
 } from '@/types/payment';
 import type { CreateOrderRequest, OrderResponse } from '@/types/order';
 import type {
+  OptimizeItineraryRequest,
+  OptimizeItineraryResponse,
+  TransportMode,
+} from '@/types/itinerary';
+import type {
   PhysicalSaleRequest,
   PhysicalSaleResponse,
   StoreTurnoverResponse,
@@ -2365,6 +2370,69 @@ export async function getOrderByReference(
   }
 
   return (await res.json()) as OrderResponse;
+}
+
+export async function optimizeStoreItinerary(
+  request: OptimizeItineraryRequest,
+  token?: string
+): Promise<OptimizeItineraryResponse> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint('/v1/stores/itinerary/optimize');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(request),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Calcul de tournée impossible (HTTP ${res.status}): ${errorText}`);
+  }
+
+  return (await res.json()) as OptimizeItineraryResponse;
+}
+
+export async function optimizeOrderItinerary(
+  reference: string,
+  options?: {
+    originLatitude?: number | null;
+    originLongitude?: number | null;
+    originAddress?: string | null;
+    transportMode?: TransportMode;
+    departureTime?: string | null;
+  },
+  token?: string
+): Promise<OptimizeItineraryResponse> {
+  const authToken = token || getAuthToken();
+  const endpoint = getApiEndpoint(`/v1/sales/orders/${encodeURIComponent(reference)}/itinerary`);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  };
+  if (authToken) {
+    headers.Authorization = `Bearer ${authToken}`;
+  }
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(options || {}),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Calcul de tournée de commande impossible (HTTP ${res.status}): ${errorText}`);
+  }
+
+  return (await res.json()) as OptimizeItineraryResponse;
 }
 
 export async function updateOrderStatus(
