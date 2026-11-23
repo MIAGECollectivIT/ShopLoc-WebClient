@@ -16,6 +16,7 @@ import {
   storeAddressPatchSchema,
   storeOpeningHoursPatchSchema,
   storeGeneralPatchSchema,
+  ACCEPTED_STORE_IMAGE_TYPES,
   isValidStoreImageType,
   isValidStoreImageSize,
 } from '@/lib/validation/store';
@@ -267,9 +268,7 @@ export function MerchantStoreProfileForm({
     }
 
     if (!isValidStoreImageType(file.type)) {
-      setPhotoError(
-        'Format de fichier non supporté. Formats acceptés : JPEG, PNG, WebP, GIF, SVG.'
-      );
+      setPhotoError('Format de fichier non supporté. Formats acceptés : JPEG, PNG, WebP, GIF.');
       setSelectedImageFile(null);
       setImagePreviewUrl(null);
       return;
@@ -724,7 +723,7 @@ export function MerchantStoreProfileForm({
                   ref={fileInputRef}
                   id="store-photo-input"
                   type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+                  accept={ACCEPTED_STORE_IMAGE_TYPES.join(',')}
                   onChange={handleImageFileChange}
                   className="block w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
                 />

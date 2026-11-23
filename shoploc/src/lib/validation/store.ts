@@ -23,7 +23,6 @@ export const ACCEPTED_STORE_IMAGE_TYPES = [
   'image/png',
   'image/webp',
   'image/gif',
-  'image/svg+xml',
 ] as const;
 
 export type StoreImageMimeType = (typeof ACCEPTED_STORE_IMAGE_TYPES)[number];
