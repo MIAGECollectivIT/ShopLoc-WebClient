@@ -1,18 +1,9 @@
 import * as React from 'react';
 import { getCitizenCardEmailSetting, updateCitizenCardEmailSetting } from '@/lib/api';
 import type { CitizenCardEmailSettingResponse } from '@/types/settings';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Mail,
   CheckCircle2,
@@ -23,15 +14,22 @@ import {
   User,
   ShieldAlert,
   Info,
+  Loader2,
 } from 'lucide-react';
 
 const EMAIL_REGEX = /^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
-export function AdminSettingsTab() {
-  const [setting, setSetting] = React.useState<CitizenCardEmailSettingResponse | null>(null);
-  const [isLoading, setIsLoading] = React.useState<boolean>(true);
+interface AdminSettingsTabProps {
+  initialSetting?: CitizenCardEmailSettingResponse | null;
+}
+
+export function AdminSettingsTab({ initialSetting = null }: AdminSettingsTabProps) {
+  const [setting, setSetting] = React.useState<CitizenCardEmailSettingResponse | null>(
+    initialSetting
+  );
+  const [isLoading, setIsLoading] = React.useState<boolean>(!initialSetting);
   const [isSaving, setIsSaving] = React.useState<boolean>(false);
-  const [emailInput, setEmailInput] = React.useState<string>('');
+  const [emailInput, setEmailInput] = React.useState<string>(initialSetting?.effectiveEmail || '');
   const [error, setError] = React.useState<string | null>(null);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
 
@@ -50,9 +48,12 @@ export function AdminSettingsTab() {
     }
   }, []);
 
+  // Fetch only if initialSetting was not provided via SSR
   React.useEffect(() => {
-    fetchSetting();
-  }, [fetchSetting]);
+    if (!initialSetting) {
+      fetchSetting();
+    }
+  }, [initialSetting, fetchSetting]);
 
   const isValidEmail = Boolean(emailInput.trim() && EMAIL_REGEX.test(emailInput.trim()));
   const isChanged = setting ? emailInput.trim() !== setting.effectiveEmail : false;
@@ -159,175 +160,167 @@ export function AdminSettingsTab() {
         </div>
       )}
 
-      {/* Setting Card */}
-      {isLoading && !setting ? (
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-64 mb-2" />
-            <Skeleton className="h-4 w-96" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-48" />
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="border shadow-sm">
-          <CardHeader className="border-b bg-muted/20 pb-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">
-                  <Mail className="size-5" />
-                </div>
-                <div>
-                  <CardTitle className="text-base font-semibold">
-                    Service Citoyen Numérique — Cartes Physiques
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Adresse e-mail destinataire pour les commandes et renouvellements de cartes
-                    physiques.
-                  </CardDescription>
-                </div>
-              </div>
-
-              {setting && (
-                <div className="self-start sm:self-auto">
-                  {setting.customized ? (
-                    <Badge
-                      variant="default"
-                      className="text-xs gap-1.5 py-1 px-2.5 bg-emerald-600 hover:bg-emerald-700"
-                    >
-                      <span className="size-1.5 rounded-full bg-white animate-pulse" />
-                      Adresse personnalisée
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary" className="text-xs gap-1.5 py-1 px-2.5">
-                      Valeur par défaut
-                    </Badge>
-                  )}
-                </div>
-              )}
+      {/* Main Settings Card */}
+      <div className="rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden">
+        {/* Card Header */}
+        <div className="p-4 sm:p-5 border-b bg-muted/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0">
+              <Mail className="size-5" />
             </div>
-          </CardHeader>
-
-          <CardContent className="p-6 space-y-6">
-            {/* Description Info Banner */}
-            <div className="flex items-start gap-3 p-3.5 rounded-lg border bg-muted/40 text-xs text-muted-foreground">
-              <Info className="size-4 shrink-0 text-primary mt-0.5" />
-              <div className="space-y-1 leading-relaxed">
-                <p>
-                  Lorsqu&apos;un citoyen finalise son inscription en demandant une carte de fidélité
-                  physique, ou lorsqu&apos;il formule une demande de réémission, une notification
-                  automatique contenant ses coordonnées postales complètes est transmise à cette
-                  adresse pour expédition postale.
-                </p>
-              </div>
+            <div>
+              <h4 className="text-sm font-semibold text-foreground">
+                Service Citoyen Numérique — Cartes Physiques
+              </h4>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Adresse e-mail destinataire pour les commandes et renouvellements de cartes
+                physiques.
+              </p>
             </div>
+          </div>
 
-            {/* Current State Details */}
-            {setting && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div className="p-3 rounded-lg border bg-card/60 space-y-1">
-                  <span className="text-muted-foreground font-medium">
-                    Adresse active actuelle :
-                  </span>
-                  <p className="font-mono text-sm font-semibold text-foreground break-all">
-                    {setting.effectiveEmail}
-                  </p>
-                </div>
-
-                <div className="p-3 rounded-lg border bg-card/60 space-y-1">
-                  <span className="text-muted-foreground font-medium">
-                    Adresse initiale par défaut :
-                  </span>
-                  <p className="font-mono text-sm text-muted-foreground break-all">
-                    {setting.defaultEmail}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Last update tracking */}
-            {setting?.customized && setting.updatedAt && (
-              <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground border-t pt-3">
-                <div className="flex items-center gap-1.5">
-                  <Clock className="size-3.5 text-muted-foreground" />
-                  <span>Dernière mise à jour : {formatDate(setting.updatedAt)}</span>
-                </div>
-                {setting.updatedBy && (
-                  <div className="flex items-center gap-1.5">
-                    <User className="size-3.5 text-muted-foreground" />
-                    <span>
-                      Par :{' '}
-                      <strong className="font-medium text-foreground">{setting.updatedBy}</strong>
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Form */}
-            <div className="space-y-3 border-t pt-4">
-              <label
-                htmlFor="citizen-card-email-input"
-                className="block text-xs font-medium text-foreground"
+          <div className="self-start sm:self-auto">
+            {isLoading ? (
+              <Badge variant="secondary" className="text-xs gap-1 py-1 px-2.5">
+                <Loader2 className="size-3 animate-spin" />
+                Chargement...
+              </Badge>
+            ) : setting?.customized ? (
+              <Badge
+                variant="default"
+                className="text-xs gap-1.5 py-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 font-medium"
               >
-                Nouvelle adresse e-mail du service citoyen
-              </label>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <div className="relative flex-1">
-                  <Mail className="size-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <Input
-                    id="citizen-card-email-input"
-                    type="email"
-                    value={emailInput}
-                    onChange={(e) => setEmailInput(e.target.value)}
-                    placeholder="service-citoyen@ville-collectivite.fr"
-                    disabled={isSaving}
-                    className="pl-9 text-sm"
-                  />
-                </div>
+                <span className="size-1.5 rounded-full bg-white animate-pulse" />
+                Adresse personnalisée
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="text-xs gap-1.5 py-1 px-2.5 font-medium">
+                Valeur par défaut
+              </Badge>
+            )}
+          </div>
+        </div>
 
-                <Button
-                  onClick={() => handleSave(emailInput)}
-                  disabled={!isValidEmail || !isChanged || isSaving}
-                  className="gap-2 shrink-0 text-xs h-10"
-                >
-                  <Save className={`size-3.5 ${isSaving ? 'animate-spin' : ''}`} />
-                  <span>{isSaving ? 'Enregistrement...' : 'Enregistrer'}</span>
-                </Button>
-              </div>
-
-              {emailInput.trim() && !isValidEmail && (
-                <p className="text-xs text-destructive flex items-center gap-1.5">
-                  <ShieldAlert className="size-3.5" />
-                  <span>Veuillez saisir une adresse e-mail valide (ex: contact@ville.fr).</span>
-                </p>
-              )}
+        {/* Card Content */}
+        <div className="p-4 sm:p-6 space-y-6">
+          {/* Explanatory Banner */}
+          <div className="flex items-start gap-3 p-3.5 rounded-lg border bg-muted/40 text-xs text-muted-foreground">
+            <Info className="size-4 shrink-0 text-primary mt-0.5" />
+            <div className="space-y-1 leading-relaxed">
+              <p>
+                Lorsqu&apos;un citoyen finalise son inscription en demandant une carte de fidélité
+                physique, ou lorsqu&apos;il formule une demande de réémission, une notification
+                automatique contenant ses coordonnées postales complètes est transmise à cette
+                adresse pour expédition postale.
+              </p>
             </div>
-          </CardContent>
+          </div>
 
-          {/* Footer with Reset option */}
-          {setting?.customized && (
-            <CardFooter className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-muted/10 border-t p-4 text-xs">
-              <span className="text-muted-foreground">
-                Vous pouvez réinitialiser l&apos;adresse sur la valeur initiale par défaut (
-                {setting.defaultEmail}).
+          {/* Current State Details */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="p-3.5 rounded-lg border bg-muted/20 space-y-1">
+              <span className="text-muted-foreground font-medium">Adresse active actuelle :</span>
+              <p className="font-mono text-sm font-semibold text-foreground break-all">
+                {setting?.effectiveEmail ||
+                  (isLoading ? 'Chargement en cours...' : 'Non configurée')}
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-lg border bg-muted/20 space-y-1">
+              <span className="text-muted-foreground font-medium">
+                Adresse initiale par défaut :
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleResetToDefault}
-                disabled={isSaving}
-                className="gap-1.5 text-xs h-8"
-              >
-                <RotateCcw className="size-3" />
-                <span>Rétablir la valeur par défaut</span>
-              </Button>
-            </CardFooter>
+              <p className="font-mono text-sm text-muted-foreground break-all">
+                {setting?.defaultEmail ||
+                  (isLoading ? 'Chargement...' : 'citoyen-numerique@shop-loc.fr')}
+              </p>
+            </div>
+          </div>
+
+          {/* Last update tracking */}
+          {setting?.customized && setting.updatedAt && (
+            <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground border-t pt-4">
+              <div className="flex items-center gap-1.5">
+                <Clock className="size-3.5 text-muted-foreground" />
+                <span>Dernière mise à jour : {formatDate(setting.updatedAt)}</span>
+              </div>
+              {setting.updatedBy && (
+                <div className="flex items-center gap-1.5">
+                  <User className="size-3.5 text-muted-foreground" />
+                  <span>
+                    Par :{' '}
+                    <strong className="font-medium text-foreground">{setting.updatedBy}</strong>
+                  </span>
+                </div>
+              )}
+            </div>
           )}
-        </Card>
-      )}
+
+          {/* Form */}
+          <div className="space-y-3 border-t pt-4">
+            <label
+              htmlFor="citizen-card-email-input"
+              className="block text-xs font-medium text-foreground"
+            >
+              Nouvelle adresse e-mail du service citoyen
+            </label>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="relative flex-1">
+                <Mail className="size-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Input
+                  id="citizen-card-email-input"
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="service-citoyen@ville-collectivite.fr"
+                  disabled={isSaving || isLoading}
+                  className="pl-9 text-sm"
+                />
+              </div>
+
+              <Button
+                onClick={() => handleSave(emailInput)}
+                disabled={!isValidEmail || !isChanged || isSaving || isLoading}
+                className="gap-2 shrink-0 text-xs h-10"
+              >
+                {isSaving ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Save className="size-3.5" />
+                )}
+                <span>{isSaving ? 'Enregistrement...' : 'Enregistrer'}</span>
+              </Button>
+            </div>
+
+            {emailInput.trim() && !isValidEmail && (
+              <p className="text-xs text-destructive flex items-center gap-1.5">
+                <ShieldAlert className="size-3.5" />
+                <span>Veuillez saisir une adresse e-mail valide (ex: contact@ville.fr).</span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Footer with Reset option */}
+        {setting?.customized && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-muted/20 border-t p-4 text-xs">
+            <span className="text-muted-foreground">
+              Vous pouvez réinitialiser l&apos;adresse sur la valeur initiale par défaut (
+              {setting.defaultEmail}).
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleResetToDefault}
+              disabled={isSaving || isLoading}
+              className="gap-1.5 text-xs h-8"
+            >
+              <RotateCcw className="size-3" />
+              <span>Rétablir la valeur par défaut</span>
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

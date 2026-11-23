@@ -5,7 +5,20 @@ import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
 import { AdminNavHeader } from '../../components/AdminNavHeader';
 import { AdminSettingsTab } from '../../components/AdminSettingsTab';
+import { getCitizenCardEmailSetting } from '../../lib/api';
 import { Settings } from 'lucide-react';
+import type { CitizenCardEmailSettingResponse } from '../../types/settings';
+
+const token = Astro.locals.token || '';
+let initialSetting: CitizenCardEmailSettingResponse | null = null;
+
+if (token) {
+  try {
+    initialSetting = await getCitizenCardEmailSetting(token);
+  } catch (err: unknown) {
+    console.warn('[PAGE /admin/settings] Failed to fetch initial setting server-side:', err);
+  }
+}
 ---
 
 <Layout
@@ -19,7 +32,7 @@ import { Settings } from 'lucide-react';
   >
     <div class="space-y-6">
       <AdminNavHeader client:load activeNav="settings" />
-      <AdminSettingsTab client:load />
+      <AdminSettingsTab client:load initialSetting={initialSetting} />
     </div>
   </PageContainer>
 </Layout>
