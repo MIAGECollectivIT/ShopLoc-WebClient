@@ -291,7 +291,8 @@ export async function revokeStore(storeId: string | number): Promise<StoreRespon
  */
 export async function reactivateStore(
   storeId: string | number,
-  rib: string
+  rib: string,
+  userId?: number
 ): Promise<StoreResponse> {
   const endpoint = getApiEndpoint(`/v1/stores/${storeId}/reactivate`);
   const token = getAuthToken();
@@ -302,7 +303,7 @@ export async function reactivateStore(
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ rib }),
+    body: JSON.stringify({ rib, ...(userId ? { userId } : {}) }),
   });
 
   if (!res.ok) {
