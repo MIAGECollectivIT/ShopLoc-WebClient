@@ -88,7 +88,7 @@ export function GlobalGiftCatalog() {
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      const storeParam = params.get('storeId');
+      const storeParam = params.get('storeUid');
       const categoryParam = params.get('category');
       if (storeParam) setSelectedStoreId(storeParam);
       if (categoryParam) setSelectedCategory(categoryParam);
@@ -105,11 +105,9 @@ export function GlobalGiftCatalog() {
           setStores(fetchedStores);
           setSelectedStoreId((current) => {
             if (current && current !== 'ALL') {
-              const matched = fetchedStores.find(
-                (s) => String(s.uid) === current || String(s.id) === current
-              );
-              if (matched && matched.id != null) {
-                return String(matched.id);
+              const matched = fetchedStores.find((s) => s.uid === current);
+              if (matched?.uid) {
+                return matched.uid;
               }
             }
             return current;
@@ -125,13 +123,13 @@ export function GlobalGiftCatalog() {
     };
   }, []);
 
-  // Load public gifts whenever storeId or category filter changes
+  // Load public gifts whenever storeUid or category filter changes
   const loadGifts = React.useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       const fetchedGifts = await getPublicGifts({
-        storeId: selectedStoreId !== 'ALL' ? selectedStoreId : undefined,
+        storeUid: selectedStoreId !== 'ALL' ? selectedStoreId : undefined,
         category: selectedCategory !== 'ALL' ? selectedCategory : undefined,
       });
       setGifts(fetchedGifts);
@@ -292,7 +290,7 @@ export function GlobalGiftCatalog() {
           >
             <option value="ALL">Tous les commerces ({stores.length})</option>
             {stores.map((s) => (
-              <option key={s.id} value={String(s.id)}>
+              <option key={s.uid} value={s.uid}>
                 {s.name}
               </option>
             ))}
@@ -431,7 +429,7 @@ export function GlobalGiftCatalog() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredGifts.map((gift) => (
             <InteractiveGiftCard
-              key={gift.id}
+              key={gift.uid}
               gift={gift}
               userPoints={userPoints}
               isAuthenticated={isAuthenticated}

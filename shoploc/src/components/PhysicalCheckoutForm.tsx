@@ -33,7 +33,7 @@ import {
 import { cn } from 'cn';
 
 export interface PhysicalCheckoutFormProps {
-  storeId: number | string;
+  storeUid: string;
   storeName?: string;
   customer: CustomerIdentificationResponse | null;
   onCancel: () => void;
@@ -52,7 +52,7 @@ const AMOUNT_PRESETS = ['5.00', '10.00', '20.00', '50.00'];
  * 4. Transaction recording and points attribution via Sales Service.
  */
 export function PhysicalCheckoutForm({
-  storeId,
+  storeUid,
   storeName,
   customer,
   onCancel,
@@ -72,7 +72,7 @@ export function PhysicalCheckoutForm({
   React.useEffect(() => {
     let isMounted = true;
     setIsLoadingRate(true);
-    getStoreLoyaltyRate(storeId)
+    getStoreLoyaltyRate(storeUid)
       .then((rate) => {
         if (isMounted) setLoyaltyRate(rate);
       })
@@ -80,7 +80,7 @@ export function PhysicalCheckoutForm({
         if (isMounted) {
           // Default fallback rate (1 € = 1 pt)
           setLoyaltyRate({
-            storeId,
+            storeUid,
             euroAmount: 1.0,
             pointsReward: 1.0,
           });
@@ -93,7 +93,7 @@ export function PhysicalCheckoutForm({
     return () => {
       isMounted = false;
     };
-  }, [storeId]);
+  }, [storeUid]);
 
   // Compute live simulated points based on amount and store rate
   const parsedAmount = parseFloat(amount || '0');
@@ -133,7 +133,7 @@ export function PhysicalCheckoutForm({
 
     // Rule 2: Validate positive amount with max 2 decimal digits
     const parseResult = physicalSaleFormSchema.safeParse({
-      storeId,
+      storeUid,
       clientCode: customer.clientCode,
       amount,
       customerId: customer.publicId,
@@ -149,7 +149,7 @@ export function PhysicalCheckoutForm({
 
     try {
       const response = await recordPhysicalSale({
-        storeId: parseResult.data.storeId,
+        storeUid: parseResult.data.storeUid,
         clientCode: customer.clientCode,
         customerId: customer.publicId,
         amount: parseResult.data.amount,

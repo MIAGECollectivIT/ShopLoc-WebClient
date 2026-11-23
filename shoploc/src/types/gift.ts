@@ -1,6 +1,6 @@
 export interface LoyaltyGift {
-  id: number;
-  storeId: number;
+  uid: string;
+  storeUid: string;
   storeName?: string | null;
   category?: string | null;
   name: string;

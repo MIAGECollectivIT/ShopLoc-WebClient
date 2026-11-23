@@ -1,7 +1,7 @@
 export type WalletTransactionType = 'TOPUP' | 'DEBIT';
 
 export interface Wallet {
-  id: number;
+  uid: string;
   userId: string;
   balance: number;
   currency: string;
@@ -11,13 +11,13 @@ export interface Wallet {
 }
 
 export interface WalletTransaction {
-  id: number;
+  uid: string;
   transactionReference: string;
   amount: number;
   type: WalletTransactionType;
   status: string;
   paymentReference?: string | null;
-  storeId?: number | null;
+  storeUid?: string | null;
   storeName?: string | null;
   orderReference?: string | null;
   description: string;
@@ -34,7 +34,7 @@ export interface WalletReloadRequest {
 
 export interface WalletDebitRequest {
   amount: number;
-  storeId?: number;
+  storeUid?: string;
   storeName?: string;
   orderReference?: string;
   description?: string;

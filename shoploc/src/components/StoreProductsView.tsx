@@ -81,36 +81,12 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
     if (role === 'ADMIN') return true;
 
     if (role === 'MERCHANT') {
-      if (store.userId != null) {
-        // Compare numeric dbId from JWT claims with store.userId (Long/int in DB)
-        if (user.dbId != null && String(user.dbId) === String(store.userId)) {
-          return true;
-        }
-        // Fallback: compare public ID string in case store.userId was stored as UUID/string
-        if (user.id && String(user.id) === String(store.userId)) {
-          return true;
-        }
-      }
-      // Seed association: Suzanne Morel is linked to stores 1 & 2 in user_stores
-      if (
-        (user.email === 'suzanne.morel@shop-loc.fr' || user.dbId === 2) &&
-        (store.id === 1 ||
-          store.id === 2 ||
-          store.uid === '11111111-1111-1111-1111-111111111111' ||
-          store.uid === '22222222-2222-2222-2222-222222222222')
-      ) {
-        return true;
-      }
+      return Boolean(store.ownerUid && user.id && store.ownerUid === user.id);
     }
     return false;
-  }, [isAuthenticated, user, role, store.userId, store.id, store.uid]);
+  }, [isAuthenticated, user, role, store.ownerUid]);
 
-  const storeIdentifier: string | number = currentStore.uid || currentStore.id || '';
-  const numericStoreId: number =
-    typeof currentStore.id === 'number'
-      ? currentStore.id
-      : Number(currentStore.id) ||
-        (typeof store.id === 'number' ? store.id : Number(store.id) || 1);
+  const storeUid: string = currentStore.uid;
 
   if (!mounted || isLoading) {
     return (
@@ -123,10 +99,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
 
   const renderClientStorefront = () => (
     <div className="space-y-6">
-      <StoreLoyaltyBanner
-        storeId={numericStoreId}
-        onViewGifts={() => setClientActiveTab('gifts')}
-      />
+      <StoreLoyaltyBanner storeUid={storeUid} onViewGifts={() => setClientActiveTab('gifts')} />
 
       {/* Client view mode switcher (Products vs Gifts) */}
       <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border/80 w-fit">
@@ -158,9 +131,9 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
       </div>
 
       {clientActiveTab === 'products' ? (
-        <ClientProductCatalog storeId={storeIdentifier} storeName={currentStore.name} />
+        <ClientProductCatalog storeUid={storeUid} storeName={currentStore.name} />
       ) : (
-        <StoreClientGiftsCatalog storeId={numericStoreId} storeName={currentStore.name} />
+        <StoreClientGiftsCatalog storeUid={storeUid} storeName={currentStore.name} />
       )}
     </div>
   );
@@ -222,7 +195,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
 
             {store.status !== 'REVOKED' && (
               <a
-                href={ROUTES.storeScan(storeIdentifier)}
+                href={ROUTES.storeScan(storeUid)}
                 className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
               >
                 <QrCode className="size-3.5" />
@@ -318,15 +291,15 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
 
       {/* Render selected view */}
       {viewMode === 'merchant' && (
-        <MerchantCatalogDashboard storeId={storeIdentifier} storeName={store.name} />
+        <MerchantCatalogDashboard storeUid={storeUid} storeName={store.name} />
       )}
 
       {viewMode === 'gifts' && (
-        <MerchantGiftsDashboard storeId={numericStoreId} storeName={store.name} />
+        <MerchantGiftsDashboard storeUid={storeUid} storeName={store.name} />
       )}
 
       {viewMode === 'loyalty' && (
-        <MerchantLoyaltyRateCard storeId={numericStoreId} storeName={currentStore.name} />
+        <MerchantLoyaltyRateCard storeUid={storeUid} storeName={currentStore.name} />
       )}
 
       {viewMode === 'profile' && (
@@ -337,7 +310,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
       )}
 
       {viewMode === 'scan' && (
-        <MerchantLoyaltyScanner storeId={numericStoreId} storeName={currentStore.name} />
+        <MerchantLoyaltyScanner storeUid={storeUid} storeName={currentStore.name} />
       )}
 
       {viewMode === 'client' && (

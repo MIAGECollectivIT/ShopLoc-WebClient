@@ -186,7 +186,7 @@ export function AdminPartnersList({ initialPartners = [] }: AdminPartnersListPro
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {partners.map((partner) => (
             <Card
-              key={partner.publicId || partner.id}
+              key={partner.publicId}
               className="flex flex-col justify-between hover:border-primary/50 transition-colors shadow-sm"
             >
               <CardHeader className="pb-3">
@@ -237,7 +237,7 @@ export function AdminPartnersList({ initialPartners = [] }: AdminPartnersListPro
                 <Button
                   variant="outline"
                   size="sm"
-                  render={<a href={ROUTES.adminPartnerDetail(partner.publicId || partner.id)} />}
+                  render={<a href={ROUTES.adminPartnerDetail(partner.publicId)} />}
                   className="gap-1 text-xs"
                 >
                   <span>Voir la fiche</span>

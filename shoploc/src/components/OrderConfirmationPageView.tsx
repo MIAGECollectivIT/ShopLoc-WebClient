@@ -80,9 +80,9 @@ export function OrderConfirmationPageView({
   const [loadingOrder, setLoadingOrder] = React.useState(true);
   const [orderError, setOrderError] = React.useState<string | null>(null);
 
-  const [storeAddresses, setStoreAddresses] = React.useState<Record<number, string>>({});
+  const [storeAddresses, setStoreAddresses] = React.useState<Record<string, string>>({});
   const [storeRates, setStoreRates] = React.useState<
-    Record<number, { euroAmount: number; pointsReward: number }>
+    Record<string, { euroAmount: number; pointsReward: number }>
   >({});
   const [paymentReceipt, setPaymentReceipt] = React.useState<PaymentAuthorizationResponse | null>(
     null
@@ -98,7 +98,7 @@ export function OrderConfirmationPageView({
 
   const handleDownloadPdf = async () => {
     if (!order) return;
-    const targetId = order.orderReference || order.uid;
+    const targetId = order.uid;
     try {
       setIsDownloading(true);
       setDownloadError(null);
@@ -174,28 +174,28 @@ export function OrderConfirmationPageView({
         setOrder(fetchedOrder);
 
         // Fetch store addresses and loyalty rates for Click & Collect pickup
-        const addresses: Record<number, string> = {};
-        const rates: Record<number, { euroAmount: number; pointsReward: number }> = {};
+        const addresses: Record<string, string> = {};
+        const rates: Record<string, { euroAmount: number; pointsReward: number }> = {};
 
         await Promise.all(
           fetchedOrder.storeSummaries.map(async (summary) => {
             try {
-              const store: Store = await getStoreById(summary.storeId);
+              const store: Store = await getStoreById(summary.storeUid);
               if (store.address) {
-                addresses[summary.storeId] = store.address;
+                addresses[summary.storeUid] = store.address;
               }
             } catch {
-              addresses[summary.storeId] = 'Adresse communiquée sur le ticket de caisse';
+              addresses[summary.storeUid] = 'Adresse communiquée sur le ticket de caisse';
             }
 
             try {
-              const rateData = await getStoreLoyaltyRate(summary.storeId);
-              rates[summary.storeId] = {
+              const rateData = await getStoreLoyaltyRate(summary.storeUid);
+              rates[summary.storeUid] = {
                 euroAmount: rateData.euroAmount || 1,
                 pointsReward: rateData.pointsReward || 1,
               };
             } catch {
-              rates[summary.storeId] = { euroAmount: 1, pointsReward: 1 };
+              rates[summary.storeUid] = { euroAmount: 1, pointsReward: 1 };
             }
           })
         );
@@ -539,13 +539,13 @@ export function OrderConfirmationPageView({
         </div>
 
         {order.storeSummaries.map((summary) => {
-          const storeItems = order.items.filter((item) => item.storeId === summary.storeId);
+          const storeItems = order.items.filter((item) => item.storeUid === summary.storeUid);
           const address =
-            storeAddresses[summary.storeId] || 'Adresse disponible chez le commerçant';
-          const rate = storeRates[summary.storeId] || { euroAmount: 1, pointsReward: 1 };
+            storeAddresses[summary.storeUid] || 'Adresse disponible chez le commerçant';
+          const rate = storeRates[summary.storeUid] || { euroAmount: 1, pointsReward: 1 };
 
           return (
-            <Card key={summary.storeId} className="border-border shadow-xs">
+            <Card key={summary.storeUid} className="border-border shadow-xs">
               <CardHeader className="p-4 pb-3 border-b border-border/50 bg-muted/20">
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1">
@@ -574,7 +574,7 @@ export function OrderConfirmationPageView({
                     );
                     return (
                       <div
-                        key={item.id}
+                        key={item.uid}
                         className="py-2.5 flex items-center justify-between gap-3 first:pt-0 last:pb-0"
                       >
                         <div className="flex items-center gap-2.5 min-w-0">

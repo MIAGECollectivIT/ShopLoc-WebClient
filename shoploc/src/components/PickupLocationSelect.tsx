@@ -124,7 +124,7 @@ export function PickupLocationSelect({
             stores.map((store) => {
               const label = `${store.name} — ${store.address}`;
               return (
-                <SelectItem key={store.id ?? store.name} value={label}>
+                <SelectItem key={store.uid} value={label}>
                   <StoreIcon className="size-4 shrink-0 text-muted-foreground" />
                   <span>{label}</span>
                 </SelectItem>

@@ -33,12 +33,12 @@ import {
 } from 'lucide-react';
 
 interface MerchantCatalogDashboardProps {
-  storeId: number | string;
+  storeUid: string;
   storeName?: string;
 }
 
 export function MerchantCatalogDashboard({
-  storeId,
+  storeUid,
   storeName: _storeName,
 }: MerchantCatalogDashboardProps) {
   const [products, setProducts] = React.useState<Product[]>([]);
@@ -67,7 +67,7 @@ export function MerchantCatalogDashboard({
     setIsLoading(true);
     setError(null);
     try {
-      const items = await getStoreProducts(storeId);
+      const items = await getStoreProducts(storeUid);
       setProducts(items);
     } catch (err: unknown) {
       setError(
@@ -76,7 +76,7 @@ export function MerchantCatalogDashboard({
     } finally {
       setIsLoading(false);
     }
-  }, [storeId]);
+  }, [storeUid]);
 
   React.useEffect(() => {
     fetchCatalog();
@@ -91,16 +91,16 @@ export function MerchantCatalogDashboard({
 
   // Stock updated in StockControl
   const handleStockUpdated = (updated: Product) => {
-    setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+    setProducts((prev) => prev.map((p) => (p.uid === updated.uid ? updated : p)));
     showNotification(`Stock mis à jour pour "${updated.name}" (${updated.stockQuantity} ex.)`);
   };
 
   // Product created or updated via ProductFormDialog
   const handleProductSaved = (saved: Product) => {
     setProducts((prev) => {
-      const exists = prev.some((p) => p.id === saved.id);
+      const exists = prev.some((p) => p.uid === saved.uid);
       if (exists) {
-        return prev.map((p) => (p.id === saved.id ? saved : p));
+        return prev.map((p) => (p.uid === saved.uid ? saved : p));
       }
       return [saved, ...prev];
     });
@@ -118,8 +118,8 @@ export function MerchantCatalogDashboard({
     if (!productToDelete) return;
     setIsDeleting(true);
     try {
-      await deleteProduct(storeId, productToDelete.id);
-      setProducts((prev) => prev.filter((p) => p.id !== productToDelete.id));
+      await deleteProduct(storeUid, productToDelete.uid);
+      setProducts((prev) => prev.filter((p) => p.uid !== productToDelete.uid));
       showNotification(`Produit "${productToDelete.name}" supprimé`);
       setProductToDelete(null);
     } catch (err: unknown) {
@@ -424,15 +424,15 @@ export function MerchantCatalogDashboard({
 
             return (
               <Card
-                key={product.id}
+                key={product.uid}
                 className="group relative flex flex-col justify-between overflow-hidden border-border hover:shadow-md transition-shadow bg-card"
               >
                 <div>
                   {/* Product Image */}
                   <div className="relative aspect-4/3 w-full bg-muted/60 overflow-hidden flex items-center justify-center border-b border-border">
                     <ProductImage
-                      storeId={storeId || product.storeUid || product.storeId}
-                      productId={product.id}
+                      storeUid={storeUid || product.storeUid}
+                      productUid={product.uid}
                       imageUrl={product.imageUrl}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -490,7 +490,7 @@ export function MerchantCatalogDashboard({
                       Ajuster le stock :
                     </span>
                     <StockControl
-                      storeIdentifier={storeId}
+                      storeUid={storeUid}
                       product={product}
                       onStockUpdated={handleStockUpdated}
                     />
@@ -533,7 +533,7 @@ export function MerchantCatalogDashboard({
 
       {/* Product Form Dialog (Create / Edit) */}
       <ProductFormDialog
-        storeId={storeId}
+        storeUid={storeUid}
         product={selectedProduct}
         isOpen={isFormOpen}
         onClose={() => {

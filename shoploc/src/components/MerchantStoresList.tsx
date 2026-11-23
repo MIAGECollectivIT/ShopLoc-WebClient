@@ -47,22 +47,7 @@ export function MerchantStoresList() {
             : activeStores.filter((s) => {
                 if (role === 'ADMIN') return true;
                 if (!user) return false;
-                // Standard check: store creator matches current user dbId or public id
-                if (
-                  s.userId != null &&
-                  ((user.dbId != null && String(s.userId) === String(user.dbId)) ||
-                    (user.id != null && String(s.userId) === String(user.id)))
-                ) {
-                  return true;
-                }
-                // Seed association: Suzanne Morel is associated with stores 1 & 2 in user_stores
-                if (
-                  (user.email === 'suzanne.morel@shop-loc.fr' || user.dbId === 2) &&
-                  (s.id === 1 || s.id === 2)
-                ) {
-                  return true;
-                }
-                return false;
+                return Boolean(s.ownerUid && user.id && s.ownerUid === user.id);
               });
 
         setStores(myStores);
@@ -128,7 +113,7 @@ export function MerchantStoresList() {
       {stores.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {stores.map((store) => (
-            <StoreCard key={store.uid || store.id} store={store} />
+            <StoreCard key={store.uid} store={store} />
           ))}
         </div>
       ) : (

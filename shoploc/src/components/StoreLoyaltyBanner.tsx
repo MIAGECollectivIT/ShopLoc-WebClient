@@ -6,12 +6,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
 interface StoreLoyaltyBannerProps {
-  storeId: number | string;
+  storeUid: string;
   initialRate?: MerchantLoyaltyRate | null;
   onViewGifts?: () => void;
 }
 
-export function StoreLoyaltyBanner({ storeId, initialRate, onViewGifts }: StoreLoyaltyBannerProps) {
+export function StoreLoyaltyBanner({
+  storeUid,
+  initialRate,
+  onViewGifts,
+}: StoreLoyaltyBannerProps) {
   const [rate, setRate] = React.useState<MerchantLoyaltyRate | null>(initialRate || null);
   const [isLoading, setIsLoading] = React.useState(!initialRate);
 
@@ -24,13 +28,13 @@ export function StoreLoyaltyBanner({ storeId, initialRate, onViewGifts }: StoreL
     let isMounted = true;
     async function loadRate() {
       try {
-        const data = await getStoreLoyaltyRate(storeId);
+        const data = await getStoreLoyaltyRate(storeUid);
         if (isMounted) setRate(data);
       } catch {
         // Fallback default
         if (isMounted) {
           setRate({
-            storeId,
+            storeUid,
             euroAmount: 1,
             pointsReward: 1,
           });
@@ -44,7 +48,7 @@ export function StoreLoyaltyBanner({ storeId, initialRate, onViewGifts }: StoreL
     return () => {
       isMounted = false;
     };
-  }, [storeId, initialRate]);
+  }, [storeUid, initialRate]);
 
   if (isLoading || !rate) {
     return null;

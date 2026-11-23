@@ -19,8 +19,10 @@ function readLocalStorage(): CartItem[] {
       (item): item is CartItem =>
         typeof item === 'object' &&
         item !== null &&
-        typeof item.productId === 'number' &&
-        typeof item.storeId === 'number' &&
+        typeof item.productUid === 'string' &&
+        item.productUid.length > 0 &&
+        typeof item.storeUid === 'string' &&
+        item.storeUid.length > 0 &&
         typeof item.name === 'string' &&
         typeof item.price === 'number' &&
         typeof item.quantity === 'number' &&
@@ -124,7 +126,7 @@ export function addToCart(payload: AddToCartPayload): {
   }
 
   const existingIndex = current.findIndex(
-    (item) => item.productId === payload.productId && item.storeId === payload.storeId
+    (item) => item.productUid === payload.productUid && item.storeUid === payload.storeUid
   );
 
   let updatedItem: CartItem;
@@ -164,8 +166,7 @@ export function addToCart(payload: AddToCartPayload): {
       finalQty = payload.maxStock;
     }
     updatedItem = {
-      productId: payload.productId,
-      storeId: payload.storeId,
+      productUid: payload.productUid,
       storeUid: payload.storeUid,
       storeName: payload.storeName || 'Boutique partenaire',
       name: payload.name,
@@ -185,15 +186,15 @@ export function addToCart(payload: AddToCartPayload): {
  * Met à jour la quantité d'un article existant.
  * Si quantity <= 0, l'article est supprimé.
  */
-export function updateCartQuantity(productId: number, storeId: number, quantity: number): void {
+export function updateCartQuantity(productUid: string, storeUid: string, quantity: number): void {
   const current = getCartItems();
   if (quantity <= 0) {
-    removeFromCart(productId, storeId);
+    removeFromCart(productUid, storeUid);
     return;
   }
 
   const updated = current.map((item) => {
-    if (item.productId === productId && item.storeId === storeId) {
+    if (item.productUid === productUid && item.storeUid === storeUid) {
       const maxStock = item.maxStock;
       const targetQuantity = maxStock !== undefined ? Math.min(quantity, maxStock) : quantity;
       return { ...item, quantity: targetQuantity };
@@ -207,10 +208,10 @@ export function updateCartQuantity(productId: number, storeId: number, quantity:
 /**
  * Supprime un article du panier.
  */
-export function removeFromCart(productId: number, storeId: number): void {
+export function removeFromCart(productUid: string, storeUid: string): void {
   const current = getCartItems();
   const next = current.filter(
-    (item) => !(item.productId === productId && item.storeId === storeId)
+    (item) => !(item.productUid === productUid && item.storeUid === storeUid)
   );
   setCartItems(next);
 }
@@ -218,9 +219,9 @@ export function removeFromCart(productId: number, storeId: number): void {
 /**
  * Supprime tous les articles d'un commerce spécifique.
  */
-export function clearStoreFromCart(storeId: number): void {
+export function clearStoreFromCart(storeUid: string): void {
   const current = getCartItems();
-  const next = current.filter((item) => item.storeId !== storeId);
+  const next = current.filter((item) => item.storeUid !== storeUid);
   setCartItems(next);
 }
 
@@ -235,20 +236,19 @@ export function clearCart(): void {
  * Regroupe les articles par commerce partenaire (partitionnement multi-commerces).
  */
 export function groupCartByStore(items: CartItem[]): StoreCartGroup[] {
-  const map = new Map<number, StoreCartGroup>();
+  const map = new Map<string, StoreCartGroup>();
 
   for (const item of items) {
-    let group = map.get(item.storeId);
+    let group = map.get(item.storeUid);
     if (!group) {
       group = {
-        storeId: item.storeId,
         storeUid: item.storeUid,
-        storeName: item.storeName || `Commerce #${item.storeId}`,
+        storeName: item.storeName || 'Boutique partenaire',
         items: [],
         subtotal: 0,
         itemCount: 0,
       };
-      map.set(item.storeId, group);
+      map.set(item.storeUid, group);
     }
     group.items.push(item);
     group.itemCount += item.quantity;

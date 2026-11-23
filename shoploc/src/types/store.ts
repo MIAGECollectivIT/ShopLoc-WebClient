@@ -1,5 +1,5 @@
 export interface StoreAbsence {
-  id?: number;
+  uid?: string;
   startDate: string;
   endDate?: string | null;
   reason?: string | null;
@@ -11,14 +11,13 @@ export interface StoreAbsence {
 }
 
 export interface Store {
-  id?: number;
-  uid?: string;
+  uid: string;
   name: string;
   address: string;
   url?: string;
   category?: string;
   rib?: string;
-  userId?: number;
+  ownerUid: string;
   status?: 'ACTIVE' | 'REVOKED';
   revokedAt?: string | null;
   revokedBy?: string | null;
@@ -37,7 +36,7 @@ export interface StoreCreateRequest {
   address: string;
   category: string;
   rib: string;
-  userId: number;
+  ownerUid: string;
   url?: string;
 }
 
@@ -47,7 +46,7 @@ export interface StorePatchRequest {
   category?: string;
   rib?: string;
   url?: string;
-  userId?: number;
+  ownerUid?: string;
   openingHours?: string;
   absenceStartDate?: string;
   absenceEndDate?: string;
@@ -57,14 +56,13 @@ export interface StorePatchRequest {
 }
 
 export interface StoreResponse {
-  id: number;
-  uid?: string;
+  uid: string;
   name: string;
   address: string;
   url?: string;
   category: string;
   rib: string;
-  userId: number;
+  ownerUid: string;
   status?: 'ACTIVE' | 'REVOKED';
   revokedAt?: string | null;
   revokedBy?: string | null;
@@ -79,7 +77,7 @@ export interface StoreResponse {
 }
 
 export interface PartnerAccount {
-  id: number;
+  publicId: string;
   name: string;
   email: string;
   companyName?: string;

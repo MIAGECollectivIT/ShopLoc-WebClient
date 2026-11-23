@@ -1,7 +1,6 @@
 export interface Product {
-  id: number;
-  storeId: number;
-  storeUid?: string;
+  uid: string;
+  storeUid: string;
   reference: string;
   name: string;
   description?: string | null;

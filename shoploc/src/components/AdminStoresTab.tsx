@@ -118,7 +118,7 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
     name: '',
     category: '',
     url: '',
-    userId: undefined,
+    ownerUid: '',
   });
   const [editFormErrors, setEditFormErrors] = React.useState<Record<string, string>>({});
   const [isSubmittingEdit, setIsSubmittingEdit] = React.useState(false);
@@ -127,7 +127,7 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
   const [partners, setPartners] = React.useState<AdminPartnerSummary[]>([]);
 
   // Inspect User Modal State
-  const [inspectingUserId, setInspectingUserId] = React.useState<string | number | null>(null);
+  const [inspectingUserId, setInspectingUserId] = React.useState<string | null>(null);
   const [inspectingUser, setInspectingUser] = React.useState<UserResponse | null>(null);
   const [isLoadingUserDetails, setIsLoadingUserDetails] = React.useState(false);
   const [userDetailError, setUserDetailError] = React.useState<string | null>(null);
@@ -146,20 +146,20 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
   }, []);
 
   const partnerMap = React.useMemo(() => {
-    const map = new Map<number, AdminPartnerSummary>();
+    const map = new Map<string, AdminPartnerSummary>();
     partners.forEach((p) => {
-      map.set(p.id, p);
+      map.set(p.publicId, p);
     });
     return map;
   }, [partners]);
 
-  const handleOpenUserDetail = async (userId: string | number) => {
+  const handleOpenUserDetail = async (userId: string) => {
     setInspectingUserId(userId);
     setIsLoadingUserDetails(true);
     setUserDetailError(null);
     setInspectingUser(null);
     try {
-      const user = await getAdminUserById(String(userId));
+      const user = await getAdminUserById(userId);
       setInspectingUser(user);
     } catch (err: unknown) {
       setUserDetailError(
@@ -283,12 +283,12 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
   // Confirm Revocation
   const handleConfirmRevoke = async () => {
     if (!revokingStore) return;
-    const storeId = revokingStore.uid ?? revokingStore.id;
-    if (!storeId) return;
+    const storeUid = revokingStore.uid;
+    if (!storeUid) return;
 
     setIsSubmittingRevoke(true);
     try {
-      await revokeStore(storeId);
+      await revokeStore(storeUid);
       setActionSuccessMessage(
         `Le commerce "${revokingStore.name}" a été révoqué avec succès du programme d'animation.`
       );
@@ -305,8 +305,8 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
   const handleConfirmReactivate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reactivatingStore) return;
-    const storeId = reactivatingStore.uid ?? reactivatingStore.id;
-    if (!storeId) return;
+    const storeUid = reactivatingStore.uid;
+    if (!storeUid) return;
 
     const trimmedRib = reactivateRib.trim().toUpperCase();
     if (!trimmedRib) {
@@ -323,7 +323,7 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
     setIsSubmittingReactivate(true);
     setReactivateRibError(null);
     try {
-      await reactivateStore(storeId, trimmedRib);
+      await reactivateStore(storeUid, trimmedRib);
       setActionSuccessMessage(
         `Le commerce "${reactivatingStore.name}" a été réactivé avec succès avec son nouveau RIB.`
       );
@@ -346,7 +346,7 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
       name: store.name || '',
       category: store.category || '',
       url: store.url || '',
-      userId: store.userId,
+      ownerUid: store.ownerUid || '',
     });
     setEditFormErrors({});
   };
@@ -368,25 +368,25 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
       return;
     }
 
-    const storeId = editingStore.uid ?? editingStore.id;
-    if (!storeId) return;
+    const storeUid = editingStore.uid;
+    if (!storeUid) return;
 
     setIsSubmittingEdit(true);
     setEditFormErrors({});
     try {
-      const newUserId = validationResult.data.userId;
+      const newOwnerUid = validationResult.data.ownerUid || undefined;
       const patchPayload: StorePatchRequest = {
         name: validationResult.data.name,
         category: validationResult.data.category,
         url: validationResult.data.url ? validationResult.data.url : undefined,
-        userId: newUserId,
+        ownerUid: newOwnerUid,
       };
-      await patchStore(storeId, patchPayload);
+      await patchStore(storeUid, patchPayload);
 
-      // If owner was changed and store has numeric ID, sync partner link
-      if (newUserId && newUserId !== editingStore.userId && editingStore.id) {
+      // If owner was changed, sync partner link
+      if (newOwnerUid && newOwnerUid !== editingStore.ownerUid) {
         try {
-          await addStoreToPartner(newUserId, editingStore.id);
+          await addStoreToPartner(newOwnerUid, storeUid);
         } catch {
           // best-effort sync
         }
@@ -548,7 +548,7 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
               <tbody className="divide-y divide-border/60">
                 {paginatedStores.map((store) => (
                   <tr
-                    key={store.uid ?? store.id}
+                    key={store.uid}
                     className={`hover:bg-muted/40 transition-colors ${
                       store.status === 'REVOKED' ? 'bg-destructive/5' : ''
                     }`}
@@ -567,7 +567,7 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
                         </div>
                         <div className="min-w-0">
                           <a
-                            href={ROUTES.storeDetail(store.uid ?? store.id ?? '')}
+                            href={ROUTES.storeDetail(store.uid)}
                             className="font-semibold text-foreground hover:text-primary hover:underline transition-colors flex items-center gap-1.5 truncate max-w-[220px] group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm"
                             title={`Consulter la vitrine de ${store.name}`}
                           >
@@ -594,19 +594,19 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
 
                     {/* Propriétaire */}
                     <td className="px-4 py-3">
-                      {store.userId ? (
+                      {store.ownerUid ? (
                         (() => {
-                          const partner = partnerMap.get(store.userId);
+                          const partner = partnerMap.get(store.ownerUid);
                           return (
                             <button
                               type="button"
-                              onClick={() => handleOpenUserDetail(store.userId!)}
+                              onClick={() => handleOpenUserDetail(store.ownerUid)}
                               className="text-xs font-medium text-foreground hover:text-primary hover:underline flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded group text-left"
                               title="Cliquer pour afficher la fiche de cet utilisateur"
                             >
                               <User className="size-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
                               <span className="truncate max-w-[160px]">
-                                {partner ? partner.name : `Commerçant #${store.userId}`}
+                                {partner ? partner.name : store.ownerUid}
                               </span>
                             </button>
                           );
@@ -949,11 +949,11 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
             <div className="space-y-1">
               <label className="text-xs font-medium">Propriétaire (Commerçant / Partenaire)</label>
               <select
-                value={editFormData.userId ?? ''}
+                value={editFormData.ownerUid ?? ''}
                 onChange={(e) =>
                   setEditFormData((prev) => ({
                     ...prev,
-                    userId: e.target.value ? Number(e.target.value) : undefined,
+                    ownerUid: e.target.value,
                   }))
                 }
                 disabled={isSubmittingEdit}
@@ -961,16 +961,17 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
               >
                 <option value="">Sélectionnez un commerçant propriétaire...</option>
                 {partners.map((partner) => (
-                  <option key={partner.id} value={partner.id}>
+                  <option key={partner.publicId} value={partner.publicId}>
                     {partner.name} ({partner.email})
                   </option>
                 ))}
-                {editFormData.userId && !partners.some((p) => p.id === editFormData.userId) && (
-                  <option value={editFormData.userId}>Commerçant #{editFormData.userId}</option>
-                )}
+                {editFormData.ownerUid &&
+                  !partners.some((p) => p.publicId === editFormData.ownerUid) && (
+                    <option value={editFormData.ownerUid}>{editFormData.ownerUid}</option>
+                  )}
               </select>
-              {editFormErrors.userId && (
-                <p className="text-destructive text-xs">{editFormErrors.userId}</p>
+              {editFormErrors.ownerUid && (
+                <p className="text-destructive text-xs">{editFormErrors.ownerUid}</p>
               )}
             </div>
 

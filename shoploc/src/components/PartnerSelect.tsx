@@ -15,8 +15,8 @@ import type { PartnerAccount } from '@/types/store';
 import { UserCheck, Search, Mail, Loader2, Store, UserPlus, ExternalLink } from 'lucide-react';
 
 interface PartnerSelectProps {
-  value: number | '';
-  onValueChange: (userId: number) => void;
+  value: string;
+  onValueChange: (ownerUid: string) => void;
   disabled?: boolean;
   className?: string;
   id?: string;
@@ -61,7 +61,7 @@ export function PartnerSelect({
 
           // If a value is selected, keep its reference cached if not in the result set
           if (value && !selectedPartner) {
-            const found = results.find((p) => p.id === Number(value));
+            const found = results.find((p) => p.publicId === value);
             if (found) setSelectedPartner(found);
           }
         }
@@ -85,8 +85,8 @@ export function PartnerSelect({
 
   // Sync selected partner if value prop changes externally
   React.useEffect(() => {
-    if (value && (!selectedPartner || selectedPartner.id !== Number(value))) {
-      const match = partners.find((p) => p.id === Number(value));
+    if (value && (!selectedPartner || selectedPartner.publicId !== value)) {
+      const match = partners.find((p) => p.publicId === value);
       if (match) {
         setSelectedPartner(match);
       }
@@ -98,13 +98,12 @@ export function PartnerSelect({
   return (
     <div className="space-y-1.5">
       <Select
-        value={value ? String(value) : ''}
+        value={value || ''}
         onValueChange={(val) => {
           if (val) {
-            const numId = Number(val);
-            const found = partners.find((p) => p.id === numId) || null;
+            const found = partners.find((p) => p.publicId === val) || null;
             setSelectedPartner(found);
-            onValueChange(numId);
+            onValueChange(val);
           }
         }}
         disabled={disabled}
@@ -194,8 +193,8 @@ export function PartnerSelect({
             {/* Matching partners list */}
             {partners.map((partner) => (
               <SelectItem
-                key={partner.id}
-                value={String(partner.id)}
+                key={partner.publicId}
+                value={partner.publicId}
                 className="cursor-pointer py-2 text-xs"
               >
                 <div className="flex flex-col gap-0.5">

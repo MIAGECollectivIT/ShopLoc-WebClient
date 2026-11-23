@@ -33,12 +33,12 @@ import {
 } from 'lucide-react';
 
 interface MerchantGiftsDashboardProps {
-  storeId: number | string;
+  storeUid: string;
   storeName?: string;
 }
 
 export function MerchantGiftsDashboard({
-  storeId,
+  storeUid,
   storeName: _storeName,
 }: MerchantGiftsDashboardProps) {
   const [gifts, setGifts] = React.useState<LoyaltyGift[]>([]);
@@ -67,7 +67,7 @@ export function MerchantGiftsDashboard({
     setIsLoading(true);
     setError(null);
     try {
-      const items = await getStoreGifts(storeId, true);
+      const items = await getStoreGifts(storeUid, true);
       setGifts(items);
     } catch (err: unknown) {
       setError(
@@ -78,7 +78,7 @@ export function MerchantGiftsDashboard({
     } finally {
       setIsLoading(false);
     }
-  }, [storeId]);
+  }, [storeUid]);
 
   React.useEffect(() => {
     fetchGifts();
@@ -103,9 +103,9 @@ export function MerchantGiftsDashboard({
 
   const handleGiftSaved = (savedGift: LoyaltyGift) => {
     setGifts((prev) => {
-      const exists = prev.some((g) => g.id === savedGift.id);
+      const exists = prev.some((g) => g.uid === savedGift.uid);
       if (exists) {
-        return prev.map((g) => (g.id === savedGift.id ? savedGift : g));
+        return prev.map((g) => (g.uid === savedGift.uid ? savedGift : g));
       }
       return [savedGift, ...prev];
     });
@@ -117,7 +117,7 @@ export function MerchantGiftsDashboard({
   };
 
   const handleStockUpdated = (updatedGift: LoyaltyGift) => {
-    setGifts((prev) => prev.map((g) => (g.id === updatedGift.id ? updatedGift : g)));
+    setGifts((prev) => prev.map((g) => (g.uid === updatedGift.uid ? updatedGift : g)));
     showNotification(`Stock de "${updatedGift.name}" mis à jour (${updatedGift.stock} unités)`);
   };
 
@@ -125,8 +125,8 @@ export function MerchantGiftsDashboard({
     if (!giftToDelete) return;
     setIsDeleting(true);
     try {
-      await deleteGift(storeId, giftToDelete.id);
-      setGifts((prev) => prev.filter((g) => g.id !== giftToDelete.id));
+      await deleteGift(storeUid, giftToDelete.uid);
+      setGifts((prev) => prev.filter((g) => g.uid !== giftToDelete.uid));
       showNotification(`Article cadeau "${giftToDelete.name}" supprimé`);
       setGiftToDelete(null);
     } catch (err: unknown) {
@@ -412,15 +412,15 @@ export function MerchantGiftsDashboard({
 
             return (
               <Card
-                key={gift.id}
+                key={gift.uid}
                 className="group relative flex flex-col justify-between overflow-hidden border-border hover:shadow-md transition-shadow bg-card"
               >
                 <div>
                   {/* Gift Image with overlays */}
                   <div className="relative aspect-4/3 w-full bg-muted/60 overflow-hidden flex items-center justify-center border-b border-border">
                     <GiftImage
-                      storeId={gift.storeId || storeId}
-                      giftId={gift.id}
+                      storeUid={gift.storeUid || storeUid}
+                      giftUid={gift.uid}
                       imageUrl={gift.imageUrl}
                       alt={gift.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -517,7 +517,7 @@ export function MerchantGiftsDashboard({
 
       {/* Modal Dialog: Add / Edit Gift */}
       <GiftFormDialog
-        storeId={storeId}
+        storeUid={storeUid}
         gift={selectedGift}
         isOpen={isFormOpen}
         onClose={() => {

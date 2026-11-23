@@ -92,8 +92,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
 
         // If order is already PAID, redirect directly to confirmation screen
         if (fetchedOrder.status === 'PAID') {
-          const orderUid = fetchedOrder.uid || fetchedOrder.orderReference;
-          window.location.href = ROUTES.orderConfirmation.detail(orderUid);
+          window.location.href = ROUTES.orderConfirmation.detail(fetchedOrder.uid);
           return;
         }
 
@@ -183,7 +182,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
       const updatedWallet = await debitWallet(
         {
           amount: totalAmount,
-          storeId: primaryStore?.storeId,
+          storeUid: primaryStore?.storeUid,
           storeName: storeName || 'Commerce ShopLoc',
           orderReference: order.orderReference,
           description: `Règlement commande ${order.orderReference}`,
@@ -192,7 +191,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
       );
 
       // 2. Mark order status to PAID on backend
-      await updateOrderStatus(order.orderReference, 'PAID', token || undefined);
+      await updateOrderStatus(order.uid, 'PAID', token || undefined);
 
       // 3. Clear validated cart
       clear();
@@ -223,8 +222,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
       );
 
       // 5. Redirect to final order confirmation view
-      const orderUid = order.uid || order.orderReference;
-      window.location.href = ROUTES.orderConfirmation.detail(orderUid);
+      window.location.href = ROUTES.orderConfirmation.detail(order.uid);
     } catch (err: unknown) {
       setPaymentError(
         err instanceof Error ? err.message : 'Erreur lors du règlement avec votre portefeuille'
@@ -253,7 +251,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
         const updatedWallet = await debitWallet(
           {
             amount: walletPart,
-            storeId: primaryStore?.storeId,
+            storeUid: primaryStore?.storeUid,
             storeName: storeName || 'Commerce ShopLoc',
             orderReference: order.orderReference,
             description: `Règlement mixte (part portefeuille) commande ${order.orderReference}`,
@@ -264,7 +262,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
       }
 
       // 2. Update order status to PAID on backend
-      await updateOrderStatus(order.orderReference, 'PAID', token || undefined);
+      await updateOrderStatus(order.uid, 'PAID', token || undefined);
 
       // 3. Clear validated cart
       clear();
@@ -285,8 +283,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
       );
 
       // 5. Redirect to the final order confirmation & recap view
-      const orderUid = order.uid || order.orderReference;
-      window.location.href = ROUTES.orderConfirmation.detail(orderUid);
+      window.location.href = ROUTES.orderConfirmation.detail(order.uid);
     } catch (err: unknown) {
       setPaymentError(
         err instanceof Error ? err.message : 'Erreur lors de la validation finale du règlement'
@@ -686,7 +683,7 @@ export function CheckoutPageView({ initialOrderReference }: CheckoutPageViewProp
           hideReceipt={true}
           hideReference={true}
           initialAmount={cardPart.toFixed(2)}
-          initialReference={order.uid || order.orderReference}
+          initialReference={order.uid}
           onPaymentSuccess={handlePaymentApproved}
         />
       )}

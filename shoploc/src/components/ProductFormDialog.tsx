@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 
 interface ProductFormDialogProps {
-  storeId: number | string;
+  storeUid: string;
   product?: Product | null;
   isOpen: boolean;
   onClose: () => void;
@@ -37,7 +37,7 @@ interface ProductFormDialogProps {
 }
 
 export function ProductFormDialog({
-  storeId,
+  storeUid,
   product,
   isOpen,
   onClose,
@@ -80,8 +80,8 @@ export function ProductFormDialog({
       // Only resolve an initial preview if the product already has an image recorded
       const initialPreview = product.imageUrl?.trim()
         ? resolveProductImageUrl({
-            storeId,
-            productId: product.id,
+            storeUid,
+            productUid: product.uid,
             imageUrl: product.imageUrl,
           })
         : null;
@@ -103,7 +103,7 @@ export function ProductFormDialog({
     }
     setErrors({});
     setServerError(null);
-  }, [product, isOpen, storeId]);
+  }, [product, isOpen, storeUid]);
 
   // Revoke object URL when unmounting or replacing
   React.useEffect(() => {
@@ -239,22 +239,22 @@ export function ProductFormDialog({
 
         if (selectedFile) {
           // 1. New file chosen -> multipart upload to S3 MinIO
-          saved = await updateProduct(storeId, product.id, payload, selectedFile);
+          saved = await updateProduct(storeUid, product.uid, payload, selectedFile);
         } else if (isImageRemoved) {
           // 2. Image explicitly removed -> clear image URL
-          saved = await updateProduct(storeId, product.id, {
+          saved = await updateProduct(storeUid, product.uid, {
             ...payload,
             imageUrl: '',
           });
         } else if (imageUrl.trim()) {
           // 3. New external image URL specified
-          saved = await updateProduct(storeId, product.id, {
+          saved = await updateProduct(storeUid, product.uid, {
             ...payload,
             imageUrl: imageUrl.trim(),
           });
         } else {
           // 4. Image unchanged -> retain existing imageUrl
-          saved = await updateProduct(storeId, product.id, {
+          saved = await updateProduct(storeUid, product.uid, {
             ...payload,
             imageUrl: product.imageUrl || undefined,
           });
@@ -262,7 +262,7 @@ export function ProductFormDialog({
       } else {
         // Creation of a new product
         saved = await createProduct(
-          storeId,
+          storeUid,
           {
             reference: validated.reference,
             name: validated.name,

@@ -29,7 +29,7 @@ export function GiftStockControl({ gift, onStockUpdated, className = '' }: GiftS
     setError(null);
     setIsUpdating(true);
     try {
-      const updated = await adjustGiftStock(gift.storeId, gift.id, delta);
+      const updated = await adjustGiftStock(gift.storeUid, gift.uid, delta);
       setCurrentStock(updated.stock);
       setInputValue(String(updated.stock));
       onStockUpdated?.(updated);
@@ -53,7 +53,7 @@ export function GiftStockControl({ gift, onStockUpdated, className = '' }: GiftS
     setError(null);
     setIsUpdating(true);
     try {
-      const updated = await adjustGiftStock(gift.storeId, gift.id, delta);
+      const updated = await adjustGiftStock(gift.storeUid, gift.uid, delta);
       setCurrentStock(updated.stock);
       setInputValue(String(updated.stock));
       onStockUpdated?.(updated);

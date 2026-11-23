@@ -17,7 +17,6 @@ export interface UserLoginRequest {
 
 export interface UserResponse {
   id: string;
-  numericId?: number;
   email: string;
   role: UserRole;
   isLocked?: boolean;
@@ -65,7 +64,6 @@ export interface AuthResponse {
 
 export interface AuthUser {
   id: string;
-  dbId?: number;
   email: string;
   role: UserRole;
   firstName?: string;

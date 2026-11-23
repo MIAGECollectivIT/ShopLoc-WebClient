@@ -244,8 +244,8 @@ export async function searchStores(params?: {
   return data;
 }
 
-export async function getStoreById(id: string | number): Promise<Store> {
-  const res = await fetchWithTimeout(getApiEndpoint(`/v1/stores/${id}`));
+export async function getStoreById(storeUid: string): Promise<Store> {
+  const res = await fetchWithTimeout(getApiEndpoint(`/v1/stores/${storeUid}`));
   if (!res.ok) {
     throw new Error(`Commerce introuvable (HTTP ${res.status})`);
   }
@@ -257,8 +257,8 @@ export async function getStoreById(id: string | number): Promise<Store> {
  * Revokes a partner store from the local animation program.
  * Only accessible by ADMIN users.
  */
-export async function revokeStore(storeId: string | number): Promise<StoreResponse> {
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/revoke`);
+export async function revokeStore(storeUid: string): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/revoke`);
   const token = getAuthToken();
 
   const res = await fetchWithTimeout(endpoint, {
@@ -289,11 +289,8 @@ export async function revokeStore(storeId: string | number): Promise<StoreRespon
  * Reactivates a previously revoked partner store with a new valid RIB/IBAN.
  * Only accessible by ADMIN users.
  */
-export async function reactivateStore(
-  storeId: string | number,
-  rib: string
-): Promise<StoreResponse> {
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/reactivate`);
+export async function reactivateStore(storeUid: string, rib: string): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/reactivate`);
   const token = getAuthToken();
 
   const res = await fetchWithTimeout(endpoint, {
@@ -552,13 +549,13 @@ export async function unlockAdminUser(id: string, authToken?: string): Promise<U
 
 /**
  * Retrieves detailed administrative profile of a specific partner merchant.
- * Returns partner details and associated store IDs.
+ * Returns partner details and associated store UIDs.
  */
 export async function getAdminPartnerById(
-  id: string | number,
+  partnerId: string,
   authToken?: string
 ): Promise<AdminPartnerDetail> {
-  const endpoint = getUsersApiEndpoint(`/v1/admin/partners/${encodeURIComponent(String(id))}`);
+  const endpoint = getUsersApiEndpoint(`/v1/admin/partners/${encodeURIComponent(partnerId)}`);
   const token = authToken || getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     headers: {
@@ -588,12 +585,12 @@ export async function getAdminPartnerById(
  * Associates an existing municipal store with a partner merchant.
  */
 export async function addStoreToPartner(
-  partnerId: string | number,
-  storeId: number,
+  partnerId: string,
+  storeUid: string,
   authToken?: string
 ): Promise<void> {
   const endpoint = getUsersApiEndpoint(
-    `/v1/admin/partners/${encodeURIComponent(String(partnerId))}/stores`
+    `/v1/admin/partners/${encodeURIComponent(partnerId)}/stores`
   );
   const token = authToken || getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
@@ -603,7 +600,7 @@ export async function addStoreToPartner(
       Accept: 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ storeId }),
+    body: JSON.stringify({ storeUid }),
   });
 
   if (res.status === 401) {
@@ -621,12 +618,12 @@ export async function addStoreToPartner(
  * Detaches / unlinks a municipal store from a partner merchant account.
  */
 export async function removeStoreFromPartner(
-  partnerId: string | number,
-  storeId: number,
+  partnerId: string,
+  storeUid: string,
   authToken?: string
 ): Promise<void> {
   const endpoint = getUsersApiEndpoint(
-    `/v1/admin/partners/${encodeURIComponent(String(partnerId))}/stores/${encodeURIComponent(String(storeId))}`
+    `/v1/admin/partners/${encodeURIComponent(partnerId)}/stores/${encodeURIComponent(storeUid)}`
   );
   const token = authToken || getAuthToken();
   try {
@@ -659,13 +656,11 @@ export interface AdminPartnerUpdateRequest {
  * Updates identity and administrative profile of a partner merchant.
  */
 export async function updateAdminPartner(
-  partnerId: string | number,
+  partnerId: string,
   payload: AdminPartnerUpdateRequest,
   authToken?: string
 ): Promise<AdminPartnerDetail> {
-  const endpoint = getUsersApiEndpoint(
-    `/v1/admin/partners/${encodeURIComponent(String(partnerId))}`
-  );
+  const endpoint = getUsersApiEndpoint(`/v1/admin/partners/${encodeURIComponent(partnerId)}`);
   const token = authToken || getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'PUT',
@@ -755,10 +750,10 @@ export async function createStore(
  * Partially updates store information.
  */
 export async function patchStore(
-  storeId: string | number,
+  storeUid: string,
   payload: StorePatchRequest
 ): Promise<StoreResponse> {
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}`);
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}`);
   const token = getAuthToken();
   const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -790,8 +785,8 @@ export async function patchStore(
 /**
  * Retrieves the list of absences for a store.
  */
-export async function getStoreAbsences(storeId: string | number): Promise<StoreAbsence[]> {
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/absences`);
+export async function getStoreAbsences(storeUid: string): Promise<StoreAbsence[]> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/absences`);
   const token = getAuthToken();
   const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -813,10 +808,10 @@ export async function getStoreAbsences(storeId: string | number): Promise<StoreA
  * Adds an absence to a store schedule.
  */
 export async function addStoreAbsence(
-  storeId: string | number,
+  storeUid: string,
   absence: { startDate: string; endDate?: string | null; reason?: string | null }
 ): Promise<StoreResponse> {
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/absences`);
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/absences`);
   const token = getAuthToken();
   const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -848,11 +843,11 @@ export async function addStoreAbsence(
  * Updates an existing store absence.
  */
 export async function updateStoreAbsence(
-  storeId: string | number,
-  absenceId: number,
+  storeUid: string,
+  absenceUid: string,
   absence: { startDate: string; endDate?: string | null; reason?: string | null }
 ): Promise<StoreResponse> {
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/absences/${absenceId}`);
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/absences/${absenceUid}`);
   const token = getAuthToken();
   const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -884,13 +879,12 @@ export async function updateStoreAbsence(
  * Deletes a specific absence or all absences for a store.
  */
 export async function deleteStoreAbsence(
-  storeId: string | number,
-  absenceId?: number
+  storeUid: string,
+  absenceUid?: string
 ): Promise<StoreResponse> {
-  const endpoint =
-    absenceId != null
-      ? getApiEndpoint(`/v1/stores/${storeId}/absences/${absenceId}`)
-      : getApiEndpoint(`/v1/stores/${storeId}/absence`);
+  const endpoint = absenceUid
+    ? getApiEndpoint(`/v1/stores/${storeUid}/absences/${absenceUid}`)
+    : getApiEndpoint(`/v1/stores/${storeUid}/absence`);
   const token = getAuthToken();
   const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -910,8 +904,8 @@ export async function deleteStoreAbsence(
     // Fallback to PATCH clearAbsence if DELETE is not supported by proxy
   }
 
-  if (absenceId == null) {
-    return patchStore(storeId, { clearAbsence: true });
+  if (!absenceUid) {
+    return patchStore(storeUid, { clearAbsence: true });
   }
   throw new Error("Impossible de supprimer l'absence sélectionnée");
 }
@@ -919,11 +913,8 @@ export async function deleteStoreAbsence(
 /**
  * Updates a store's storefront image via S3 multipart endpoint.
  */
-export async function updateStoreImage(
-  storeId: string | number,
-  imageFile: File
-): Promise<StoreResponse> {
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/image`);
+export async function updateStoreImage(storeUid: string, imageFile: File): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/image`);
   const token = getAuthToken();
   const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -957,8 +948,8 @@ export async function updateStoreImage(
 /**
  * Retrieves automated turnover metrics generated by the ShopLoc application for a store.
  */
-export async function getStoreTurnover(storeId: string | number): Promise<StoreTurnoverResponse> {
-  const endpoint = getApiEndpoint(`/v1/sales/stores/${storeId}/turnover`);
+export async function getStoreTurnover(storeUid: string): Promise<StoreTurnoverResponse> {
+  const endpoint = getApiEndpoint(`/v1/sales/stores/${storeUid}/turnover`);
   const token = getAuthToken();
   const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -1062,12 +1053,13 @@ export async function loginUser(credentials: UserLoginRequest): Promise<UserResp
 
   const authData = (await res.json()) as LoginApiResponse;
   const userObj = authData.user || {};
+  const { id: userObjId } = userObj;
 
   const sessionData: AuthResponse = {
     token: authData.token,
     tokenType: authData.tokenType || 'Bearer',
     expiresIn: authData.expiresIn || 7200000,
-    userId: userObj.id || authData.userId || '',
+    userId: userObjId || authData.userId || '',
     email: userObj.email || authData.email || normalizedEmail,
     role: (userObj.role || authData.role || 'CLIENT') as UserRole,
     firstName: userObj.firstName || authData.firstName || '',
@@ -1213,8 +1205,8 @@ export async function updateUserProfile(
 /**
  * Retrieves the full product catalog of a specific store.
  */
-export async function getStoreProducts(storeId: number | string): Promise<Product[]> {
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products`);
+export async function getStoreProducts(storeUid: string): Promise<Product[]> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/products`);
   const res = await fetchWithTimeout(endpoint);
   if (!res.ok) {
     throw new Error(`Impossible de récupérer les produits du magasin (HTTP ${res.status})`);
@@ -1223,13 +1215,10 @@ export async function getStoreProducts(storeId: number | string): Promise<Produc
 }
 
 /**
- * Retrieves a single product by storeId and productId.
+ * Retrieves a single product by storeUid and productUid.
  */
-export async function getProductById(
-  storeId: number | string,
-  productId: number | string
-): Promise<Product> {
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products/${productId}`);
+export async function getProductById(storeUid: string, productUid: string): Promise<Product> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/products/${productUid}`);
   const res = await fetchWithTimeout(endpoint);
   if (!res.ok) {
     throw new Error(`Produit introuvable (HTTP ${res.status})`);
@@ -1241,11 +1230,11 @@ export async function getProductById(
  * Creates a new product in the store catalogue (JSON or Multipart with S3 image upload).
  */
 export async function createProduct(
-  storeId: number | string,
+  storeUid: string,
   data: ProductCreateRequest,
   imageFile?: File
 ): Promise<Product> {
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products`);
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/products`);
   const token = getAuthToken();
 
   let body: BodyInit;
@@ -1288,12 +1277,12 @@ export async function createProduct(
  * Updates an existing product (JSON or Multipart with S3 image upload).
  */
 export async function updateProduct(
-  storeId: number | string,
-  productId: number | string,
+  storeUid: string,
+  productUid: string,
   data: ProductUpdateRequest,
   imageFile?: File
 ): Promise<Product> {
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products/${productId}`);
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/products/${productUid}`);
   const token = getAuthToken();
 
   let body: BodyInit;
@@ -1333,14 +1322,14 @@ export async function updateProduct(
 }
 
 /**
- * Uploads or updates a product image via S3 multipart endpoint PATCH /v1/stores/{storeId}/products/{productId}/image.
+ * Uploads or updates a product image via S3 multipart endpoint PATCH /v1/stores/{storeUid}/products/{productUid}/image.
  */
 export async function updateProductImage(
-  storeId: number | string,
-  productId: number | string,
+  storeUid: string,
+  productUid: string,
   imageFile: File
 ): Promise<Product> {
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products/${productId}/image`);
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/products/${productUid}/image`);
   const token = getAuthToken();
 
   const formData = new FormData();
@@ -1368,14 +1357,14 @@ export async function updateProductImage(
 }
 
 /**
- * Updates a product image with a direct URL via JSON endpoint PATCH /v1/stores/{storeId}/products/{productId}/image.
+ * Updates a product image with a direct URL via JSON endpoint PATCH /v1/stores/{storeUid}/products/{productUid}/image.
  */
 export async function updateProductImageUrl(
-  storeId: number | string,
-  productId: number | string,
+  storeUid: string,
+  productUid: string,
   imageUrl: string
 ): Promise<Product> {
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products/${productId}/image`);
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/products/${productUid}/image`);
   const token = getAuthToken();
 
   const res = await fetchWithTimeout(endpoint, {
@@ -1403,11 +1392,8 @@ export async function updateProductImageUrl(
 /**
  * Deletes a product from the store catalog.
  */
-export async function deleteProduct(
-  storeId: number | string,
-  productId: number | string
-): Promise<void> {
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products/${productId}`);
+export async function deleteProduct(storeUid: string, productUid: string): Promise<void> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/products/${productUid}`);
   const token = getAuthToken();
 
   const res = await fetchWithTimeout(endpoint, {
@@ -1431,8 +1417,8 @@ export async function deleteProduct(
  * Granularly adjusts product inventory stock via PATCH.
  */
 export async function updateProductStock(
-  storeId: number | string,
-  productId: number | string,
+  storeUid: string,
+  productUid: string,
   stockUpdate: StockUpdateRequest
 ): Promise<Product> {
   const payload: Record<string, number> = {};
@@ -1445,7 +1431,7 @@ export async function updateProductStock(
     payload.newQuantity = stockUpdate.newQuantity;
   }
 
-  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/products/${productId}/stock`);
+  const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/products/${productUid}/stock`);
   const token = getAuthToken();
 
   const res = await fetchWithTimeout(endpoint, {
@@ -1652,51 +1638,12 @@ export async function deleteVehicle(licensePlate: string): Promise<void> {
   }
 }
 
-// In-memory cache for UUID -> numeric store ID mapping
-const storeNumericIdCache = new Map<string, number>();
-
-/**
- * Resolves a store identifier (which might be a numeric ID or a UUID string) to its numeric DB id.
- * Required by services like Loyalty Service that strictly expect a Java Long for storeId.
- */
-export async function resolveNumericStoreId(
-  storeIdentifier: string | number
-): Promise<number | string> {
-  if (typeof storeIdentifier === 'number') {
-    return storeIdentifier;
-  }
-  if (!storeIdentifier) {
-    return storeIdentifier;
-  }
-  const str = String(storeIdentifier).trim();
-  if (/^\d+$/.test(str)) {
-    return Number(str);
-  }
-  if (storeNumericIdCache.has(str)) {
-    return storeNumericIdCache.get(str)!;
-  }
-  // If it's a UUID, resolve it via store-service
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
-    try {
-      const store = await getStoreById(str);
-      if (typeof store?.id === 'number') {
-        storeNumericIdCache.set(str, store.id);
-        return store.id;
-      }
-    } catch {
-      // Fallback if lookup fails
-    }
-  }
-  return storeIdentifier;
-}
-
 /**
  * Retrieves the configured loyalty rate for a store (or the default rate 1 € = 1 pt).
  * Publicly accessible for customers and merchants.
  */
-export async function getStoreLoyaltyRate(storeId: number | string): Promise<MerchantLoyaltyRate> {
-  const resolvedStoreId = await resolveNumericStoreId(storeId);
-  const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${resolvedStoreId}/rates`);
+export async function getStoreLoyaltyRate(storeUid: string): Promise<MerchantLoyaltyRate> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${storeUid}/rates`);
   const res = await fetchWithTimeout(endpoint, {
     method: 'GET',
     headers: {
@@ -1706,7 +1653,7 @@ export async function getStoreLoyaltyRate(storeId: number | string): Promise<Mer
 
   if (res.status === 404 || res.status === 400) {
     return {
-      storeId: resolvedStoreId,
+      storeUid,
       euroAmount: 1,
       pointsReward: 1,
     };
@@ -1724,11 +1671,10 @@ export async function getStoreLoyaltyRate(storeId: number | string): Promise<Mer
  * Restricted to the store's merchant owner or administrators.
  */
 export async function updateStoreLoyaltyRate(
-  storeId: number | string,
+  storeUid: string,
   data: MerchantLoyaltyRateRequest
 ): Promise<MerchantLoyaltyRate> {
-  const resolvedStoreId = await resolveNumericStoreId(storeId);
-  const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${resolvedStoreId}/rates`);
+  const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${storeUid}/rates`);
   const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'PUT',
@@ -1768,13 +1714,12 @@ export async function updateStoreLoyaltyRate(
  * Retrieves the global public catalog of active loyalty gifts with optional filters.
  */
 export async function getPublicGifts(params?: {
-  storeId?: number | string;
+  storeUid?: string;
   category?: string;
 }): Promise<LoyaltyGift[]> {
   const searchParams = new URLSearchParams();
-  if (params?.storeId && params.storeId !== 'ALL') {
-    const resolvedStoreId = await resolveNumericStoreId(params.storeId);
-    searchParams.set('storeId', String(resolvedStoreId));
+  if (params?.storeUid && params.storeUid !== 'ALL') {
+    searchParams.set('storeUid', params.storeUid);
   }
   if (params?.category && params.category !== 'ALL') {
     searchParams.set('category', params.category);
@@ -1801,12 +1746,11 @@ export async function getPublicGifts(params?: {
  * By default returns active gifts. Set includeInactive to true to retrieve all gifts (for merchants/admins).
  */
 export async function getStoreGifts(
-  storeId: number | string,
+  storeUid: string,
   includeInactive: boolean = false
 ): Promise<LoyaltyGift[]> {
-  const resolvedStoreId = await resolveNumericStoreId(storeId);
   const query = includeInactive ? '?includeInactive=true' : '';
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts${query}`);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeUid}/gifts${query}`);
   const res = await fetchWithTimeout(endpoint, {
     method: 'GET',
     headers: {
@@ -1824,12 +1768,8 @@ export async function getStoreGifts(
 /**
  * Retrieves a single loyalty gift item.
  */
-export async function getStoreGiftById(
-  storeId: number | string,
-  giftId: number | string
-): Promise<LoyaltyGift> {
-  const resolvedStoreId = await resolveNumericStoreId(storeId);
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts/${giftId}`);
+export async function getStoreGiftById(storeUid: string, giftUid: string): Promise<LoyaltyGift> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeUid}/gifts/${giftUid}`);
   const res = await fetchWithTimeout(endpoint, {
     method: 'GET',
     headers: {
@@ -1851,12 +1791,11 @@ export async function getStoreGiftById(
  * Creates a new gift in the store's loyalty catalog (JSON or Multipart with S3 image upload).
  */
 export async function createGift(
-  storeId: number | string,
+  storeUid: string,
   data: GiftCreateRequest,
   imageFile?: File
 ): Promise<LoyaltyGift> {
-  const resolvedStoreId = await resolveNumericStoreId(storeId);
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts`);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeUid}/gifts`);
   const token = getAuthToken();
 
   let body: BodyInit;
@@ -1907,13 +1846,12 @@ export async function createGift(
  * Updates an existing gift item (JSON or Multipart with S3 image upload).
  */
 export async function updateGift(
-  storeId: number | string,
-  giftId: number | string,
+  storeUid: string,
+  giftUid: string,
   data: GiftUpdateRequest,
   imageFile?: File
 ): Promise<LoyaltyGift> {
-  const resolvedStoreId = await resolveNumericStoreId(storeId);
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts/${giftId}`);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeUid}/gifts/${giftUid}`);
   const token = getAuthToken();
 
   let body: BodyInit;
@@ -1964,12 +1902,11 @@ export async function updateGift(
  * Adjusts the dedicated stock of a gift item (+/- delta).
  */
 export async function adjustGiftStock(
-  storeId: number | string,
-  giftId: number | string,
+  storeUid: string,
+  giftUid: string,
   delta: number
 ): Promise<LoyaltyGift> {
-  const resolvedStoreId = await resolveNumericStoreId(storeId);
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts/${giftId}/stock`);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeUid}/gifts/${giftUid}/stock`);
   const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'PATCH',
@@ -2002,9 +1939,8 @@ export async function adjustGiftStock(
 /**
  * Deletes a gift item from the catalog.
  */
-export async function deleteGift(storeId: number | string, giftId: number | string): Promise<void> {
-  const resolvedStoreId = await resolveNumericStoreId(storeId);
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts/${giftId}`);
+export async function deleteGift(storeUid: string, giftUid: string): Promise<void> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeUid}/gifts/${giftUid}`);
   const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'DELETE',
@@ -2032,11 +1968,9 @@ export async function deleteGift(storeId: number | string, giftId: number | stri
  * Retrieves the 15-day sliding window activity evaluation and VFP status for a user.
  * Restricted to the user themselves or administrators.
  */
-export async function getUserActivityEvaluation(
-  userId: string | number
-): Promise<UserActivityEvaluation> {
+export async function getUserActivityEvaluation(userId: string): Promise<UserActivityEvaluation> {
   const endpoint = getApiEndpoint(
-    `/v1/loyalty/users/${encodeURIComponent(String(userId))}/activity-evaluation`
+    `/v1/loyalty/users/${encodeURIComponent(userId)}/activity-evaluation`
   );
   const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
@@ -2070,10 +2004,8 @@ export async function getUserActivityEvaluation(
  * Retrieves the Very Faithful Person (VFP) qualification status and metrics for a user.
  * Restricted to the user themselves or administrators.
  */
-export async function getUserVfpStatus(userId: string | number): Promise<UserVfpStatus> {
-  const endpoint = getApiEndpoint(
-    `/v1/loyalty/users/${encodeURIComponent(String(userId))}/vfp-status`
-  );
+export async function getUserVfpStatus(userId: string): Promise<UserVfpStatus> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/users/${encodeURIComponent(userId)}/vfp-status`);
   const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'GET',
@@ -2106,10 +2038,8 @@ export async function getUserVfpStatus(userId: string | number): Promise<UserVfp
  * Retrieves a customer's VFP progression metrics, maintenance requirements, and revocation countdown.
  * Restricted to the user themselves or administrators.
  */
-export async function getUserVfpProgress(userId: string | number): Promise<UserVfpProgress> {
-  const endpoint = getApiEndpoint(
-    `/v1/loyalty/users/${encodeURIComponent(String(userId))}/vfp-progress`
-  );
+export async function getUserVfpProgress(userId: string): Promise<UserVfpProgress> {
+  const endpoint = getApiEndpoint(`/v1/loyalty/users/${encodeURIComponent(userId)}/vfp-progress`);
   const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'GET',
@@ -2142,7 +2072,7 @@ export async function getUserVfpProgress(userId: string | number): Promise<UserV
  * Extracts a user's approved payment transactions within a date range.
  */
 export async function getUserPaymentTransactions(
-  userId: string | number,
+  userId: string,
   from?: string,
   to?: string
 ): Promise<UserPaymentTransaction[]> {
@@ -2151,7 +2081,7 @@ export async function getUserPaymentTransactions(
   if (to) queryParams.set('to', to);
   const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
   const endpoint = getApiEndpoint(
-    `/v1/sales/payments/users/${encodeURIComponent(String(userId))}/transactions${queryString}`
+    `/v1/sales/payments/users/${encodeURIComponent(userId)}/transactions${queryString}`
   );
   const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
@@ -2179,13 +2109,13 @@ export async function getUserPaymentTransactions(
  * Fetches a customer's loyalty points balance and movement history.
  */
 export async function getUserPointsBalance(
-  userId?: string | number,
+  userId?: string,
   token?: string
 ): Promise<UserPointsBalanceResponse> {
   const authToken = token || getAuthToken();
-  const hasUserId = userId !== undefined && userId !== null && String(userId).trim() !== '';
+  const hasUserId = userId !== undefined && userId !== null && userId.trim() !== '';
   const path = hasUserId
-    ? `/v1/loyalty/users/${encodeURIComponent(String(userId).trim())}/balance`
+    ? `/v1/loyalty/users/${encodeURIComponent(userId.trim())}/balance`
     : '/v1/loyalty/balance';
   const endpoint = getApiEndpoint(path);
 
@@ -2400,9 +2330,7 @@ export async function createOrder(
     throw new Error(errorDetail);
   }
 
-  const data = (await res.json()) as OrderResponse;
-  data.uid = data.uid || data.orderReference;
-  return data;
+  return (await res.json()) as OrderResponse;
 }
 
 export async function getOrderByReference(
@@ -2427,9 +2355,7 @@ export async function getOrderByReference(
     throw new Error(`Order not found (HTTP ${res.status})`);
   }
 
-  const data = (await res.json()) as OrderResponse;
-  data.uid = data.uid || data.orderReference;
-  return data;
+  return (await res.json()) as OrderResponse;
 }
 
 export async function updateOrderStatus(
@@ -2462,19 +2388,15 @@ export async function updateOrderStatus(
     throw new Error(errorDetail);
   }
 
-  const data = (await res.json()) as OrderResponse;
-  data.uid = data.uid || data.orderReference;
-  return data;
+  return (await res.json()) as OrderResponse;
 }
 
 export async function getCustomerLoyaltyPoints(
-  customerId: string | number,
+  customerId: string,
   token?: string
 ): Promise<number> {
   const authToken = token || getAuthToken();
-  const endpoint = getApiEndpoint(
-    `/v1/loyalty/customers/${encodeURIComponent(String(customerId))}/points`
-  );
+  const endpoint = getApiEndpoint(`/v1/loyalty/customers/${encodeURIComponent(customerId)}/points`);
   const headers: Record<string, string> = {
     Accept: 'application/json',
   };
@@ -2520,11 +2442,7 @@ export async function getCustomerOrders(token?: string): Promise<OrderResponse[]
     throw new Error(`Erreur lors de la récupération des commandes (HTTP ${res.status})`);
   }
 
-  const list = (await res.json()) as OrderResponse[];
-  return list.map((item) => {
-    item.uid = item.uid || item.orderReference;
-    return item;
-  });
+  return (await res.json()) as OrderResponse[];
 }
 
 export async function downloadOrderReceiptPdf(
