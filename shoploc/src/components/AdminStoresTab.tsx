@@ -17,6 +17,7 @@ import {
   STORE_CATEGORIES,
   isValidRibOrIban,
 } from '@/lib/validation/store';
+import { PartnerSelect } from '@/components/PartnerSelect';
 import { ROUTES } from '@/config/routes';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -110,6 +111,8 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
   const [reactivatingStore, setReactivatingStore] = React.useState<StoreType | null>(null);
   const [reactivateRib, setReactivateRib] = React.useState('');
   const [reactivateRibError, setReactivateRibError] = React.useState<string | null>(null);
+  const [reactivateUserId, setReactivateUserId] = React.useState<string>('');
+  const [reactivatePartnerError, setReactivatePartnerError] = React.useState<string | null>(null);
   const [isSubmittingReactivate, setIsSubmittingReactivate] = React.useState(false);
 
   // Edit Store Dialog State
@@ -308,6 +311,13 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
     const storeUid = reactivatingStore.uid;
     if (!storeUid) return;
 
+    if (!reactivateUserId) {
+      setReactivatePartnerError(
+        'Veuillez sélectionner un commerçant partenaire à qui affecter le commerce réactivé.'
+      );
+      return;
+    }
+
     const trimmedRib = reactivateRib.trim().toUpperCase();
     if (!trimmedRib) {
       setReactivateRibError('Le RIB ou IBAN est obligatoire pour réactiver le commerce.');
@@ -322,13 +332,22 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
 
     setIsSubmittingReactivate(true);
     setReactivateRibError(null);
+    setReactivatePartnerError(null);
     try {
-      await reactivateStore(storeUid, trimmedRib);
+      await reactivateStore(storeUid, trimmedRib, reactivateUserId);
+      try {
+        await addStoreToPartner(reactivateUserId, storeUid);
+      } catch {
+        // Backend store-service synchronise déjà avec users-service
+      }
       setActionSuccessMessage(
-        `Le commerce "${reactivatingStore.name}" a été réactivé avec succès avec son nouveau RIB.`
+        `Le commerce "${reactivatingStore.name}" a été réactivé avec succès et réaffecté au commerçant partenaire.`
       );
       setReactivatingStore(null);
       setReactivateRib('');
+      setReactivateUserId('');
+      setReactivateRibError(null);
+      setReactivatePartnerError(null);
       await fetchStores();
     } catch (err: unknown) {
       setReactivateRibError(
@@ -691,6 +710,8 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
                                 setReactivatingStore(store);
                                 setReactivateRib('');
                                 setReactivateRibError(null);
+                                setReactivateUserId(store.ownerUid ?? '');
+                                setReactivatePartnerError(null);
                               }}
                               className="h-8 px-2.5 text-xs gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 border-emerald-500/30"
                               title="Réactiver ce commerce révoqué"
@@ -830,10 +851,17 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Reactivation Dialog with new RIB */}
+      {/* Reactivation Dialog with new RIB and partner assignment */}
       <Dialog
         open={!!reactivatingStore}
-        onOpenChange={(open) => !open && setReactivatingStore(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReactivatingStore(null);
+            setReactivateUserId('');
+            setReactivateRibError(null);
+            setReactivatePartnerError(null);
+          }
+        }}
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -843,7 +871,8 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
             </DialogTitle>
             <DialogDescription>
               Pour réactiver <strong className="text-foreground">{reactivatingStore?.name}</strong>,
-              veuillez saisir des coordonnées bancaires conventionnelles à jour (nouveau RIB/IBAN).
+              veuillez affecter le commerçant partenaire responsable et saisir des coordonnées
+              bancaires à jour (nouveau RIB/IBAN).
             </DialogDescription>
           </DialogHeader>
 
@@ -853,6 +882,30 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
                 {reactivateRibError}
               </div>
             )}
+            {reactivatePartnerError && (
+              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-xs">
+                {reactivatePartnerError}
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium flex items-center justify-between">
+                <span>Commerçant partenaire affecté</span>
+                <span className="text-[11px] text-destructive font-normal">* Obligatoire</span>
+              </label>
+              <PartnerSelect
+                value={reactivateUserId}
+                onValueChange={(val) => {
+                  setReactivateUserId(val);
+                  setReactivatePartnerError(null);
+                }}
+                disabled={isSubmittingReactivate}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Recherchez et sélectionnez le compte commerçant auquel rattacher ce commerce
+                réactivé.
+              </p>
+            </div>
 
             <div className="space-y-1">
               <label className="text-xs font-medium">Nouveau RIB ou IBAN conventionnel</label>
@@ -874,7 +927,12 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setReactivatingStore(null)}
+                onClick={() => {
+                  setReactivatingStore(null);
+                  setReactivateUserId('');
+                  setReactivateRibError(null);
+                  setReactivatePartnerError(null);
+                }}
                 disabled={isSubmittingReactivate}
               >
                 Annuler

@@ -9,10 +9,9 @@ import {
   getAdminPartners,
   removeStoreFromPartner,
   revokeStore,
-  reactivateStore,
+  patchStore,
 } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
-import { isValidRibOrIban } from '@/lib/validation/store';
 import { resolveStoreImageUrl } from '@/lib/image';
 import {
   Card,
@@ -57,7 +56,6 @@ import {
   AlertTriangle,
   Ban,
   ShieldAlert,
-  RotateCcw,
 } from 'lucide-react';
 
 interface AdminPartnerDetailViewProps {
@@ -70,7 +68,9 @@ export function AdminPartnerDetailView({
   initialStores = [],
 }: AdminPartnerDetailViewProps) {
   const [currentPartner, setCurrentPartner] = React.useState<AdminPartnerDetail>(partner);
-  const [stores, setStores] = React.useState<Store[]>(() => initialStores);
+  const [stores, setStores] = React.useState<Store[]>(() =>
+    initialStores.filter((s) => s.status !== 'REVOKED')
+  );
   const [loadingStores, setLoadingStores] = React.useState<boolean>(
     initialStores.length === 0 && (partner.storeUids?.length || 0) > 0
   );
@@ -98,7 +98,6 @@ export function AdminPartnerDetailView({
   const [reassignPartners, setReassignPartners] = React.useState<AdminPartnerSummary[]>([]);
   const [reassignSearchQuery, setReassignSearchQuery] = React.useState<string>('');
   const [selectedTargetPartnerId, setSelectedTargetPartnerId] = React.useState<string>('');
-  const [reassignToAnother, setReassignToAnother] = React.useState<boolean>(false);
   const [isLoadingReassignPartners, setIsLoadingReassignPartners] = React.useState<boolean>(false);
   const [isSubmittingDesaffect, setIsSubmittingDesaffect] = React.useState<boolean>(false);
   const [desaffectError, setDesaffectError] = React.useState<string | null>(null);
@@ -109,16 +108,6 @@ export function AdminPartnerDetailView({
   const [isSubmittingRevoke, setIsSubmittingRevoke] = React.useState<boolean>(false);
   const [revokeError, setRevokeError] = React.useState<string | null>(null);
   const [revokeSuccessMessage, setRevokeSuccessMessage] = React.useState<string | null>(null);
-
-  // Modal dialog state for reactivating partner store
-  const [isReactivateStoreOpen, setIsReactivateStoreOpen] = React.useState<boolean>(false);
-  const [storeToReactivate, setStoreToReactivate] = React.useState<Store | null>(null);
-  const [reactivateRib, setReactivateRib] = React.useState<string>('');
-  const [isSubmittingReactivate, setIsSubmittingReactivate] = React.useState<boolean>(false);
-  const [reactivateError, setReactivateError] = React.useState<string | null>(null);
-  const [reactivateSuccessMessage, setReactivateSuccessMessage] = React.useState<string | null>(
-    null
-  );
 
   // Load store details for affiliated store UIDs if not provided in SSR
   React.useEffect(() => {
@@ -153,7 +142,7 @@ export function AdminPartnerDetailView({
 
         const results = await Promise.all(storePromises);
         if (!isCancelled) {
-          setStores(results);
+          setStores(results.filter((s) => s.status !== 'REVOKED'));
         }
       } finally {
         if (!isCancelled) {
@@ -283,7 +272,6 @@ export function AdminPartnerDetailView({
     setDesaffectError(null);
     setReassignSearchQuery('');
     setSelectedTargetPartnerId('');
-    setReassignToAnother(false);
     setIsLoadingReassignPartners(true);
     try {
       const allPartners = await getAdminPartners('', 100);
@@ -300,22 +288,31 @@ export function AdminPartnerDetailView({
     }
   };
 
-  // Confirm unlinking or reassignment of store
+  // Confirm unlinking or reassignment of store (mandatory reassignment)
   const handleConfirmDesaffectStore = async () => {
     if (!storeToDesaffect || !storeToDesaffect.uid) return;
+
+    if (!selectedTargetPartnerId) {
+      setDesaffectError('Veuillez sélectionner un commerçant partenaire repreneur.');
+      return;
+    }
+
+    const targetPartner = reassignPartners.find((p) => p.publicId === selectedTargetPartnerId);
+    if (!targetPartner) {
+      setDesaffectError('Impossible de déterminer le compte partenaire cible.');
+      return;
+    }
 
     setIsSubmittingDesaffect(true);
     setDesaffectError(null);
 
     const storeUid = storeToDesaffect.uid;
     try {
-      if (reassignToAnother && selectedTargetPartnerId) {
-        // Reassign to selected target partner
-        await addStoreToPartner(selectedTargetPartnerId, storeUid);
-      } else {
-        // Direct unlinking from current partner
-        await removeStoreFromPartner(currentPartner.publicId, storeUid);
-      }
+      // 1. Mettre à jour la propriété dans Store-Service
+      await patchStore(storeUid, { ownerUid: selectedTargetPartnerId });
+      // 2. Synchroniser le rattachement dans Users-Service
+      await addStoreToPartner(selectedTargetPartnerId, storeUid);
+      await removeStoreFromPartner(currentPartner.publicId, storeUid).catch(() => {});
 
       // Remove from current partner's store list in local state
       setStores((prev) => prev.filter((s) => s.uid !== storeUid));
@@ -328,7 +325,7 @@ export function AdminPartnerDetailView({
       setStoreToDesaffect(null);
     } catch (err: unknown) {
       setDesaffectError(
-        err instanceof Error ? err.message : "Erreur lors de la désaffectation de l'établissement."
+        err instanceof Error ? err.message : "Erreur lors de la réaffectation de l'établissement."
       );
     } finally {
       setIsSubmittingDesaffect(false);
@@ -359,7 +356,7 @@ export function AdminPartnerDetailView({
         storeUids: (prev.storeUids || []).filter((uid) => uid !== storeUid),
       }));
       setRevokeSuccessMessage(
-        `Le commerce "${storeToRevoke.name}" a été révoqué avec succès et retiré des commerces affiliés.`
+        `Le commerce "${storeToRevoke.name}" a été révoqué avec succès et retiré des commerces actifs.`
       );
       setTimeout(() => {
         setIsRevokeStoreOpen(false);
@@ -371,67 +368,6 @@ export function AdminPartnerDetailView({
       );
     } finally {
       setIsSubmittingRevoke(false);
-    }
-  };
-
-  const handleOpenReactivateStore = (store: Store) => {
-    setStoreToReactivate(store);
-    setReactivateRib('');
-    setReactivateError(null);
-    setReactivateSuccessMessage(null);
-    setIsReactivateStoreOpen(true);
-  };
-
-  const handleConfirmReactivateStore = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!storeToReactivate || !storeToReactivate.uid) return;
-    const trimmedRib = reactivateRib.trim().toUpperCase();
-    if (!trimmedRib) {
-      setReactivateError('Le nouveau RIB / IBAN est obligatoire pour réactiver le commerce.');
-      return;
-    }
-    if (!isValidRibOrIban(trimmedRib)) {
-      setReactivateError(
-        'Le format ou la clé algorithmique du RIB/IBAN est invalide (RIB français 23 car. ou IBAN valide).'
-      );
-      return;
-    }
-
-    setIsSubmittingReactivate(true);
-    setReactivateError(null);
-
-    const storeUid = storeToReactivate.uid;
-    try {
-      const reactivated = await reactivateStore(storeUid, trimmedRib);
-      setStores((prev) =>
-        prev.map((s) =>
-          s.uid === storeUid
-            ? {
-                ...s,
-                status: 'ACTIVE',
-                rib: reactivated.rib || trimmedRib,
-                url: reactivated.url ?? s.url,
-                revokedAt: undefined,
-                revokedBy: undefined,
-              }
-            : s
-        )
-      );
-      setReactivateSuccessMessage(
-        `Le commerce "${storeToReactivate.name}" a été réactivé avec succès dans le programme.`
-      );
-      setTimeout(() => {
-        setIsReactivateStoreOpen(false);
-        setStoreToReactivate(null);
-      }, 1500);
-    } catch (err: unknown) {
-      setReactivateError(
-        err instanceof Error
-          ? err.message
-          : 'Erreur lors de la réactivation du commerce partenaire.'
-      );
-    } finally {
-      setIsSubmittingReactivate(false);
     }
   };
 
@@ -792,41 +728,27 @@ export function AdminPartnerDetailView({
                   </div>
 
                   <CardFooter className="p-3 pt-2.5 border-t bg-muted/10 flex items-center justify-center gap-2 flex-wrap">
-                    {store.status !== 'REVOKED' ? (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenRevokeStore(store)}
-                          className="gap-1 text-xs h-7 px-2.5 text-rose-700 border-rose-300 hover:bg-rose-50 hover:text-rose-800 dark:text-rose-400 dark:border-rose-900/50"
-                          title="Révoquer définitivement ce commerce partenaire"
-                        >
-                          <ShieldAlert className="size-3" />
-                          <span>Révoquer</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenDesaffectStore(store)}
-                          className="gap-1 text-xs h-7 px-2.5 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
-                          title="Désaffecter ce commerce du partenaire"
-                        >
-                          <Unlink className="size-3" />
-                          <span>Désaffecter</span>
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenReactivateStore(store)}
-                        className="gap-1 text-xs h-7 px-2.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 dark:text-emerald-400 dark:border-emerald-900/50"
-                        title="Réactiver ce commerce partenaire avec un nouveau RIB"
-                      >
-                        <RotateCcw className="size-3" />
-                        <span>Réactiver</span>
-                      </Button>
-                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenRevokeStore(store)}
+                      className="gap-1 text-xs h-7 px-2.5 text-rose-700 border-rose-300 hover:bg-rose-50 hover:text-rose-800 dark:text-rose-400 dark:border-rose-900/50"
+                      title="Révoquer ce commerce partenaire"
+                    >
+                      <ShieldAlert className="size-3" />
+                      <span>Révoquer</span>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenDesaffectStore(store)}
+                      className="gap-1 text-xs h-7 px-2.5 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                      title="Désaffecter et réaffecter obligatoirement ce commerce à un autre commerçant"
+                    >
+                      <Unlink className="size-3" />
+                      <span>Désaffecter</span>
+                    </Button>
 
                     {store.uid && (
                       <Button
@@ -1152,121 +1074,109 @@ export function AdminPartnerDetailView({
           )}
 
           <div className="space-y-4 py-2">
-            {/* Reassignment checkbox toggle */}
-            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
-              <div className="space-y-0.5">
-                <span className="text-xs font-semibold text-foreground block">
-                  Réassigner vers un autre partenaire
-                </span>
-                <span className="text-[11px] text-muted-foreground block">
-                  Transférer directement la gestion du commerce à un autre commerçant.
-                </span>
-              </div>
-              <input
-                type="checkbox"
-                id="toggle-reassign"
-                checked={reassignToAnother}
-                onChange={(e) => setReassignToAnother(e.target.checked)}
-                className="size-4 rounded border-border text-primary focus:ring-primary"
-              />
+            {/* Reassignment notice */}
+            <div className="p-3 rounded-lg border bg-muted/20 space-y-1">
+              <span className="text-xs font-semibold text-foreground block">
+                Réaffectation obligatoire à un commerçant partenaire
+              </span>
+              <span className="text-[11px] text-muted-foreground block">
+                Conformément aux règles de gestion (aucun commerce orphelin), la désaffectation
+                exige la sélection immédiate d&apos;un nouveau commerçant repreneur.
+              </span>
             </div>
 
-            {/* Target Partner Selector (if reassignment is checked) */}
-            {reassignToAnother && (
-              <div className="space-y-3 pt-1">
-                {isLoadingReassignPartners ? (
-                  <div className="py-6 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                    <Loader2 className="size-5 animate-spin text-primary" />
-                    <span className="text-xs">
-                      Chargement des comptes partenaires disponibles...
-                    </span>
+            {/* Target Partner Selector */}
+            <div className="space-y-3 pt-1">
+              {isLoadingReassignPartners ? (
+                <div className="py-6 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                  <Loader2 className="size-5 animate-spin text-primary" />
+                  <span className="text-xs">Chargement des comptes partenaires disponibles...</span>
+                </div>
+              ) : reassignPartners.length === 0 ? (
+                <div className="py-4 text-center text-xs text-muted-foreground">
+                  Aucun autre compte partenaire disponible pour la réassignation.
+                </div>
+              ) : (
+                <>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Rechercher par nom, enseigne ou email..."
+                      value={reassignSearchQuery}
+                      onChange={(e) => setReassignSearchQuery(e.target.value)}
+                      className="pl-8 text-xs h-8"
+                    />
                   </div>
-                ) : reassignPartners.length === 0 ? (
-                  <div className="py-4 text-center text-xs text-muted-foreground">
-                    Aucun autre compte partenaire disponible pour la réassignation.
-                  </div>
-                ) : (
-                  <>
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                      <Input
-                        placeholder="Rechercher par nom, enseigne ou email..."
-                        value={reassignSearchQuery}
-                        onChange={(e) => setReassignSearchQuery(e.target.value)}
-                        className="pl-8 text-xs h-8"
-                      />
-                    </div>
 
-                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                      {filteredReassignPartners.map((targetPartner) => {
-                        const targetIdentifier = targetPartner.publicId;
-                        const isSelected = selectedTargetPartnerId === targetIdentifier;
-                        return (
-                          <div
-                            key={targetIdentifier}
-                            onClick={() => setSelectedTargetPartnerId(targetIdentifier)}
-                            className={`p-2.5 rounded-lg border cursor-pointer transition-all flex items-center justify-between gap-3 text-left ${
-                              isSelected
-                                ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                                : 'border-border hover:border-muted-foreground/40 bg-card hover:bg-muted/30'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div
-                                className={`p-1.5 rounded-md shrink-0 ${
-                                  isSelected
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'bg-muted text-muted-foreground'
-                                }`}
-                              >
-                                <Users className="size-3.5" />
-                              </div>
-                              <div className="min-w-0 space-y-0.5">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-xs text-foreground truncate">
-                                    {targetPartner.name}
-                                  </span>
-                                  {targetPartner.companyName && (
-                                    <span className="text-[10px] text-muted-foreground truncate">
-                                      ({targetPartner.companyName})
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                                  <Mail className="size-3 shrink-0 text-muted-foreground" />
-                                  <span className="truncate">{targetPartner.email}</span>
-                                </div>
-                              </div>
+                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                    {filteredReassignPartners.map((targetPartner) => {
+                      const targetIdentifier = targetPartner.publicId;
+                      const isSelected = selectedTargetPartnerId === targetIdentifier;
+                      return (
+                        <div
+                          key={targetIdentifier}
+                          onClick={() => setSelectedTargetPartnerId(targetIdentifier)}
+                          className={`p-2.5 rounded-lg border cursor-pointer transition-all flex items-center justify-between gap-3 text-left ${
+                            isSelected
+                              ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                              : 'border-border hover:border-muted-foreground/40 bg-card hover:bg-muted/30'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div
+                              className={`p-1.5 rounded-md shrink-0 ${
+                                isSelected
+                                  ? 'bg-primary/10 text-primary'
+                                  : 'bg-muted text-muted-foreground'
+                              }`}
+                            >
+                              <Users className="size-3.5" />
                             </div>
-
-                            <div className="flex items-center gap-2 shrink-0">
-                              <div
-                                className={`size-4 rounded-full border flex items-center justify-center ${
-                                  isSelected
-                                    ? 'border-primary bg-primary text-primary-foreground'
-                                    : 'border-muted-foreground/30'
-                                }`}
-                              >
-                                {isSelected && <Check className="size-2.5 stroke-[3]" />}
+                            <div className="min-w-0 space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-xs text-foreground truncate">
+                                  {targetPartner.name}
+                                </span>
+                                {targetPartner.companyName && (
+                                  <span className="text-[10px] text-muted-foreground truncate">
+                                    ({targetPartner.companyName})
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                <Mail className="size-3 shrink-0 text-muted-foreground" />
+                                <span className="truncate">{targetPartner.email}</span>
                               </div>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
 
-                    {selectedTargetPartner && (
-                      <div className="p-2 rounded-md bg-muted/40 border text-xs text-muted-foreground flex items-center justify-between">
-                        <span>Nouveau partenaire assigné :</span>
-                        <span className="font-medium text-foreground">
-                          {selectedTargetPartner.name}
-                        </span>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div
+                              className={`size-4 rounded-full border flex items-center justify-center ${
+                                isSelected
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-muted-foreground/30'
+                              }`}
+                            >
+                              {isSelected && <Check className="size-2.5 stroke-[3]" />}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {selectedTargetPartner && (
+                    <div className="p-2 rounded-md bg-muted/40 border text-xs text-muted-foreground flex items-center justify-between">
+                      <span>Nouveau partenaire assigné :</span>
+                      <span className="font-medium text-foreground">
+                        {selectedTargetPartner.name}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
@@ -1279,12 +1189,11 @@ export function AdminPartnerDetailView({
               Annuler
             </Button>
             <Button
-              variant="destructive"
+              variant="default"
               size="sm"
               onClick={handleConfirmDesaffectStore}
               disabled={
-                isSubmittingDesaffect ||
-                (reassignToAnother && (!selectedTargetPartnerId || reassignPartners.length === 0))
+                isSubmittingDesaffect || !selectedTargetPartnerId || reassignPartners.length === 0
               }
               className="gap-1.5"
             >
@@ -1297,9 +1206,9 @@ export function AdminPartnerDetailView({
                 <>
                   <Unlink className="size-3.5" />
                   <span>
-                    {reassignToAnother && selectedTargetPartner
-                      ? `Réassigner à ${selectedTargetPartner.name}`
-                      : 'Confirmer la désaffectation'}
+                    {selectedTargetPartner
+                      ? `Réaffecter à ${selectedTargetPartner.name}`
+                      : 'Confirmer la réaffectation'}
                   </span>
                 </>
               )}
@@ -1394,101 +1303,6 @@ export function AdminPartnerDetailView({
               )}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal Dialog: Reactivate Partner Store */}
-      <Dialog open={isReactivateStoreOpen} onOpenChange={setIsReactivateStoreOpen}>
-        <DialogContent className="max-w-md">
-          <form onSubmit={handleConfirmReactivateStore}>
-            <DialogHeader>
-              <div className="flex items-center gap-3">
-                <div className="rounded-full bg-emerald-500/10 p-2.5 text-emerald-600 dark:text-emerald-400">
-                  <RotateCcw className="size-6" />
-                </div>
-                <div>
-                  <DialogTitle className="text-base font-semibold">
-                    Réactiver le commerce partenaire
-                  </DialogTitle>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Programme d'animation locale ShopLoc
-                  </p>
-                </div>
-              </div>
-              <DialogDescription className="pt-2 text-left">
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Vous êtes sur le point de réactiver le commerce{' '}
-                  <strong className="text-foreground">{storeToReactivate?.name}</strong>. Cette
-                  action réintègre l'établissement dans le réseau actif et le rend à nouveau visible
-                  auprès des citoyens.
-                </p>
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-2 py-4">
-              <label htmlFor="reactivate-rib" className="text-xs font-medium text-foreground">
-                Nouveau RIB ou IBAN <span className="text-destructive">*</span>
-              </label>
-              <Input
-                id="reactivate-rib"
-                type="text"
-                value={reactivateRib}
-                onChange={(e) => setReactivateRib(e.target.value)}
-                placeholder="FR76 3000 6000 0112 3456 7890 189"
-                required
-                disabled={isSubmittingReactivate}
-                className="font-mono text-xs uppercase"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Format IBAN français (27 caractères) ou RIB classique (23 chiffres).
-              </p>
-            </div>
-
-            {reactivateError && (
-              <div className="rounded-lg bg-destructive/10 border border-destructive/40 p-3 text-xs text-destructive flex items-center gap-2 mb-4">
-                <AlertCircle className="size-4 shrink-0" />
-                <span>{reactivateError}</span>
-              </div>
-            )}
-
-            {reactivateSuccessMessage && (
-              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/40 p-3 text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-2 mb-4">
-                <Check className="size-4 shrink-0" />
-                <span>{reactivateSuccessMessage}</span>
-              </div>
-            )}
-
-            <DialogFooter className="gap-2 sm:gap-0 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsReactivateStoreOpen(false)}
-                disabled={isSubmittingReactivate}
-              >
-                Annuler
-              </Button>
-              <Button
-                type="submit"
-                variant="default"
-                size="sm"
-                disabled={isSubmittingReactivate || !!reactivateSuccessMessage}
-                className="gap-2 font-medium bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                {isSubmittingReactivate ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    <span>Réactivation en cours...</span>
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="size-4" />
-                    <span>Confirmer la réactivation</span>
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
         </DialogContent>
       </Dialog>
     </div>

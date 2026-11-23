@@ -289,7 +289,11 @@ export async function revokeStore(storeUid: string): Promise<StoreResponse> {
  * Reactivates a previously revoked partner store with a new valid RIB/IBAN.
  * Only accessible by ADMIN users.
  */
-export async function reactivateStore(storeUid: string, rib: string): Promise<StoreResponse> {
+export async function reactivateStore(
+  storeUid: string,
+  rib: string,
+  ownerUid?: string
+): Promise<StoreResponse> {
   const endpoint = getApiEndpoint(`/v1/stores/${storeUid}/reactivate`);
   const token = getAuthToken();
 
@@ -299,7 +303,7 @@ export async function reactivateStore(storeUid: string, rib: string): Promise<St
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ rib }),
+    body: JSON.stringify({ rib, ...(ownerUid ? { ownerUid } : {}) }),
   });
 
   if (!res.ok) {
