@@ -63,6 +63,9 @@ export function Header({ currentPath }: HeaderProps) {
         );
       case 'CLIENT':
       default:
+        if (isVfp) {
+          return null;
+        }
         return (
           <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
             Citoyen
