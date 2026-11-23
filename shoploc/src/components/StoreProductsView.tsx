@@ -5,8 +5,10 @@ import { MerchantCatalogDashboard } from '@/components/MerchantCatalogDashboard'
 import { MerchantGiftsDashboard } from '@/components/MerchantGiftsDashboard';
 import { MerchantLoyaltyRateCard } from '@/components/MerchantLoyaltyRateCard';
 import { MerchantLoyaltyScanner } from '@/components/MerchantLoyaltyScanner';
+import { MerchantStoreProfileForm } from '@/components/MerchantStoreProfileForm';
 import { ClientProductCatalog } from '@/components/ClientProductCatalog';
 import { StoreLoyaltyBanner } from '@/components/StoreLoyaltyBanner';
+import { StoreClientGiftsCatalog } from '@/components/StoreClientGiftsCatalog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/config/routes';
@@ -17,8 +19,12 @@ import {
   Package,
   QrCode,
   Gift,
+  Building2,
   Store as StoreIcon,
   Undo2,
+  Ban,
+  AlertCircle,
+  ShoppingBag,
 } from 'lucide-react';
 
 interface StoreProductsViewProps {
@@ -28,19 +34,29 @@ interface StoreProductsViewProps {
 export function StoreProductsView({ store }: StoreProductsViewProps) {
   const { user, role, isAuthenticated, isLoading } = useAuth();
   const [mounted, setMounted] = React.useState(false);
+  const [currentStore, setCurrentStore] = React.useState<Store>(store);
   const [viewMode, setViewMode] = React.useState<
-    'merchant' | 'gifts' | 'loyalty' | 'scan' | 'client'
+    'merchant' | 'gifts' | 'loyalty' | 'scan' | 'profile' | 'client'
   >('merchant');
+  const [clientActiveTab, setClientActiveTab] = React.useState<'products' | 'gifts'>('products');
+
+  React.useEffect(() => {
+    setCurrentStore(store);
+  }, [store]);
 
   React.useEffect(() => {
     setMounted(true);
     if (typeof window !== 'undefined') {
       const param = new URLSearchParams(window.location.search).get('tab');
+      if (param === 'gifts') {
+        setClientActiveTab('gifts');
+      }
       if (
         param === 'merchant' ||
         param === 'gifts' ||
         param === 'loyalty' ||
         param === 'scan' ||
+        param === 'profile' ||
         param === 'client'
       ) {
         setViewMode(param);
@@ -48,7 +64,9 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
     }
   }, []);
 
-  const handleTabChange = (mode: 'merchant' | 'gifts' | 'loyalty' | 'scan' | 'client') => {
+  const handleTabChange = (
+    mode: 'merchant' | 'gifts' | 'loyalty' | 'scan' | 'profile' | 'client'
+  ) => {
     setViewMode(mode);
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
@@ -76,15 +94,23 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
       // Seed association: Suzanne Morel is linked to stores 1 & 2 in user_stores
       if (
         (user.email === 'suzanne.morel@shop-loc.fr' || user.dbId === 2) &&
-        (store.id === 1 || store.id === 2)
+        (store.id === 1 ||
+          store.id === 2 ||
+          store.uid === '11111111-1111-1111-1111-111111111111' ||
+          store.uid === '22222222-2222-2222-2222-222222222222')
       ) {
         return true;
       }
     }
     return false;
-  }, [isAuthenticated, user, role, store.userId, store.id]);
+  }, [isAuthenticated, user, role, store.userId, store.id, store.uid]);
 
-  const storeIdNumber = Number(store.id);
+  const storeIdentifier: string | number = currentStore.uid || currentStore.id || '';
+  const numericStoreId: number =
+    typeof currentStore.id === 'number'
+      ? currentStore.id
+      : Number(currentStore.id) ||
+        (typeof store.id === 'number' ? store.id : Number(store.id) || 1);
 
   if (!mounted || isLoading) {
     return (
@@ -95,14 +121,53 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
     );
   }
 
+  const renderClientStorefront = () => (
+    <div className="space-y-6">
+      <StoreLoyaltyBanner
+        storeId={numericStoreId}
+        onViewGifts={() => setClientActiveTab('gifts')}
+      />
+
+      {/* Client view mode switcher (Products vs Gifts) */}
+      <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border/80 w-fit">
+        <button
+          type="button"
+          onClick={() => setClientActiveTab('products')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+            clientActiveTab === 'products'
+              ? 'bg-background text-foreground font-semibold shadow-xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <ShoppingBag className="size-3.5" />
+          <span>Articles Click & Collect</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setClientActiveTab('gifts')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+            clientActiveTab === 'gifts'
+              ? 'bg-background text-foreground font-semibold shadow-xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Gift className="size-3.5 text-primary" />
+          <span>Cadeaux Fidélité</span>
+        </button>
+      </div>
+
+      {clientActiveTab === 'products' ? (
+        <ClientProductCatalog storeId={storeIdentifier} storeName={currentStore.name} />
+      ) : (
+        <StoreClientGiftsCatalog storeId={numericStoreId} storeName={currentStore.name} />
+      )}
+    </div>
+  );
+
   // If citizen or unauthenticated visitor, show the loyalty banner and client storefront directly
   if (!isOwnerOrAdmin) {
-    return (
-      <div className="space-y-6 pt-6">
-        <StoreLoyaltyBanner storeId={storeIdNumber} />
-        <ClientProductCatalog storeId={storeIdNumber} storeName={store.name} />
-      </div>
-    );
+    return <div className="pt-6">{renderClientStorefront()}</div>;
   }
 
   // If merchant owner or admin: show modern management control card & tabs
@@ -118,17 +183,28 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
                 <StoreIcon className="size-5 text-primary" />
                 <span>Espace Gestion Commerce</span>
               </h2>
-              <Badge
-                variant="outline"
-                className="gap-1.5 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 text-xs py-0.5 px-2.5 font-semibold"
-              >
-                <ShieldCheck className="size-3.5" />
-                {role === 'ADMIN' ? 'Accès Administrateur' : 'Propriétaire du commerce'}
-              </Badge>
+              {store.status === 'REVOKED' ? (
+                <Badge
+                  variant="destructive"
+                  className="gap-1.5 text-xs py-0.5 px-2.5 font-semibold"
+                >
+                  <Ban className="size-3.5" />
+                  <span>Partenariat révoqué</span>
+                </Badge>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="gap-1.5 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 text-xs py-0.5 px-2.5 font-semibold"
+                >
+                  <ShieldCheck className="size-3.5" />
+                  {role === 'ADMIN' ? 'Accès Administrateur' : 'Propriétaire du commerce'}
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Pilotez le catalogue d'articles, les cadeaux fidélité, le barème de points et
-              l'encaissement de <span className="font-semibold text-foreground">{store.name}</span>.
+              {store.status === 'REVOKED'
+                ? `Ce commerce a été révoqué du programme d'animation locale. Les opérations sont suspendues.`
+                : `Pilotez le catalogue d'articles, les cadeaux fidélité, le barème de points et l'encaissement de ${store.name}.`}
             </p>
           </div>
 
@@ -144,15 +220,27 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
               <span>{viewMode === 'client' ? 'Quitter aperçu' : 'Aperçu client'}</span>
             </Button>
 
-            <a
-              href={ROUTES.storeScan(store.uid || storeIdNumber)}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
-            >
-              <QrCode className="size-3.5" />
-              <span>Pass Caisse & Scan</span>
-            </a>
+            {store.status !== 'REVOKED' && (
+              <a
+                href={ROUTES.storeScan(storeIdentifier)}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-colors"
+              >
+                <QrCode className="size-3.5" />
+                <span>Pass Caisse & Scan</span>
+              </a>
+            )}
           </div>
         </div>
+
+        {store.status === 'REVOKED' && (
+          <div className="p-3.5 bg-destructive/10 border-b border-destructive/20 text-xs text-destructive flex items-center gap-2">
+            <AlertCircle className="size-4 shrink-0" />
+            <span>
+              Ce commerce est neutralisé (statut REVOKED) : les modifications de catalogue,
+              d'horaires et les encaissements sont désactivés.
+            </span>
+          </div>
+        )}
 
         {/* Modern Segmented Navigation Tabs */}
         <div className="px-3 sm:px-4 py-2 bg-background">
@@ -201,6 +289,19 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
 
             <button
               type="button"
+              onClick={() => handleTabChange('profile')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer ${
+                viewMode === 'profile'
+                  ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/70'
+              }`}
+            >
+              <Building2 className="size-4 shrink-0" />
+              <span>Profil & Horaires</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => handleTabChange('scan')}
               className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer ${
                 viewMode === 'scan'
@@ -217,19 +318,26 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
 
       {/* Render selected view */}
       {viewMode === 'merchant' && (
-        <MerchantCatalogDashboard storeId={storeIdNumber} storeName={store.name} />
+        <MerchantCatalogDashboard storeId={storeIdentifier} storeName={store.name} />
       )}
 
       {viewMode === 'gifts' && (
-        <MerchantGiftsDashboard storeId={storeIdNumber} storeName={store.name} />
+        <MerchantGiftsDashboard storeId={numericStoreId} storeName={store.name} />
       )}
 
       {viewMode === 'loyalty' && (
-        <MerchantLoyaltyRateCard storeId={storeIdNumber} storeName={store.name} />
+        <MerchantLoyaltyRateCard storeId={numericStoreId} storeName={currentStore.name} />
+      )}
+
+      {viewMode === 'profile' && (
+        <MerchantStoreProfileForm
+          store={currentStore}
+          onStoreUpdated={(updated) => setCurrentStore((prev) => ({ ...prev, ...updated }))}
+        />
       )}
 
       {viewMode === 'scan' && (
-        <MerchantLoyaltyScanner storeId={storeIdNumber} storeName={store.name} />
+        <MerchantLoyaltyScanner storeId={numericStoreId} storeName={currentStore.name} />
       )}
 
       {viewMode === 'client' && (
@@ -250,8 +358,7 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
               <span>Retour à la gestion</span>
             </Button>
           </div>
-          <StoreLoyaltyBanner storeId={storeIdNumber} />
-          <ClientProductCatalog storeId={storeIdNumber} storeName={store.name} />
+          {renderClientStorefront()}
         </div>
       )}
     </div>

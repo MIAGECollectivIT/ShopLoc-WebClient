@@ -199,19 +199,6 @@ export function AdminPartnersList({ initialPartners = [] }: AdminPartnersListPro
                       <CardTitle className="text-base font-semibold truncate leading-snug">
                         {partner.name || 'Partenaire sans nom'}
                       </CardTitle>
-                      {partner.publicId ? (
-                        <Badge
-                          variant="outline"
-                          className="mt-1 text-[11px] font-mono truncate max-w-[190px]"
-                          title={`UID : ${partner.publicId}`}
-                        >
-                          UID: {partner.publicId.slice(0, 8)}...
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="mt-1 text-[11px] font-mono">
-                          Partenaire
-                        </Badge>
-                      )}
                     </div>
                   </div>
                   <Badge
@@ -246,13 +233,7 @@ export function AdminPartnersList({ initialPartners = [] }: AdminPartnersListPro
                 </div>
               </CardContent>
 
-              <CardFooter className="pt-2 border-t bg-muted/20 flex items-center justify-between">
-                <span
-                  className="text-[11px] text-muted-foreground font-mono truncate max-w-[140px]"
-                  title={partner.publicId || ''}
-                >
-                  {partner.publicId ? `${partner.publicId.slice(0, 8)}...` : ''}
-                </span>
+              <CardFooter className="pt-2 border-t bg-muted/20 flex items-center justify-end">
                 <Button
                   variant="outline"
                   size="sm"

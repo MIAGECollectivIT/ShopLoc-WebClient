@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 
 interface ProductFormDialogProps {
-  storeId: number;
+  storeId: number | string;
   product?: Product | null;
   isOpen: boolean;
   onClose: () => void;
@@ -50,6 +50,7 @@ export function ProductFormDialog({
   const [description, setDescription] = React.useState('');
   const [price, setPrice] = React.useState('');
   const [stockQuantity, setStockQuantity] = React.useState('0');
+  const [alertThreshold, setAlertThreshold] = React.useState('5');
   const [imageUrl, setImageUrl] = React.useState('');
 
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
@@ -70,6 +71,9 @@ export function ProductFormDialog({
       setDescription(product.description || '');
       setPrice(String(product.price));
       setStockQuantity(String(product.stockQuantity));
+      setAlertThreshold(
+        product.alertThreshold !== undefined ? String(product.alertThreshold) : '5'
+      );
       setImageUrl(product.imageUrl || '');
       setIsImageRemoved(false);
 
@@ -88,6 +92,7 @@ export function ProductFormDialog({
       setDescription('');
       setPrice('');
       setStockQuantity('0');
+      setAlertThreshold('5');
       setImageUrl('');
       setPreviewUrl(null);
       setIsImageRemoved(false);
@@ -202,6 +207,7 @@ export function ProductFormDialog({
       description,
       price,
       stockQuantity,
+      alertThreshold,
       imageUrl: selectedFile || isImageRemoved ? undefined : imageUrl.trim() || undefined,
     };
 
@@ -228,6 +234,7 @@ export function ProductFormDialog({
           description: validated.description || undefined,
           price: validated.price,
           stockQuantity: validated.stockQuantity,
+          alertThreshold: validated.alertThreshold,
         };
 
         if (selectedFile) {
@@ -262,6 +269,7 @@ export function ProductFormDialog({
             description: validated.description || undefined,
             price: validated.price,
             stockQuantity: validated.stockQuantity,
+            alertThreshold: validated.alertThreshold,
             imageUrl: selectedFile ? undefined : imageUrl.trim() || undefined,
           },
           selectedFile || undefined
@@ -378,11 +386,11 @@ export function ProductFormDialog({
             )}
           </div>
 
-          {/* Price & Stock */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Price, Stock & Alert Threshold */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="price" className="text-xs font-semibold">
-                Prix unitaire TTC (€) <span className="text-destructive">*</span>
+                Prix TTC (€) <span className="text-destructive">*</span>
               </Label>
               <div className="relative">
                 <Input
@@ -407,7 +415,7 @@ export function ProductFormDialog({
 
             <div className="space-y-1.5">
               <Label htmlFor="stockQuantity" className="text-xs font-semibold">
-                Stock initial (Unités)
+                Stock (Unités)
               </Label>
               <Input
                 id="stockQuantity"
@@ -425,7 +433,32 @@ export function ProductFormDialog({
                 </p>
               )}
             </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="alertThreshold" className="text-xs font-semibold">
+                Seuil d'alerte stock
+              </Label>
+              <Input
+                id="alertThreshold"
+                type="number"
+                min="0"
+                placeholder="5"
+                value={alertThreshold}
+                onChange={(e) => setAlertThreshold(e.target.value)}
+                disabled={isSubmitting}
+                className={errors.alertThreshold ? 'border-destructive ring-destructive' : ''}
+              />
+              {errors.alertThreshold && (
+                <p className="text-[11px] text-destructive flex items-center gap-1">
+                  <AlertCircle className="size-3 shrink-0" /> {errors.alertThreshold}
+                </p>
+              )}
+            </div>
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            Un e-mail d’alerte automatique vous sera envoyé dès que le stock atteint ce seuil ou est
+            épuisé.
+          </p>
 
           {/* Photo Management (Upload MinIO/S3 or URL) */}
           <div className="space-y-2 pt-2 border-t">

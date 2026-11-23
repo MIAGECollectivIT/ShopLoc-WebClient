@@ -17,6 +17,9 @@ import { FrenchLicensePlateBadge } from './FrenchLicensePlateBadge';
 import { ManageVehiclesDialog } from './ManageVehiclesDialog';
 import { UserActivityGaugeCard } from './UserActivityGaugeCard';
 import { VfpBadge } from './VfpBadge';
+import { VfpBenefitsDialog } from './VfpBenefitsDialog';
+import { VfpParkingSessionCard } from './VfpParkingSessionCard';
+import type { VfpRevocationForecast } from '@/lib/vfp';
 import {
   Card,
   CardContent,
@@ -62,6 +65,10 @@ export function ClientProfileView() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [isManageVehiclesOpen, setIsManageVehiclesOpen] = React.useState(false);
+  const [isBenefitsModalOpen, setIsBenefitsModalOpen] = React.useState(false);
+  const [revocationForecast, setRevocationForecast] = React.useState<VfpRevocationForecast | null>(
+    null
+  );
 
   React.useEffect(() => {
     let isMounted = true;
@@ -293,7 +300,15 @@ export function ClientProfileView() {
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                 {fullName}
               </h2>
-              {vfpStatus?.isVfp && <VfpBadge isVfp={true} size="md" />}
+              {effectiveUser.role === 'CLIENT' && (
+                <VfpBadge
+                  isVfp={Boolean(vfpStatus?.isVfp)}
+                  showInactive={true}
+                  size="md"
+                  interactive={true}
+                  onClick={() => setIsBenefitsModalOpen(true)}
+                />
+              )}
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
               <Mail className="size-3.5" />
@@ -406,6 +421,15 @@ export function ClientProfileView() {
               )}
             </CardContent>
           </Card>
+
+          {isClient && (
+            <VfpParkingSessionCard
+              userId={effectiveUser.id}
+              isVfp={Boolean(vfpStatus?.isVfp)}
+              licensePlates={licensePlates}
+              onManageVehicles={() => setIsManageVehiclesOpen(true)}
+            />
+          )}
 
           {/* License Plates Card (displayed only for clients) */}
           {isClient && (
@@ -565,7 +589,7 @@ export function ClientProfileView() {
               </Card>
             )}
 
-            {/* Compact Loyalty Points Balance Card (SLE-38 / SLE-177) */}
+            {/* Compact Loyalty Points Balance Card */}
             <Card className="border-border bg-gradient-to-br from-card via-card to-emerald-500/5 rounded-2xl shadow-sm border-l-4 border-l-emerald-500">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -599,14 +623,29 @@ export function ClientProfileView() {
               </CardContent>
             </Card>
 
-            {/* Dynamic Activity Gauge & VFP Status (SLE-44 / SLE-45 / SLE-164) */}
-            <UserActivityGaugeCard userId={effectiveUser.id} initialVfpStatus={vfpStatus} />
+            {/* Dynamic Activity Gauge & VFP Status */}
+            <UserActivityGaugeCard
+              userId={effectiveUser.id}
+              initialVfpStatus={vfpStatus}
+              onOpenBenefitsModal={() => setIsBenefitsModalOpen(true)}
+              onForecastChange={setRevocationForecast}
+            />
 
             {/* Security & benefits reminder */}
             <div className="p-4 rounded-xl border bg-muted/30 text-xs text-muted-foreground space-y-2">
-              <div className="flex items-center gap-2 font-medium text-foreground">
-                <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
-                <span>Avantages Citoyen ShopLoc</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-medium text-foreground">
+                  <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Avantages Citoyen ShopLoc</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="text-xs text-primary hover:underline h-auto p-0 cursor-pointer"
+                  onClick={() => setIsBenefitsModalOpen(true)}
+                >
+                  Voir mes privilèges VFP
+                </Button>
               </div>
               <p className="leading-relaxed">
                 Présentez votre QR code ou votre code client de 7 caractères à chaque passage chez
@@ -617,6 +656,16 @@ export function ClientProfileView() {
           </div>
         )}
       </div>
+
+      {/* Modal d'explication des avantages et privilèges VFP */}
+      <VfpBenefitsDialog
+        isOpen={isBenefitsModalOpen}
+        onClose={() => setIsBenefitsModalOpen(false)}
+        isVfp={Boolean(vfpStatus?.isVfp)}
+        currentTransactionCount={vfpStatus?.currentTransactionCount}
+        threshold={vfpStatus?.threshold ?? 10}
+        revocationForecast={revocationForecast}
+      />
     </div>
   );
 }

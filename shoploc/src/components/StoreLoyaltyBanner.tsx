@@ -1,15 +1,17 @@
 import * as React from 'react';
 import { getStoreLoyaltyRate } from '@/lib/api';
 import type { MerchantLoyaltyRate } from '@/types/loyalty';
-import { Coins, Sparkles, Gift } from 'lucide-react';
+import { Sparkles, Gift } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface StoreLoyaltyBannerProps {
-  storeId: number;
+  storeId: number | string;
   initialRate?: MerchantLoyaltyRate | null;
+  onViewGifts?: () => void;
 }
 
-export function StoreLoyaltyBanner({ storeId, initialRate }: StoreLoyaltyBannerProps) {
+export function StoreLoyaltyBanner({ storeId, initialRate, onViewGifts }: StoreLoyaltyBannerProps) {
   const [rate, setRate] = React.useState<MerchantLoyaltyRate | null>(initialRate || null);
   const [isLoading, setIsLoading] = React.useState(!initialRate);
 
@@ -83,10 +85,18 @@ export function StoreLoyaltyBanner({ storeId, initialRate }: StoreLoyaltyBannerP
           </div>
         </div>
 
-        <div className="hidden sm:flex items-center gap-1.5 self-center rounded-lg bg-background/80 px-3 py-1.5 border border-border/80 text-xs text-muted-foreground shadow-2xs">
-          <Coins className="size-3.5 text-amber-500" />
-          <span>Cumulez sur votre cagnotte ShopLoc</span>
-        </div>
+        {onViewGifts && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onViewGifts}
+            className="text-xs h-8 gap-1.5 shrink-0 border-primary/30 hover:bg-primary/10 text-primary cursor-pointer"
+          >
+            <Gift className="size-3.5" />
+            <span>Voir les cadeaux fidélité</span>
+          </Button>
+        )}
       </div>
     </div>
   );

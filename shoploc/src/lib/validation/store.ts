@@ -23,7 +23,6 @@ export const ACCEPTED_STORE_IMAGE_TYPES = [
   'image/png',
   'image/webp',
   'image/gif',
-  'image/svg+xml',
 ] as const;
 
 export type StoreImageMimeType = (typeof ACCEPTED_STORE_IMAGE_TYPES)[number];
@@ -204,7 +203,26 @@ export function formatRibOrIban(value: string): string {
 }
 
 /**
- * Zod schema for store creation form validation (SLE-86).
+ * Validates that an optional store URL starts strictly with http:// or https://
+ * and rejects dangerous pseudo-protocols like javascript: or data: to prevent Stored XSS.
+ */
+export function isValidHttpUrl(val?: string | null): boolean {
+  if (!val || val.trim() === '') return true;
+  const trimmed = val.trim();
+  const lower = trimmed.toLowerCase();
+  if (lower.includes('javascript:') || lower.includes('data:') || lower.includes('vbscript:')) {
+    return false;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Zod schema for store creation form validation.
  * User-facing validation messages remain strictly in French.
  */
 export const createStoreZodSchema = z.object({
@@ -227,20 +245,10 @@ export const createStoreZodSchema = z.object({
     .string()
     .trim()
     .max(500, "L'URL ne doit pas dépasser 500 caractères")
-    .refine(
-      (val) => {
-        if (!val || val.trim() === '') return true;
-        try {
-          const urlToTest =
-            val.startsWith('http://') || val.startsWith('https://') ? val : `https://${val}`;
-          new URL(urlToTest);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { message: "L'URL doit être valide (ex: https://mon-commerce.fr)" }
-    )
+    .refine((val) => isValidHttpUrl(val), {
+      message:
+        "L'URL doit débuter obligatoirement par http:// ou https:// (ex: https://mon-commerce.fr)",
+    })
     .optional()
     .or(z.literal('')),
   rib: z
@@ -260,3 +268,112 @@ export const createStoreZodSchema = z.object({
 
 export const createStoreValidationSchema = createStoreZodSchema;
 export type CreateStoreFormData = z.infer<typeof createStoreZodSchema>;
+
+/**
+ * Zod schemas for merchant store profile unit patch updates.
+ */
+export const storeAddressPatchSchema = z.object({
+  address: z
+    .string()
+    .trim()
+    .min(1, "L'adresse de l'établissement est obligatoire")
+    .max(255, "L'adresse ne doit pas dépasser 255 caractères"),
+});
+export type StoreAddressPatchData = z.infer<typeof storeAddressPatchSchema>;
+
+export const storeOpeningHoursPatchSchema = z.object({
+  openingHours: z
+    .string()
+    .trim()
+    .max(1000, "Les horaires d'ouverture ne doivent pas dépasser 1000 caractères")
+    .optional()
+    .or(z.literal('')),
+});
+export type StoreOpeningHoursPatchData = z.infer<typeof storeOpeningHoursPatchSchema>;
+
+export const storeAbsencePatchSchema = z
+  .object({
+    absenceStartDate: z.string().optional().or(z.literal('')),
+    absenceEndDate: z.string().optional().or(z.literal('')),
+    absenceReason: z
+      .string()
+      .trim()
+      .max(255, "Le motif d'absence ne doit pas dépasser 255 caractères")
+      .optional()
+      .or(z.literal('')),
+  })
+  .refine(
+    (data) => {
+      if (data.absenceStartDate && data.absenceEndDate) {
+        return new Date(data.absenceEndDate) >= new Date(data.absenceStartDate);
+      }
+      return true;
+    },
+    {
+      message: "La date de fin d'absence doit être postérieure ou égale à la date de début",
+      path: ['absenceEndDate'],
+    }
+  );
+export type StoreAbsencePatchData = z.infer<typeof storeAbsencePatchSchema>;
+
+export const storeGeneralPatchSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Le nom de l'établissement est obligatoire")
+    .max(255, 'Le nom ne doit pas dépasser 255 caractères'),
+  category: z
+    .string()
+    .trim()
+    .min(1, "La catégorie d'activité est obligatoire")
+    .max(255, 'La catégorie ne doit pas dépasser 255 caractères'),
+});
+export type StoreGeneralPatchData = z.infer<typeof storeGeneralPatchSchema>;
+
+export const adminStoreEditSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Le nom de l'établissement est obligatoire")
+    .max(255, 'Le nom ne doit pas dépasser 255 caractères'),
+  category: z
+    .string()
+    .trim()
+    .min(1, "La catégorie d'activité est obligatoire")
+    .max(255, 'La catégorie ne doit pas dépasser 255 caractères'),
+  address: z
+    .string()
+    .trim()
+    .max(255, "L'adresse ne doit pas dépasser 255 caractères")
+    .optional()
+    .or(z.literal('')),
+  url: z
+    .string()
+    .trim()
+    .max(500, "L'URL ne doit pas dépasser 500 caractères")
+    .refine((val) => isValidHttpUrl(val), {
+      message:
+        "L'URL doit débuter obligatoirement par http:// ou https:// (ex: https://mon-commerce.fr)",
+    })
+    .optional()
+    .or(z.literal('')),
+  userId: z
+    .union([z.number().positive(), z.string().transform((v) => (v ? Number(v) : undefined))])
+    .optional(),
+  rib: z
+    .string()
+    .trim()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val.trim() === '') return true;
+        return isValidRibOrIban(val);
+      },
+      {
+        message:
+          'Le format ou la clé algorithmique du RIB/IBAN est invalide (RIB français 23 car. ou IBAN valide)',
+      }
+    )
+    .or(z.literal('')),
+});
+export type AdminStoreEditFormValues = z.infer<typeof adminStoreEditSchema>;

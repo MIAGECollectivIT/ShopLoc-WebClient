@@ -5,7 +5,7 @@
 
 export interface MerchantLoyaltyRate {
   id?: number | null;
-  storeId: number;
+  storeId: number | string;
   euroAmount: number;
   pointsReward: number;
   createdAt?: string | null;
@@ -28,7 +28,7 @@ export interface MerchantLoyaltyRateResponse {
 
 /**
  * Dynamic evaluation of customer purchasing activity over a 15-day sliding window
- * for Very Faithful Person (VFP) qualification (SLE-44 / SLE-164).
+ * for Very Faithful Person (VFP) qualification.
  */
 export interface UserActivityEvaluation {
   userId: string;
@@ -40,7 +40,7 @@ export interface UserActivityEvaluation {
 }
 
 /**
- * Very Faithful Person (VFP) qualification status and audit timestamps (SLE-45 / SLE-204).
+ * Very Faithful Person (VFP) qualification status and audit timestamps.
  */
 export interface UserVfpStatus {
   userId: string;
@@ -52,10 +52,29 @@ export interface UserVfpStatus {
   lastEvaluatedAt?: string | null;
 }
 
+/**
+ * VFP progression metrics, maintenance requirements, and revocation countdown.
+ */
+export interface UserVfpProgress {
+  userId: string;
+  isVfp: boolean;
+  currentTransactionCount: number;
+  threshold: number;
+  remainingTransactionsToQualify: number;
+  remainingTransactionsToMaintain: number;
+  daysRemainingBeforeRevocation?: number | null;
+  hoursRemainingBeforeRevocation?: number | null;
+  estimatedRevocationDate?: string | null;
+  expiringTransactionsCount: number;
+  windowStart: string;
+  windowEnd: string;
+  evaluatedAt: string;
+}
+
 export type PointsTransactionType = 'EARN' | 'REDEEM';
 
 /**
- * Loyalty points movement entry returned by Loyalty Service (SLE-38 / SLE-176).
+ * Loyalty points movement entry returned by Loyalty Service.
  */
 export interface PointsTransaction {
   id: number;
@@ -71,7 +90,7 @@ export interface PointsTransaction {
 }
 
 /**
- * Customer loyalty points balance and transaction history (SLE-38 / SLE-176 / SLE-177 / SLE-178).
+ * Customer loyalty points balance and transaction history.
  */
 export interface UserPointsBalanceResponse {
   userId: string;
@@ -80,4 +99,25 @@ export interface UserPointsBalanceResponse {
   points?: number;
   updatedAt: string;
   transactions: PointsTransaction[];
+}
+
+export interface ParkingSessionRequest {
+  licensePlate: string;
+}
+
+export interface ParkingSessionAcknowledgment {
+  status: string;
+  ticketReference: string;
+  licensePlate: string;
+  startedAt: string;
+  expiresAt: string;
+}
+
+export interface VfpDailyEligibility {
+  isVfp: boolean;
+  eligible: boolean;
+  parkingUsedToday: boolean;
+  transitUsedToday: boolean;
+  consumedBenefitType?: string | null;
+  activeParkingSession?: ParkingSessionAcknowledgment | null;
 }

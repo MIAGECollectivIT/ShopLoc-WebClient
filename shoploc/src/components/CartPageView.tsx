@@ -108,7 +108,7 @@ export function CartPageView() {
     });
   }, [mounted, groupedByStore]);
 
-  // Real-time stock validation check & order lock creation (SLE-184 & SLE-186)
+  // Real-time stock validation check & order lock creation
   const handleValidateCart = async () => {
     // 1. Enforce authentication: user must be logged in to order (RBAC)
     if (!isAuthenticated || !token) {
@@ -162,7 +162,7 @@ export function CartPageView() {
         return;
       }
 
-      // Stock is validated! Now create the order in Sales Service to lock amounts (SLE-186)
+      // Stock is validated! Now create the order in Sales Service to lock amounts
       const orderPayloadItems = groupedByStore.flatMap((group) =>
         group.items.map((item) => ({
           storeId: item.storeId,
@@ -300,7 +300,7 @@ export function CartPageView() {
         </div>
       </div>
 
-      {/* Stock issue alerts (SLE-184) */}
+      {/* Stock issue alerts */}
       {stockIssues.length > 0 && (
         <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-xs space-y-2 animate-in fade-in duration-200">
           <div className="flex items-center gap-2 font-semibold">
@@ -342,7 +342,7 @@ export function CartPageView() {
 
       {/* Main Grid: 2/3 Store groups, 1/3 Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* Left column: Stores and Items (SLE-182 & SLE-183) */}
+        {/* Left column: Stores and Items */}
         <div className="lg:col-span-2 space-y-6">
           {groupedByStore.map((group) => {
             const storeInfo = storeDetails[group.storeId];
@@ -439,7 +439,7 @@ export function CartPageView() {
                           </div>
                         </div>
 
-                        {/* Quantity Controls & Line Total (SLE-183) */}
+                        {/* Quantity Controls & Line Total */}
                         <div className="flex items-center justify-between sm:justify-end gap-5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
                           {/* Stepper +/- */}
                           <div className="inline-flex items-center rounded-lg border border-border bg-background shadow-2xs p-0.5">

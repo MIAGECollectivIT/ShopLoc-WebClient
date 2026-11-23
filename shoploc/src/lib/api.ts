@@ -1,4 +1,11 @@
-import type { Store, StoreCreateRequest, StoreResponse, PartnerAccount } from '@/types/store';
+import type {
+  Store,
+  StoreCreateRequest,
+  StorePatchRequest,
+  StoreResponse,
+  StoreAbsence,
+  PartnerAccount,
+} from '@/types/store';
 import type { AdminPartnerSummary, AdminPartnerDetail } from '@/types/partner';
 import type {
   Product,
@@ -9,20 +16,33 @@ import type {
 import type {
   MerchantLoyaltyRate,
   MerchantLoyaltyRateRequest,
+  ParkingSessionAcknowledgment,
   UserActivityEvaluation,
   UserPointsBalanceResponse,
   UserVfpStatus,
+  UserVfpProgress,
+  VfpDailyEligibility,
 } from '@/types/loyalty';
 import type { LoyaltyGift, GiftCreateRequest, GiftUpdateRequest } from '@/types/gift';
-import type { PaymentAuthorizationRequest, PaymentAuthorizationResponse } from '@/types/payment';
+import type {
+  PaymentAuthorizationRequest,
+  PaymentAuthorizationResponse,
+  UserPaymentTransaction,
+} from '@/types/payment';
 import type { CreateOrderRequest, OrderResponse } from '@/types/order';
-import type { PhysicalSaleRequest, PhysicalSaleResponse } from '@/types/sales';
+import type {
+  PhysicalSaleRequest,
+  PhysicalSaleResponse,
+  StoreTurnoverResponse,
+} from '@/types/sales';
 import type {
   UserRegistrationRequest,
   UserLoginRequest,
   UserResponse,
   AuthResponse,
   UserRole,
+  AdminUserUpdateRequest,
+  AdminUserPageResponse,
   VehicleResponse,
   CustomerIdentificationResponse,
 } from '@/types/user';
@@ -185,10 +205,40 @@ export async function checkUsersServiceStatus(): Promise<ServiceHealthResponse> 
   }
 }
 
-export async function getStores(): Promise<Store[]> {
-  const res = await fetchWithTimeout(getApiEndpoint('/v1/stores'));
+export async function getStores(includeRevoked: boolean = false): Promise<Store[]> {
+  const query = includeRevoked ? '?includeRevoked=true' : '';
+  const res = await fetchWithTimeout(getApiEndpoint(`/v1/stores${query}`));
   if (!res.ok) {
     throw new Error(`Erreur lors de la récupération des commerces (HTTP ${res.status})`);
+  }
+  const data: Store[] = await res.json();
+  return data;
+}
+
+/**
+ * Search and filter stores via /v1/stores/search.
+ * Supports name query and multiple category filters.
+ */
+export async function searchStores(params?: {
+  query?: string;
+  categories?: string[];
+}): Promise<Store[]> {
+  const queryParams = new URLSearchParams();
+  if (params?.query && params.query.trim()) {
+    queryParams.set('name', params.query.trim());
+  }
+  if (params?.categories && params.categories.length > 0) {
+    for (const cat of params.categories) {
+      if (cat.trim()) {
+        queryParams.append('category', cat.trim());
+      }
+    }
+  }
+  const queryString = queryParams.toString();
+  const endpoint = queryString ? `/v1/stores/search?${queryString}` : '/v1/stores/search';
+  const res = await fetchWithTimeout(getApiEndpoint(endpoint));
+  if (!res.ok) {
+    throw new Error(`Erreur lors de la recherche des commerces (HTTP ${res.status})`);
   }
   const data: Store[] = await res.json();
   return data;
@@ -204,7 +254,98 @@ export async function getStoreById(id: string | number): Promise<Store> {
 }
 
 /**
- * Retrieves registered partner accounts from users-service (SLE-87).
+ * Revokes a partner store from the local animation program.
+ * Only accessible by ADMIN users.
+ */
+export async function revokeStore(storeId: string | number): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/revoke`);
+  const token = getAuthToken();
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    const message =
+      errorBody.message ||
+      (res.status === 409
+        ? 'Ce commerce est déjà révoqué.'
+        : res.status === 403
+          ? 'Accès refusé : privilèges administrateur requis.'
+          : `Impossible de révoquer le commerce (HTTP ${res.status})`);
+    throw new Error(message);
+  }
+
+  const data: StoreResponse = await res.json();
+  return data;
+}
+
+/**
+ * Reactivates a previously revoked partner store with a new valid RIB/IBAN.
+ * Only accessible by ADMIN users.
+ */
+export async function reactivateStore(
+  storeId: string | number,
+  rib: string
+): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/reactivate`);
+  const token = getAuthToken();
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ rib }),
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.json().catch(() => ({}));
+    const message =
+      errorBody.message ||
+      (res.status === 409
+        ? "Ce commerce n'est pas révoqué."
+        : res.status === 403
+          ? 'Accès refusé : privilèges administrateur requis.'
+          : res.status === 400
+            ? 'Format de RIB ou IBAN invalide.'
+            : `Impossible de réactiver le commerce (HTTP ${res.status})`);
+    throw new Error(message);
+  }
+
+  const data: StoreResponse = await res.json();
+  return data;
+}
+
+/**
+ * Retrieves the stores belonging to the currently authenticated merchant (anti-IDOR).
+ */
+export async function getMyStores(serverToken?: string): Promise<StoreResponse[]> {
+  const endpoint = getApiEndpoint('/v1/stores/me');
+  const token = serverToken || getAuthToken();
+
+  const res = await fetchWithTimeout(endpoint, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer vos commerces (HTTP ${res.status})`);
+  }
+
+  const data: StoreResponse[] = await res.json();
+  return data;
+}
+
+/**
+ * Retrieves registered partner accounts from users-service.
  * Filters across name, company name, and email.
  */
 export async function getPartners(query?: string, limit: number = 20): Promise<PartnerAccount[]> {
@@ -232,7 +373,7 @@ export async function getPartners(query?: string, limit: number = 20): Promise<P
 }
 
 /**
- * Retrieves partner accounts for administrative management (SLE-126).
+ * Retrieves partner accounts for administrative management.
  * Restricted to administrators. Supports query filtering.
  */
 export async function getAdminPartners(
@@ -271,7 +412,146 @@ export async function getAdminPartners(
 }
 
 /**
- * Retrieves detailed administrative profile of a specific partner merchant (SLE-126).
+ * Retrieves all registered users with multi-criteria filtering and pagination.
+ * Restricted to administrators.
+ */
+export async function getAdminUsers(params?: {
+  query?: string;
+  role?: UserRole;
+  locked?: boolean;
+  from?: string;
+  to?: string;
+  page?: number;
+  size?: number;
+  authToken?: string;
+}): Promise<AdminUserPageResponse> {
+  const searchParams = new URLSearchParams();
+  if (params?.query && params.query.trim()) {
+    searchParams.set('query', params.query.trim());
+  }
+  if (params?.role) {
+    searchParams.set('role', params.role);
+  }
+  if (params?.locked !== undefined) {
+    searchParams.set('locked', String(params.locked));
+  }
+  if (params?.from) {
+    searchParams.set('from', params.from);
+  }
+  if (params?.to) {
+    searchParams.set('to', params.to);
+  }
+  if (params?.page !== undefined) {
+    searchParams.set('page', String(params.page));
+  }
+  if (params?.size !== undefined) {
+    searchParams.set('size', String(params.size));
+  }
+
+  const endpoint = getUsersApiEndpoint(`/v1/admin/users?${searchParams.toString()}`);
+  const token = params?.authToken || getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise pour accéder à la liste des utilisateurs.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès réservé aux administrateurs de la plateforme.');
+  }
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer les utilisateurs (HTTP ${res.status})`);
+  }
+
+  return await res.json();
+}
+
+/**
+ * Retrieves a specific user details by ID.
+ */
+export async function getAdminUserById(id: string, authToken?: string): Promise<UserResponse> {
+  const endpoint = getUsersApiEndpoint(`/v1/admin/users/${encodeURIComponent(id)}`);
+  const token = authToken || getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès réservé aux administrateurs.');
+  }
+  if (!res.ok) {
+    throw new Error(`Utilisateur introuvable (HTTP ${res.status})`);
+  }
+
+  return await res.json();
+}
+
+/**
+ * Updates a user profile as administrator.
+ */
+export async function updateAdminUser(
+  id: string,
+  payload: AdminUserUpdateRequest,
+  authToken?: string
+): Promise<UserResponse> {
+  const endpoint = getUsersApiEndpoint(`/v1/admin/users/${encodeURIComponent(id)}`);
+  const token = authToken || getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      err.message || `Impossible de mettre à jour l'utilisateur (HTTP ${res.status})`
+    );
+  }
+
+  return await res.json();
+}
+
+/**
+ * Unlocks a temporarily locked user account (failed login attempts).
+ */
+export async function unlockAdminUser(id: string, authToken?: string): Promise<UserResponse> {
+  const endpoint = getUsersApiEndpoint(`/v1/admin/users/${encodeURIComponent(id)}/unlock`);
+  const token = authToken || getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      err.message || `Impossible de déverrouiller l'utilisateur (HTTP ${res.status})`
+    );
+  }
+
+  return await res.json();
+}
+
+/**
+ * Retrieves detailed administrative profile of a specific partner merchant.
  * Returns partner details and associated store IDs.
  */
 export async function getAdminPartnerById(
@@ -305,7 +585,7 @@ export async function getAdminPartnerById(
 }
 
 /**
- * Associates an existing municipal store with a partner merchant (SLE-129 / SLE-126).
+ * Associates an existing municipal store with a partner merchant.
  */
 export async function addStoreToPartner(
   partnerId: string | number,
@@ -376,7 +656,7 @@ export interface AdminPartnerUpdateRequest {
 }
 
 /**
- * Updates identity and administrative profile of a partner merchant (SLE-127).
+ * Updates identity and administrative profile of a partner merchant.
  */
 export async function updateAdminPartner(
   partnerId: string | number,
@@ -427,7 +707,7 @@ function buildStoreMultipartFormData(payload: StoreCreateRequest, image: File): 
 }
 
 /**
- * Dispatches a store creation request to store-service /v1/stores (SLE-69, SLE-85).
+ * Dispatches a store creation request to store-service /v1/stores.
  * Supports JSON or multipart/form-data when an optional image file is uploaded.
  */
 export async function createStore(
@@ -468,6 +748,232 @@ export async function createStore(
   }
 
   const data: StoreResponse = await res.json();
+  return data;
+}
+
+/**
+ * Partially updates store information.
+ */
+export async function patchStore(
+  storeId: string | number,
+  payload: StorePatchRequest
+): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la mise à jour du commerce (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {
+      // Ignore
+    }
+    throw new Error(errorDetail);
+  }
+
+  const data: StoreResponse = await res.json();
+  return data;
+}
+
+/**
+ * Retrieves the list of absences for a store.
+ */
+export async function getStoreAbsences(storeId: string | number): Promise<StoreAbsence[]> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/absences`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      ...authHeaders,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer les absences du commerce (${res.status})`);
+  }
+
+  return res.json();
+}
+
+/**
+ * Adds an absence to a store schedule.
+ */
+export async function addStoreAbsence(
+  storeId: string | number,
+  absence: { startDate: string; endDate?: string | null; reason?: string | null }
+): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/absences`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify(absence),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de l'ajout de l'absence (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {
+      // Ignore
+    }
+    throw new Error(errorDetail);
+  }
+
+  return res.json();
+}
+
+/**
+ * Updates an existing store absence.
+ */
+export async function updateStoreAbsence(
+  storeId: string | number,
+  absenceId: number,
+  absence: { startDate: string; endDate?: string | null; reason?: string | null }
+): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/absences/${absenceId}`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify(absence),
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la modification de l'absence (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {
+      // Ignore
+    }
+    throw new Error(errorDetail);
+  }
+
+  return res.json();
+}
+
+/**
+ * Deletes a specific absence or all absences for a store.
+ */
+export async function deleteStoreAbsence(
+  storeId: string | number,
+  absenceId?: number
+): Promise<StoreResponse> {
+  const endpoint =
+    absenceId != null
+      ? getApiEndpoint(`/v1/stores/${storeId}/absences/${absenceId}`)
+      : getApiEndpoint(`/v1/stores/${storeId}/absence`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  try {
+    const res = await fetchWithTimeout(endpoint, {
+      method: 'DELETE',
+      headers: {
+        ...authHeaders,
+      },
+    });
+
+    if (res.ok) {
+      const data: StoreResponse = await res.json();
+      return data;
+    }
+  } catch {
+    // Fallback to PATCH clearAbsence if DELETE is not supported by proxy
+  }
+
+  if (absenceId == null) {
+    return patchStore(storeId, { clearAbsence: true });
+  }
+  throw new Error("Impossible de supprimer l'absence sélectionnée");
+}
+
+/**
+ * Updates a store's storefront image via S3 multipart endpoint.
+ */
+export async function updateStoreImage(
+  storeId: string | number,
+  imageFile: File
+): Promise<StoreResponse> {
+  const endpoint = getApiEndpoint(`/v1/stores/${storeId}/image`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const formData = new FormData();
+  formData.append('image', imageFile);
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'PATCH',
+    headers: {
+      ...authHeaders,
+    },
+    body: formData,
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la mise à jour de l'image (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {
+      // Ignore
+    }
+    throw new Error(errorDetail);
+  }
+
+  const data: StoreResponse = await res.json();
+  return data;
+}
+
+/**
+ * Retrieves automated turnover metrics generated by the ShopLoc application for a store.
+ */
+export async function getStoreTurnover(storeId: string | number): Promise<StoreTurnoverResponse> {
+  const endpoint = getApiEndpoint(`/v1/sales/stores/${storeId}/turnover`);
+  const token = getAuthToken();
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      ...authHeaders,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Erreur lors de la récupération du chiffre d'affaires (${res.status})`);
+  }
+
+  const data: StoreTurnoverResponse = await res.json();
   return data;
 }
 
@@ -700,7 +1206,7 @@ export async function updateUserProfile(
 
 /**
  * ==============================================================================
- * PRODUCT & CLICK & COLLECT CATALOG APIS (SLE-58, SLE-119, SLE-120, SLE-121, SLE-125)
+ * PRODUCT & CLICK & COLLECT CATALOG APIS
  * ==============================================================================
  */
 
@@ -827,7 +1333,7 @@ export async function updateProduct(
 }
 
 /**
- * Uploads or updates a product image via S3 multipart endpoint PATCH /v1/stores/{storeId}/products/{productId}/image (SLE-143 & SLE-144).
+ * Uploads or updates a product image via S3 multipart endpoint PATCH /v1/stores/{storeId}/products/{productId}/image.
  */
 export async function updateProductImage(
   storeId: number | string,
@@ -862,7 +1368,7 @@ export async function updateProductImage(
 }
 
 /**
- * Updates a product image with a direct URL via JSON endpoint PATCH /v1/stores/{storeId}/products/{productId}/image (SLE-143 & SLE-144).
+ * Updates a product image with a direct URL via JSON endpoint PATCH /v1/stores/{storeId}/products/{productId}/image.
  */
 export async function updateProductImageUrl(
   storeId: number | string,
@@ -922,7 +1428,7 @@ export async function deleteProduct(
 }
 
 /**
- * Granularly adjusts product inventory stock via PATCH (SLE-121).
+ * Granularly adjusts product inventory stock via PATCH.
  */
 export async function updateProductStock(
   storeId: number | string,
@@ -966,7 +1472,7 @@ export async function updateProductStock(
 
 /**
  * ==============================================================================
- * VEHICLES & LICENSE PLATES APIS (SLE-13)
+ * VEHICLES & LICENSE PLATES APIS
  * ==============================================================================
  */
 
@@ -1146,12 +1652,51 @@ export async function deleteVehicle(licensePlate: string): Promise<void> {
   }
 }
 
+// In-memory cache for UUID -> numeric store ID mapping
+const storeNumericIdCache = new Map<string, number>();
+
+/**
+ * Resolves a store identifier (which might be a numeric ID or a UUID string) to its numeric DB id.
+ * Required by services like Loyalty Service that strictly expect a Java Long for storeId.
+ */
+export async function resolveNumericStoreId(
+  storeIdentifier: string | number
+): Promise<number | string> {
+  if (typeof storeIdentifier === 'number') {
+    return storeIdentifier;
+  }
+  if (!storeIdentifier) {
+    return storeIdentifier;
+  }
+  const str = String(storeIdentifier).trim();
+  if (/^\d+$/.test(str)) {
+    return Number(str);
+  }
+  if (storeNumericIdCache.has(str)) {
+    return storeNumericIdCache.get(str)!;
+  }
+  // If it's a UUID, resolve it via store-service
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)) {
+    try {
+      const store = await getStoreById(str);
+      if (typeof store?.id === 'number') {
+        storeNumericIdCache.set(str, store.id);
+        return store.id;
+      }
+    } catch {
+      // Fallback if lookup fails
+    }
+  }
+  return storeIdentifier;
+}
+
 /**
  * Retrieves the configured loyalty rate for a store (or the default rate 1 € = 1 pt).
  * Publicly accessible for customers and merchants.
  */
 export async function getStoreLoyaltyRate(storeId: number | string): Promise<MerchantLoyaltyRate> {
-  const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${storeId}/rates`);
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
+  const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${resolvedStoreId}/rates`);
   const res = await fetchWithTimeout(endpoint, {
     method: 'GET',
     headers: {
@@ -1159,9 +1704,9 @@ export async function getStoreLoyaltyRate(storeId: number | string): Promise<Mer
     },
   });
 
-  if (res.status === 404) {
+  if (res.status === 404 || res.status === 400) {
     return {
-      storeId: Number(storeId),
+      storeId: resolvedStoreId,
       euroAmount: 1,
       pointsReward: 1,
     };
@@ -1182,7 +1727,8 @@ export async function updateStoreLoyaltyRate(
   storeId: number | string,
   data: MerchantLoyaltyRateRequest
 ): Promise<MerchantLoyaltyRate> {
-  const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${storeId}/rates`);
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
+  const endpoint = getApiEndpoint(`/v1/loyalty/merchants/${resolvedStoreId}/rates`);
   const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'PUT',
@@ -1219,15 +1765,48 @@ export async function updateStoreLoyaltyRate(
 }
 
 /**
- * Retrieves the list of loyalty gifts for a store (SLE-60 / SLE-192).
+ * Retrieves the global public catalog of active loyalty gifts with optional filters.
+ */
+export async function getPublicGifts(params?: {
+  storeId?: number | string;
+  category?: string;
+}): Promise<LoyaltyGift[]> {
+  const searchParams = new URLSearchParams();
+  if (params?.storeId && params.storeId !== 'ALL') {
+    const resolvedStoreId = await resolveNumericStoreId(params.storeId);
+    searchParams.set('storeId', String(resolvedStoreId));
+  }
+  if (params?.category && params.category !== 'ALL') {
+    searchParams.set('category', params.category);
+  }
+  const queryString = searchParams.toString();
+  const endpoint = getApiEndpoint(`/v1/loyalty/gifts${queryString ? `?${queryString}` : ''}`);
+
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Impossible de récupérer le catalogue des cadeaux (${res.status})`);
+  }
+
+  return (await res.json()) as LoyaltyGift[];
+}
+
+/**
+ * Retrieves the list of loyalty gifts for a store.
  * By default returns active gifts. Set includeInactive to true to retrieve all gifts (for merchants/admins).
  */
 export async function getStoreGifts(
   storeId: number | string,
   includeInactive: boolean = false
 ): Promise<LoyaltyGift[]> {
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
   const query = includeInactive ? '?includeInactive=true' : '';
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts${query}`);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts${query}`);
   const res = await fetchWithTimeout(endpoint, {
     method: 'GET',
     headers: {
@@ -1243,13 +1822,14 @@ export async function getStoreGifts(
 }
 
 /**
- * Retrieves a single loyalty gift item (SLE-60 / SLE-192).
+ * Retrieves a single loyalty gift item.
  */
 export async function getStoreGiftById(
   storeId: number | string,
   giftId: number | string
 ): Promise<LoyaltyGift> {
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}`);
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts/${giftId}`);
   const res = await fetchWithTimeout(endpoint, {
     method: 'GET',
     headers: {
@@ -1268,14 +1848,15 @@ export async function getStoreGiftById(
 }
 
 /**
- * Creates a new gift in the store's loyalty catalog (JSON or Multipart with S3 image upload) (SLE-60 / SLE-192).
+ * Creates a new gift in the store's loyalty catalog (JSON or Multipart with S3 image upload).
  */
 export async function createGift(
   storeId: number | string,
   data: GiftCreateRequest,
   imageFile?: File
 ): Promise<LoyaltyGift> {
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts`);
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts`);
   const token = getAuthToken();
 
   let body: BodyInit;
@@ -1323,7 +1904,7 @@ export async function createGift(
 }
 
 /**
- * Updates an existing gift item (JSON or Multipart with S3 image upload) (SLE-60 / SLE-192).
+ * Updates an existing gift item (JSON or Multipart with S3 image upload).
  */
 export async function updateGift(
   storeId: number | string,
@@ -1331,7 +1912,8 @@ export async function updateGift(
   data: GiftUpdateRequest,
   imageFile?: File
 ): Promise<LoyaltyGift> {
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}`);
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts/${giftId}`);
   const token = getAuthToken();
 
   let body: BodyInit;
@@ -1379,14 +1961,15 @@ export async function updateGift(
 }
 
 /**
- * Adjusts the dedicated stock of a gift item (+/- delta) (SLE-60 / SLE-193).
+ * Adjusts the dedicated stock of a gift item (+/- delta).
  */
 export async function adjustGiftStock(
   storeId: number | string,
   giftId: number | string,
   delta: number
 ): Promise<LoyaltyGift> {
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}/stock`);
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts/${giftId}/stock`);
   const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'PATCH',
@@ -1417,10 +2000,11 @@ export async function adjustGiftStock(
 }
 
 /**
- * Deletes a gift item from the catalog (SLE-60 / SLE-192).
+ * Deletes a gift item from the catalog.
  */
 export async function deleteGift(storeId: number | string, giftId: number | string): Promise<void> {
-  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${storeId}/gifts/${giftId}`);
+  const resolvedStoreId = await resolveNumericStoreId(storeId);
+  const endpoint = getApiEndpoint(`/v1/loyalty/stores/${resolvedStoreId}/gifts/${giftId}`);
   const token = getAuthToken();
   const res = await fetchWithTimeout(endpoint, {
     method: 'DELETE',
@@ -1445,7 +2029,7 @@ export async function deleteGift(storeId: number | string, giftId: number | stri
 }
 
 /**
- * Retrieves the 15-day sliding window activity evaluation and VFP status for a user (SLE-44 / SLE-164).
+ * Retrieves the 15-day sliding window activity evaluation and VFP status for a user.
  * Restricted to the user themselves or administrators.
  */
 export async function getUserActivityEvaluation(
@@ -1483,7 +2067,7 @@ export async function getUserActivityEvaluation(
 }
 
 /**
- * Retrieves the Very Faithful Person (VFP) qualification status and metrics for a user (SLE-45 / SLE-204).
+ * Retrieves the Very Faithful Person (VFP) qualification status and metrics for a user.
  * Restricted to the user themselves or administrators.
  */
 export async function getUserVfpStatus(userId: string | number): Promise<UserVfpStatus> {
@@ -1519,7 +2103,80 @@ export async function getUserVfpStatus(userId: string | number): Promise<UserVfp
 }
 
 /**
- * Fetches a customer's loyalty points balance and movement history (SLE-38 / SLE-176 / SLE-177 / SLE-178).
+ * Retrieves a customer's VFP progression metrics, maintenance requirements, and revocation countdown.
+ * Restricted to the user themselves or administrators.
+ */
+export async function getUserVfpProgress(userId: string | number): Promise<UserVfpProgress> {
+  const endpoint = getApiEndpoint(
+    `/v1/loyalty/users/${encodeURIComponent(String(userId))}/vfp-progress`
+  );
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Vous devez être connecté pour consulter votre progression VFP.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès refusé : vous ne pouvez consulter que votre propre progression VFP.');
+  }
+  if (!res.ok) {
+    let errorDetail = `Impossible de récupérer la progression VFP (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as UserVfpProgress;
+}
+
+/**
+ * Extracts a user's approved payment transactions within a date range.
+ */
+export async function getUserPaymentTransactions(
+  userId: string | number,
+  from?: string,
+  to?: string
+): Promise<UserPaymentTransaction[]> {
+  const queryParams = new URLSearchParams();
+  if (from) queryParams.set('from', from);
+  if (to) queryParams.set('to', to);
+  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+  const endpoint = getApiEndpoint(
+    `/v1/sales/payments/users/${encodeURIComponent(String(userId))}/transactions${queryString}`
+  );
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    let errorDetail = `Impossible de récupérer l'historique des paiements (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as UserPaymentTransaction[];
+}
+
+/**
+ * Fetches a customer's loyalty points balance and movement history.
  */
 export async function getUserPointsBalance(
   userId?: string | number,
@@ -1668,7 +2325,7 @@ export async function getPaymentByReference(
 }
 
 /**
- * Identifies a customer by their 7-character loyalty code or scanned QR code (SLE-56).
+ * Identifies a customer by their 7-character loyalty code or scanned QR code.
  * Restricted to authenticated merchants and administrators.
  * Returns masked customer profile (GDPR compliant).
  */
@@ -1974,7 +2631,7 @@ export function triggerBlobDownload(blob: Blob, filename: string): void {
 }
 
 // ============================================================================
-// Digital Wallet API (SLE-15, SLE-17, SLE-18)
+// Digital Wallet API
 // ============================================================================
 
 import type {
@@ -1985,7 +2642,7 @@ import type {
 } from '@/types/wallet';
 
 /**
- * Retrieves the citizen's real-time wallet balance (SLE-17).
+ * Retrieves the citizen's real-time wallet balance.
  */
 export async function getWallet(token?: string): Promise<Wallet> {
   const authToken = token || getAuthToken();
@@ -2015,7 +2672,7 @@ export async function getWallet(token?: string): Promise<Wallet> {
 }
 
 /**
- * Reloads the citizen's wallet with a custom amount between 5.00 € and 100.00 € via bank gateway (SLE-15).
+ * Reloads the citizen's wallet with a custom amount between 5.00 € and 100.00 € via bank gateway.
  * Supports automatic client-generated idempotency key to prevent double charge on retries.
  */
 export async function reloadWallet(
@@ -2069,7 +2726,7 @@ export async function reloadWallet(
 }
 
 /**
- * Retrieves the ordered transaction history (newest to oldest) of the citizen's wallet (SLE-18).
+ * Retrieves the ordered transaction history (newest to oldest) of the citizen's wallet.
  */
 export async function getWalletTransactions(token?: string): Promise<WalletTransaction[]> {
   const authToken = token || getAuthToken();
@@ -2099,7 +2756,7 @@ export async function getWalletTransactions(token?: string): Promise<WalletTrans
 }
 
 /**
- * Debits the citizen's wallet for a purchase (SLE-18).
+ * Debits the citizen's wallet for a purchase.
  */
 export async function debitWallet(request: WalletDebitRequest, token?: string): Promise<Wallet> {
   const authToken = token || getAuthToken();
@@ -2128,4 +2785,56 @@ export async function debitWallet(request: WalletDebitRequest, token?: string): 
   }
 
   return (await res.json()) as Wallet;
+}
+
+const PARKING_ERROR_MESSAGES: Record<number, string> = {
+  400: "Plaque d'immatriculation invalide ou non enregistrée sur votre profil.",
+  401: 'Vous devez être connecté pour activer votre stationnement gratuit.',
+  403: 'Le stationnement gratuit de 20 minutes est réservé aux détenteurs du statut VFP actif.',
+  409: 'Vous avez déjà utilisé votre session de stationnement gratuit aujourd’hui.',
+  502: 'Le service de stationnement est temporairement indisponible. Veuillez réessayer.',
+};
+
+export async function activateVfpParkingSession(
+  licensePlate: string
+): Promise<ParkingSessionAcknowledgment> {
+  const endpoint = getApiEndpoint('/v1/loyalty/vfp/parking-sessions');
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ licensePlate }),
+  });
+
+  if (!res.ok) {
+    const mappedMessage = PARKING_ERROR_MESSAGES[res.status];
+    if (mappedMessage) {
+      throw new Error(mappedMessage);
+    }
+    throw new Error(`Impossible d'activer la session de stationnement (HTTP ${res.status}).`);
+  }
+
+  return (await res.json()) as ParkingSessionAcknowledgment;
+}
+
+export async function getVfpDailyEligibility(): Promise<VfpDailyEligibility> {
+  const endpoint = getApiEndpoint('/v1/loyalty/vfp/daily-eligibility');
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Impossible de vérifier l'éligibilité journalière VFP (HTTP ${res.status}).`);
+  }
+
+  return (await res.json()) as VfpDailyEligibility;
 }

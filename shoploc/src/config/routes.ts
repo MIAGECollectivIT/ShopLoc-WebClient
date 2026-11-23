@@ -10,6 +10,8 @@ import {
   Users,
   CreditCard,
   Wallet,
+  Gift,
+  ShieldCheck,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react';
@@ -47,6 +49,11 @@ export const ROUTES = {
     path: '/catalog',
     label: 'Catalogue',
     icon: BookOpen,
+  },
+  gifts: {
+    path: '/gifts',
+    label: 'Cadeaux',
+    icon: Gift,
   },
   cart: {
     path: '/cart',
@@ -90,6 +97,11 @@ export const ROUTES = {
     label: 'Mon Profil',
     icon: User,
   },
+  adminDashboard: {
+    path: '/admin',
+    label: 'Administration',
+    icon: ShieldCheck,
+  },
   adminPartners: {
     path: '/admin/partners',
     label: 'Administration Partenaires',
@@ -98,4 +110,4 @@ export const ROUTES = {
   adminPartnerDetail: (id: string | number) => `/admin/partners/${id}`,
 } as const;
 
-export const NAV_ROUTES: RouteConfig[] = [ROUTES.home, ROUTES.stores, ROUTES.catalog];
+export const NAV_ROUTES: RouteConfig[] = [ROUTES.home, ROUTES.stores, ROUTES.catalog, ROUTES.gifts];

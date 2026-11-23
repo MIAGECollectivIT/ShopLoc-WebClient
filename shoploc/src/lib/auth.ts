@@ -189,9 +189,16 @@ export function setAuthSession(auth: AuthResponse): void {
     }
     maxAgeSeconds = Math.max(60, maxAgeSeconds);
 
+    const isSecure =
+      typeof window !== 'undefined' &&
+      (window.location.protocol === 'https:' ||
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1');
+    const secureFlag = isSecure ? '; Secure' : '';
+
     document.cookie = `${TOKEN_STORAGE_KEY}=${encodeURIComponent(
       auth.token
-    )}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax`;
+    )}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax${secureFlag}`;
   }
 
   window.dispatchEvent(
@@ -244,7 +251,12 @@ export function clearAuthSession(): void {
   localStorage.removeItem(USER_STORAGE_KEY);
 
   if (typeof document !== 'undefined') {
-    document.cookie = `${TOKEN_STORAGE_KEY}=; path=/; max-age=0; SameSite=Lax`;
+    const isSecure =
+      window.location.protocol === 'https:' ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1';
+    const secureFlag = isSecure ? '; Secure' : '';
+    document.cookie = `${TOKEN_STORAGE_KEY}=; path=/; max-age=0; SameSite=Lax${secureFlag}`;
   }
 
   // Immediately purge the HttpOnly server cookie

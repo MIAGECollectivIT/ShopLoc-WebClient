@@ -1,18 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import PageContainer from '../../components/PageContainer.astro';
-import { StoreCard } from '../../components/StoreCard';
+import { StoreDirectoryView } from '../../components/StoreDirectoryView';
 import { ButtonWithAuthorization } from '../../components/ui/ButtonWithAuthorization';
 import { ROUTES } from '../../config/routes';
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-  EmptyDescription,
-} from '../../components/ui/empty';
 import { getStores, getApiEndpoint } from '../../lib/api';
-import { AlertCircle, Store } from 'lucide-react';
+import { Store } from 'lucide-react';
 import type { Store as StoreType } from '../../types/store';
 
 let stores: StoreType[] = [];
@@ -34,14 +27,10 @@ try {
 >
   <PageContainer
     title="Commerçants partenaires"
-    description="Découvrez l'ensemble des commerçants de votre municipalité et cumulez vos points fidélité."
+    description="Découvrez l'ensemble des commerçants de votre municipalité, recherchez vos enseignes préférées et cumulez vos points fidélité."
     icon={Store}
   >
-    <div class="flex items-center justify-between pb-2">
-      <p class="text-xs text-muted-foreground">
-        {stores.length} boutique{stores.length > 1 ? 's' : ''} disponible
-        {stores.length > 1 ? 's' : ''}
-      </p>
+    <div class="flex items-center justify-end pb-2">
       <ButtonWithAuthorization
         client:only="react"
         allowedRoles={['ADMIN']}
@@ -52,35 +41,6 @@ try {
       />
     </div>
 
-    {error && (
-      <div class="border border-destructive/50 bg-destructive/10 p-4 text-destructive space-y-1 rounded-lg">
-        <div class="flex items-center gap-2 font-medium">
-          <AlertCircle className="size-4 shrink-0" />
-          <p class="text-sm">{error}</p>
-        </div>
-      </div>
-    )}
-
-    {!error && stores.length > 0 && (
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {stores.map((store) => (
-          <StoreCard store={store} />
-        ))}
-      </div>
-    )}
-
-    {!error && stores.length === 0 && (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <Store />
-          </EmptyMedia>
-          <EmptyTitle>Aucune boutique trouvée</EmptyTitle>
-          <EmptyDescription>
-            Il n'y a pour le moment aucun commerçant enregistré dans votre zone.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    )}
+    <StoreDirectoryView client:load initialStores={stores} initialError={error} />
   </PageContainer>
 </Layout>
