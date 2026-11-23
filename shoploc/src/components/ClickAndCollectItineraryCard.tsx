@@ -25,6 +25,9 @@ import {
   ExternalLink,
   Loader2,
   Store as StoreIcon,
+  Map as MapIcon,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -51,6 +54,8 @@ export function ClickAndCollectItineraryCard({
     longitude: number;
   } | null>(null);
   const [isLocating, setIsLocating] = React.useState<boolean>(false);
+
+  const [showEmbeddedMap, setShowEmbeddedMap] = React.useState<boolean>(true);
 
   const fetchItinerary = React.useCallback(async () => {
     setIsLoading(true);
@@ -399,6 +404,64 @@ export function ClickAndCollectItineraryCard({
                   );
                 })}
               </div>
+            </div>
+
+            {/* Embedded Google Maps View (Option 1) */}
+            <div className="pt-2">
+              <div className="flex items-center justify-between pb-2">
+                <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                  <MapIcon className="size-3.5 text-primary" />
+                  <span>Aperçu de la carte interactive :</span>
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowEmbeddedMap(!showEmbeddedMap)}
+                  className="h-7 text-[11px] px-2 text-muted-foreground hover:text-foreground"
+                >
+                  {showEmbeddedMap ? (
+                    <>
+                      <span>Masquer la carte</span>
+                      <ChevronUp className="size-3.5 ml-1" />
+                    </>
+                  ) : (
+                    <>
+                      <span>Afficher la carte</span>
+                      <ChevronDown className="size-3.5 ml-1" />
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {showEmbeddedMap && (
+                <div className="relative w-full h-72 sm:h-80 rounded-xl overflow-hidden border border-border/80 shadow-inner bg-muted/30">
+                  <iframe
+                    title="Aperçu Google Maps de la tournée"
+                    width="100%"
+                    height="100%"
+                    className="border-0 w-full h-full"
+                    loading="lazy"
+                    allowFullScreen
+                    referrerPolicy="no-referrer-when-downgrade"
+                    src={(() => {
+                      // Construire l'URL embed Google Maps sécurisée
+                      const originStr =
+                        itinerary.origin.latitude && itinerary.origin.longitude
+                          ? `${itinerary.origin.latitude},${itinerary.origin.longitude}`
+                          : itinerary.origin.address || '';
+                      const destStr =
+                        itinerary.destination.latitude && itinerary.destination.longitude
+                          ? `${itinerary.destination.latitude},${itinerary.destination.longitude}`
+                          : itinerary.destination.address;
+
+                      return `https://maps.google.com/maps?saddr=${encodeURIComponent(
+                        originStr
+                      )}&daddr=${encodeURIComponent(destStr)}&output=embed`;
+                    })()}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
