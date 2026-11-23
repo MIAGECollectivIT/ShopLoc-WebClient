@@ -326,15 +326,27 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
+                      <SidebarMenuButton render={<a href={ROUTES.adminStores.path} />}>
+                        <StoreIcon className="size-4 text-primary" />
+                        <span className="font-medium text-foreground">Commerces Partenaires</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
                       <SidebarMenuButton render={<a href={ROUTES.adminPartners.path} />}>
                         <UsersIcon className="size-4 text-primary" />
                         <span className="font-medium text-foreground">Gestion Partenaires</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
-                      <SidebarMenuButton render={<a href="/stores/new" />}>
+                      <SidebarMenuButton render={<a href={ROUTES.createStore.path} />}>
                         <PlusCircle className="size-4 text-primary" />
                         <span className="font-medium text-foreground">Nouveau commerce</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton render={<a href={ROUTES.adminSettings.path} />}>
+                        <Settings className="size-4 text-primary" />
+                        <span className="font-medium text-foreground">Configuration Système</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   </SidebarMenu>

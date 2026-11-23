@@ -1,0 +1,25 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import PageContainer from '../../components/PageContainer.astro';
+import { AdminNavHeader } from '../../components/AdminNavHeader';
+import { AdminSettingsTab } from '../../components/AdminSettingsTab';
+import { Settings } from 'lucide-react';
+---
+
+<Layout
+  title="Configuration générale du système - Administration ShopLoc"
+  description="Paramètres applicatifs, adresses des services municipaux et gestion des notifications."
+>
+  <PageContainer
+    title="Paramètres & Notifications"
+    description="Personnalisez les adresses e-mail des services municipaux et configurez les notifications de la plateforme."
+    icon={Settings}
+  >
+    <div class="space-y-6">
+      <AdminNavHeader client:load activeNav="settings" />
+      <AdminSettingsTab client:load />
+    </div>
+  </PageContainer>
+</Layout>

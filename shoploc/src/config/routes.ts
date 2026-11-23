@@ -12,6 +12,7 @@ import {
   Wallet,
   Gift,
   ShieldCheck,
+  Settings,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { LucideProps } from 'lucide-react';
@@ -101,6 +102,16 @@ export const ROUTES = {
     path: '/admin',
     label: 'Administration',
     icon: ShieldCheck,
+  },
+  adminStores: {
+    path: '/admin/stores',
+    label: 'Commerces Partenaires',
+    icon: Store,
+  },
+  adminSettings: {
+    path: '/admin/settings',
+    label: 'Configuration Système',
+    icon: Settings,
   },
   adminPartners: {
     path: '/admin/partners',

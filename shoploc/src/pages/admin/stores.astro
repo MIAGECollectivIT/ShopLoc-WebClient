@@ -1,0 +1,35 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import PageContainer from '../../components/PageContainer.astro';
+import { AdminNavHeader } from '../../components/AdminNavHeader';
+import { AdminStoresTab } from '../../components/AdminStoresTab';
+import { getStores } from '../../lib/api';
+import { Store } from 'lucide-react';
+import type { Store as StoreType } from '../../types/store';
+
+let initialStores: StoreType[] = [];
+
+try {
+  initialStores = await getStores(true);
+} catch (err: unknown) {
+  console.warn('[PAGE /admin/stores] Failed to fetch initial stores server-side:', err);
+}
+---
+
+<Layout
+  title="Supervision des commerces partenaires - Administration ShopLoc"
+  description="Supervisez les établissements, révoquez ou réactivez les commerces partenaires."
+>
+  <PageContainer
+    title="Commerces Partenaires"
+    description="Supervisez les établissements locaux, leurs affiliations et gérez les réactivations administratives."
+    icon={Store}
+  >
+    <div class="space-y-6">
+      <AdminNavHeader client:load activeNav="stores" />
+      <AdminStoresTab client:load initialStores={initialStores} />
+    </div>
+  </PageContainer>
+</Layout>
