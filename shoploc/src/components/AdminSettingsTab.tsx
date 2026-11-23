@@ -29,9 +29,19 @@ export function AdminSettingsTab({ initialSetting = null }: AdminSettingsTabProp
   );
   const [isLoading, setIsLoading] = React.useState<boolean>(!initialSetting);
   const [isSaving, setIsSaving] = React.useState<boolean>(false);
-  const [emailInput, setEmailInput] = React.useState<string>(initialSetting?.effectiveEmail || '');
+  const [emailInput, setEmailInput] = React.useState<string>(
+    initialSetting?.email || initialSetting?.effectiveEmail || ''
+  );
   const [error, setError] = React.useState<string | null>(null);
   const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
+
+  const activeEmail =
+    setting?.email ||
+    setting?.effectiveEmail ||
+    setting?.defaultEmail ||
+    'citoyen-numerique@shop-loc.fr';
+  const defaultEmail = setting?.defaultEmail || 'citoyen-numerique@shop-loc.fr';
+  const isCustomized = Boolean(setting?.isCustomized ?? setting?.customized ?? false);
 
   const fetchSetting = React.useCallback(async () => {
     setIsLoading(true);
@@ -39,7 +49,8 @@ export function AdminSettingsTab({ initialSetting = null }: AdminSettingsTabProp
     try {
       const data = await getCitizenCardEmailSetting();
       setSetting(data);
-      setEmailInput(data.effectiveEmail);
+      const email = data.email || data.effectiveEmail || data.defaultEmail || '';
+      setEmailInput(email);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Impossible de charger les paramètres.';
       setError(message);
@@ -48,15 +59,16 @@ export function AdminSettingsTab({ initialSetting = null }: AdminSettingsTabProp
     }
   }, []);
 
-  // Fetch only if initialSetting was not provided via SSR
+  // Fetch on mount if no initialSetting provided via SSR
   React.useEffect(() => {
     if (!initialSetting) {
       fetchSetting();
     }
   }, [initialSetting, fetchSetting]);
 
-  const isValidEmail = Boolean(emailInput.trim() && EMAIL_REGEX.test(emailInput.trim()));
-  const isChanged = setting ? emailInput.trim() !== setting.effectiveEmail : false;
+  const currentInput = typeof emailInput === 'string' ? emailInput : '';
+  const isValidEmail = Boolean(currentInput.trim() && EMAIL_REGEX.test(currentInput.trim()));
+  const isChanged = setting ? currentInput.trim() !== activeEmail : false;
 
   const handleSave = async (emailToSave: string) => {
     const trimmed = emailToSave.trim();
@@ -72,7 +84,8 @@ export function AdminSettingsTab({ initialSetting = null }: AdminSettingsTabProp
     try {
       const updated = await updateCitizenCardEmailSetting(trimmed);
       setSetting(updated);
-      setEmailInput(updated.effectiveEmail);
+      const savedEmail = updated.email || updated.effectiveEmail || trimmed;
+      setEmailInput(savedEmail);
       setSuccessMessage('L’adresse e-mail du service citoyen a été mise à jour avec succès.');
     } catch (err: unknown) {
       const message =
@@ -85,10 +98,10 @@ export function AdminSettingsTab({ initialSetting = null }: AdminSettingsTabProp
 
   const handleResetToDefault = async () => {
     if (!setting) return;
-    await handleSave(setting.defaultEmail);
+    await handleSave(defaultEmail);
   };
 
-  const formatDate = (dateStr: string | null) => {
+  const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return null;
     try {
       const date = new Date(dateStr);
@@ -185,10 +198,10 @@ export function AdminSettingsTab({ initialSetting = null }: AdminSettingsTabProp
                 <Loader2 className="size-3 animate-spin" />
                 Chargement...
               </Badge>
-            ) : setting?.customized ? (
+            ) : isCustomized ? (
               <Badge
                 variant="default"
-                className="text-xs gap-1.5 py-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 font-medium"
+                className="text-xs gap-1.5 py-1 px-2.5 bg-emerald-600 hover:bg-emerald-700 font-medium text-white"
               >
                 <span className="size-1.5 rounded-full bg-white animate-pulse" />
                 Adresse personnalisée
@@ -221,8 +234,7 @@ export function AdminSettingsTab({ initialSetting = null }: AdminSettingsTabProp
             <div className="p-3.5 rounded-lg border bg-muted/20 space-y-1">
               <span className="text-muted-foreground font-medium">Adresse active actuelle :</span>
               <p className="font-mono text-sm font-semibold text-foreground break-all">
-                {setting?.effectiveEmail ||
-                  (isLoading ? 'Chargement en cours...' : 'Non configurée')}
+                {activeEmail}
               </p>
             </div>
 
@@ -230,15 +242,12 @@ export function AdminSettingsTab({ initialSetting = null }: AdminSettingsTabProp
               <span className="text-muted-foreground font-medium">
                 Adresse initiale par défaut :
               </span>
-              <p className="font-mono text-sm text-muted-foreground break-all">
-                {setting?.defaultEmail ||
-                  (isLoading ? 'Chargement...' : 'citoyen-numerique@shop-loc.fr')}
-              </p>
+              <p className="font-mono text-sm text-muted-foreground break-all">{defaultEmail}</p>
             </div>
           </div>
 
           {/* Last update tracking */}
-          {setting?.customized && setting.updatedAt && (
+          {isCustomized && setting?.updatedAt && (
             <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground border-t pt-4">
               <div className="flex items-center gap-1.5">
                 <Clock className="size-3.5 text-muted-foreground" />
@@ -270,7 +279,7 @@ export function AdminSettingsTab({ initialSetting = null }: AdminSettingsTabProp
                 <Input
                   id="citizen-card-email-input"
                   type="email"
-                  value={emailInput}
+                  value={currentInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   placeholder="service-citoyen@ville-collectivite.fr"
                   disabled={isSaving || isLoading}
@@ -279,7 +288,7 @@ export function AdminSettingsTab({ initialSetting = null }: AdminSettingsTabProp
               </div>
 
               <Button
-                onClick={() => handleSave(emailInput)}
+                onClick={() => handleSave(currentInput)}
                 disabled={!isValidEmail || !isChanged || isSaving || isLoading}
                 className="gap-2 shrink-0 text-xs h-10"
               >
@@ -292,7 +301,7 @@ export function AdminSettingsTab({ initialSetting = null }: AdminSettingsTabProp
               </Button>
             </div>
 
-            {emailInput.trim() && !isValidEmail && (
+            {currentInput.trim() && !isValidEmail && (
               <p className="text-xs text-destructive flex items-center gap-1.5">
                 <ShieldAlert className="size-3.5" />
                 <span>Veuillez saisir une adresse e-mail valide (ex: contact@ville.fr).</span>
@@ -302,11 +311,11 @@ export function AdminSettingsTab({ initialSetting = null }: AdminSettingsTabProp
         </div>
 
         {/* Footer with Reset option */}
-        {setting?.customized && (
+        {isCustomized && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-muted/20 border-t p-4 text-xs">
             <span className="text-muted-foreground">
               Vous pouvez réinitialiser l&apos;adresse sur la valeur initiale par défaut (
-              {setting.defaultEmail}).
+              {defaultEmail}).
             </span>
             <Button
               variant="outline"

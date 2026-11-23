@@ -2871,7 +2871,19 @@ export async function getCitizenCardEmailSetting(
     throw new Error(`Impossible de récupérer le paramètre d'email (HTTP ${res.status})`);
   }
 
-  return (await res.json()) as CitizenCardEmailSettingResponse;
+  const raw = (await res.json()) as Record<string, unknown>;
+  const resolvedEmail = String(raw.email || raw.effectiveEmail || raw.defaultEmail || '');
+  const resolvedDefault = String(raw.defaultEmail || '');
+  const resolvedCustomized = Boolean(raw.isCustomized ?? raw.customized ?? false);
+  return {
+    email: resolvedEmail,
+    defaultEmail: resolvedDefault,
+    isCustomized: resolvedCustomized,
+    updatedAt: raw.updatedAt ? String(raw.updatedAt) : null,
+    updatedBy: raw.updatedBy ? String(raw.updatedBy) : null,
+    effectiveEmail: resolvedEmail,
+    customized: resolvedCustomized,
+  };
 }
 
 /**
@@ -2906,5 +2918,17 @@ export async function updateCitizenCardEmailSetting(
     throw new Error(message);
   }
 
-  return (await res.json()) as CitizenCardEmailSettingResponse;
+  const raw = (await res.json()) as Record<string, unknown>;
+  const resolvedEmail = String(raw.email || raw.effectiveEmail || raw.defaultEmail || '');
+  const resolvedDefault = String(raw.defaultEmail || '');
+  const resolvedCustomized = Boolean(raw.isCustomized ?? raw.customized ?? false);
+  return {
+    email: resolvedEmail,
+    defaultEmail: resolvedDefault,
+    isCustomized: resolvedCustomized,
+    updatedAt: raw.updatedAt ? String(raw.updatedAt) : null,
+    updatedBy: raw.updatedBy ? String(raw.updatedBy) : null,
+    effectiveEmail: resolvedEmail,
+    customized: resolvedCustomized,
+  };
 }

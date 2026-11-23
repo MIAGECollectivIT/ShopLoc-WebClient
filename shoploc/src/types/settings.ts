@@ -1,10 +1,12 @@
 export interface CitizenCardEmailSettingResponse {
-  configuredEmail: string | null;
-  effectiveEmail: string;
+  email: string;
   defaultEmail: string;
-  customized: boolean;
+  isCustomized: boolean;
   updatedAt: string | null;
   updatedBy: string | null;
+  // Backward/forward compatibility aliases
+  effectiveEmail?: string;
+  customized?: boolean;
 }
 
 export interface CitizenCardEmailSettingUpdateRequest {
