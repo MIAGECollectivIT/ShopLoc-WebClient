@@ -12,6 +12,7 @@ import {
   reactivateStore,
 } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
+import { isValidRibOrIban } from '@/lib/validation/store';
 import { resolveStoreImageUrl } from '@/lib/image';
 import {
   Card,
@@ -391,8 +392,15 @@ export function AdminPartnerDetailView({
   const handleConfirmReactivateStore = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!storeToReactivate || (!storeToReactivate.id && !storeToReactivate.uid)) return;
-    if (!reactivateRib.trim()) {
+    const trimmedRib = reactivateRib.trim().toUpperCase();
+    if (!trimmedRib) {
       setReactivateError('Le nouveau RIB / IBAN est obligatoire pour réactiver le commerce.');
+      return;
+    }
+    if (!isValidRibOrIban(trimmedRib)) {
+      setReactivateError(
+        'Le format ou la clé algorithmique du RIB/IBAN est invalide (RIB français 23 car. ou IBAN valide).'
+      );
       return;
     }
 
@@ -401,14 +409,14 @@ export function AdminPartnerDetailView({
 
     const storeIdentifier = storeToReactivate.uid || storeToReactivate.id!;
     try {
-      const reactivated = await reactivateStore(storeIdentifier, reactivateRib.trim());
+      const reactivated = await reactivateStore(storeIdentifier, trimmedRib);
       setStores((prev) =>
         prev.map((s) =>
           s.id === storeToReactivate.id || (s.uid && s.uid === storeToReactivate.uid)
             ? {
                 ...s,
                 status: 'ACTIVE',
-                rib: reactivated.rib || reactivateRib.trim(),
+                rib: reactivated.rib || trimmedRib,
                 url: reactivated.url ?? s.url,
                 revokedAt: undefined,
                 revokedBy: undefined,
