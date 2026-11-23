@@ -84,7 +84,7 @@ export function AdminPartnerDetailView({
   const [isSubmittingStore, setIsSubmittingStore] = React.useState<boolean>(false);
   const [addStoreError, setAddStoreError] = React.useState<string | null>(null);
 
-  // Modal dialog state for editing partner profile (SLE-127)
+  // Modal dialog state for editing partner profile
   const [isEditPartnerOpen, setIsEditPartnerOpen] = React.useState<boolean>(false);
   const [editFirstName, setEditFirstName] = React.useState<string>(partner.firstName || '');
   const [editLastName, setEditLastName] = React.useState<string>(partner.lastName || '');
@@ -92,7 +92,7 @@ export function AdminPartnerDetailView({
   const [isSubmittingEdit, setIsSubmittingEdit] = React.useState<boolean>(false);
   const [editError, setEditError] = React.useState<string | null>(null);
 
-  // Modal dialog state for detaching/reassigning store (SLE-127)
+  // Modal dialog state for detaching/reassigning store
   const [isDesaffectOpen, setIsDesaffectOpen] = React.useState<boolean>(false);
   const [storeToDesaffect, setStoreToDesaffect] = React.useState<Store | null>(null);
   const [reassignPartners, setReassignPartners] = React.useState<AdminPartnerSummary[]>([]);
@@ -103,14 +103,14 @@ export function AdminPartnerDetailView({
   const [isSubmittingDesaffect, setIsSubmittingDesaffect] = React.useState<boolean>(false);
   const [desaffectError, setDesaffectError] = React.useState<string | null>(null);
 
-  // Modal dialog state for revoking partner store (SLE-70, SLE-257)
+  // Modal dialog state for revoking partner store
   const [isRevokeStoreOpen, setIsRevokeStoreOpen] = React.useState<boolean>(false);
   const [storeToRevoke, setStoreToRevoke] = React.useState<Store | null>(null);
   const [isSubmittingRevoke, setIsSubmittingRevoke] = React.useState<boolean>(false);
   const [revokeError, setRevokeError] = React.useState<string | null>(null);
   const [revokeSuccessMessage, setRevokeSuccessMessage] = React.useState<string | null>(null);
 
-  // Modal dialog state for reactivating partner store (SLE-70, SLE-263)
+  // Modal dialog state for reactivating partner store
   const [isReactivateStoreOpen, setIsReactivateStoreOpen] = React.useState<boolean>(false);
   const [storeToReactivate, setStoreToReactivate] = React.useState<Store | null>(null);
   const [reactivateRib, setReactivateRib] = React.useState<string>('');
@@ -234,7 +234,7 @@ export function AdminPartnerDetailView({
     }
   };
 
-  // Open dialog to edit partner coordinates (SLE-127)
+  // Open dialog to edit partner coordinates
   const handleOpenEditPartner = () => {
     setEditFirstName(currentPartner.firstName || '');
     setEditLastName(currentPartner.lastName || '');
@@ -243,7 +243,7 @@ export function AdminPartnerDetailView({
     setIsEditPartnerOpen(true);
   };
 
-  // Submit partner update (SLE-127)
+  // Submit partner update
   const handleConfirmEditPartner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editFirstName.trim() || !editLastName.trim() || !editBirthDate) {
@@ -890,7 +890,7 @@ export function AdminPartnerDetailView({
         )}
       </div>
 
-      {/* Dialog for editing partner details (SLE-127) */}
+      {/* Dialog for editing partner details */}
       <Dialog open={isEditPartnerOpen} onOpenChange={setIsEditPartnerOpen}>
         <DialogContent className="sm:max-w-md">
           <form onSubmit={handleConfirmEditPartner}>
@@ -1315,7 +1315,7 @@ export function AdminPartnerDetailView({
         </DialogContent>
       </Dialog>
 
-      {/* Modal Dialog for Revoking Store Partnership (SLE-70, SLE-257) */}
+      {/* Modal Dialog for Revoking Store Partnership */}
       <Dialog open={isRevokeStoreOpen} onOpenChange={setIsRevokeStoreOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -1404,7 +1404,7 @@ export function AdminPartnerDetailView({
         </DialogContent>
       </Dialog>
 
-      {/* Modal Dialog: Reactivate Partner Store (SLE-70, SLE-263) */}
+      {/* Modal Dialog: Reactivate Partner Store */}
       <Dialog open={isReactivateStoreOpen} onOpenChange={setIsReactivateStoreOpen}>
         <DialogContent className="max-w-md">
           <form onSubmit={handleConfirmReactivateStore}>

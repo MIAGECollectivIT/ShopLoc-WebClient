@@ -12,7 +12,7 @@ export interface StoreDirectoryViewProps {
 }
 
 /**
- * Interactive store directory component (SLE-216).
+ * Interactive store directory component.
  * Toolbar and states are strictly ISO to GlobalProductCatalog.
  */
 export function StoreDirectoryView({
@@ -123,7 +123,7 @@ export function StoreDirectoryView({
 
   return (
     <div className="space-y-6">
-      {/* Toolbar ISO to GlobalProductCatalog (SLE-215) */}
+      {/* Toolbar ISO to GlobalProductCatalog */}
       <StoreSearchBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -181,7 +181,7 @@ export function StoreDirectoryView({
           </Button>
         </div>
       ) : (
-        /* Responsive Store Grid (SLE-216) */
+        /* Responsive Store Grid */
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
           {sortedStores.map((store) => (
             <StoreCard key={store.uid || store.id || store.name} store={store} />

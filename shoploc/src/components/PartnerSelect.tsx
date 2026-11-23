@@ -23,7 +23,7 @@ interface PartnerSelectProps {
 }
 
 /**
- * Autocompletion dropdown component for searching and linking an existing partner account (SLE-87).
+ * Autocompletion dropdown component for searching and linking an existing partner account.
  * Implements real-time debounced query filtering across partner name, company, and email.
  */
 export function PartnerSelect({
@@ -223,7 +223,7 @@ export function PartnerSelect({
         </SelectContent>
       </Select>
 
-      {/* Helper text stating multi-store ownership business rule (SLE-69) */}
+      {/* Helper text stating multi-store ownership business rule */}
       <p className="text-[11px] text-muted-foreground">
         Règle ShopLoc : Un même compte partenaire peut être propriétaire de plusieurs
         établissements.

@@ -222,7 +222,7 @@ export function isValidHttpUrl(val?: string | null): boolean {
 }
 
 /**
- * Zod schema for store creation form validation (SLE-86).
+ * Zod schema for store creation form validation.
  * User-facing validation messages remain strictly in French.
  */
 export const createStoreZodSchema = z.object({
@@ -270,7 +270,7 @@ export const createStoreValidationSchema = createStoreZodSchema;
 export type CreateStoreFormData = z.infer<typeof createStoreZodSchema>;
 
 /**
- * Zod schemas for merchant store profile unit patch updates (SLE-54, SLE-247).
+ * Zod schemas for merchant store profile unit patch updates.
  */
 export const storeAddressPatchSchema = z.object({
   address: z

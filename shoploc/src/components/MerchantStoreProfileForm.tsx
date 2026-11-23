@@ -89,7 +89,7 @@ export function MerchantStoreProfileForm({
   const [photoSuccess, setPhotoSuccess] = React.useState<boolean>(false);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
-  // Section 4: Horaires d'ouverture State (Schéma interactif pré-rempli)
+  // Section 4: Opening Hours State (interactive prefilled schedule)
   const [schedule, setSchedule] = React.useState<DaySchedule[]>(() =>
     parseOpeningHours(store.openingHours)
   );
@@ -101,7 +101,7 @@ export function MerchantStoreProfileForm({
   const [hoursError, setHoursError] = React.useState<string | null>(null);
   const [hoursSuccess, setHoursSuccess] = React.useState<boolean>(false);
 
-  // Section 5: Périodes d'absence State (Liste modifiable d'absences)
+  // Section 5: Absence Periods State (editable list of absences)
   const [absencesList, setAbsencesList] = React.useState<StoreAbsence[]>(() => {
     if (store.absences && store.absences.length > 0) {
       return store.absences;
@@ -256,7 +256,7 @@ export function MerchantStoreProfileForm({
     }
   };
 
-  // Handle unit update: Photo de devanture
+  // Handle unit update: Storefront photo
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhotoError(null);
     setPhotoSuccess(false);
@@ -357,7 +357,7 @@ export function MerchantStoreProfileForm({
     setOpeningHoursText(formatOpeningHours(newSchedule));
   };
 
-  // Section 4 Handler: Enregistrer les horaires (Indépendant)
+  // Section 4 Handler: Save opening hours (standalone)
   const handleSaveHours = async (e: React.FormEvent) => {
     e.preventDefault();
     setHoursError(null);
@@ -405,7 +405,7 @@ export function MerchantStoreProfileForm({
       });
   }, [storeIdentifier]);
 
-  // Section 5 Handler: Ouvrir le formulaire d'ajout
+  // Section 5 Handler: Open add absence form
   const handleOpenAddAbsence = () => {
     setEditingAbsenceId(null);
     setFormStartDate('');
@@ -415,7 +415,7 @@ export function MerchantStoreProfileForm({
     setShowAbsenceForm(true);
   };
 
-  // Section 5 Handler: Modifier une absence existante
+  // Section 5 Handler: Edit existing absence
   const handleStartEditAbsence = (absence: StoreAbsence) => {
     setEditingAbsenceId(absence.id || null);
     setFormStartDate(absence.startDate ? absence.startDate.slice(0, 10) : '');
@@ -425,7 +425,7 @@ export function MerchantStoreProfileForm({
     setShowAbsenceForm(true);
   };
 
-  // Section 5 Handler: Annuler le formulaire
+  // Section 5 Handler: Cancel absence form
   const handleCancelAbsenceForm = () => {
     setShowAbsenceForm(false);
     setEditingAbsenceId(null);
@@ -435,7 +435,7 @@ export function MerchantStoreProfileForm({
     setAbsenceError(null);
   };
 
-  // Section 5 Handler: Enregistrer l'absence (Ajout ou Modification)
+  // Section 5 Handler: Save absence (Add or Edit)
   const handleSaveAbsenceForm = async (e: React.FormEvent) => {
     e.preventDefault();
     setAbsenceError(null);
@@ -492,7 +492,7 @@ export function MerchantStoreProfileForm({
     }
   };
 
-  // Section 5 Handler: Supprimer une absence individuelle
+  // Section 5 Handler: Delete single absence
   const handleDeleteOneAbsence = async (absenceId?: number) => {
     if (!storeIdentifier) return;
     if (!confirm("Êtes-vous sûr de vouloir supprimer cette période d'absence ?")) {
@@ -545,7 +545,7 @@ export function MerchantStoreProfileForm({
     <div className="space-y-6">
       {/* 2-Column Responsive Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Section 1: Informations Générales */}
+        {/* Section 1: General Information */}
         <Card className="border-border bg-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -613,7 +613,7 @@ export function MerchantStoreProfileForm({
           </form>
         </Card>
 
-        {/* Section 2: Adresse Postale */}
+        {/* Section 2: Postal Address */}
         <Card className="border-border bg-card">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -661,7 +661,7 @@ export function MerchantStoreProfileForm({
           </form>
         </Card>
 
-        {/* Section 3: Photo de Vitrine S3 */}
+        {/* Section 3: Storefront Image */}
         <Card className="border-border bg-card lg:col-span-2">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -743,7 +743,7 @@ export function MerchantStoreProfileForm({
           </form>
         </Card>
 
-        {/* Section 4: Horaires d'ouverture habituels (Indépendant avec grille pré-remplie) */}
+        {/* Section 4: Regular Opening Hours (standalone with prefilled grid) */}
         <Card className="border-border bg-card">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -904,7 +904,7 @@ export function MerchantStoreProfileForm({
           </form>
         </Card>
 
-        {/* Section 5: Périodes d'absence (Indépendant avec Consulter, Modifier, Supprimer) */}
+        {/* Section 5: Absence Periods (standalone with view, edit, delete) */}
         <Card className="border-border bg-card">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -956,7 +956,7 @@ export function MerchantStoreProfileForm({
               </div>
             )}
 
-            {/* Formulaire d'ajout / modification */}
+            {/* Add / Edit Form */}
             {showAbsenceForm && (
               <form
                 onSubmit={handleSaveAbsenceForm}
@@ -1064,7 +1064,7 @@ export function MerchantStoreProfileForm({
               </form>
             )}
 
-            {/* Liste des absences enregistrées */}
+            {/* Registered Absences List */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs text-muted-foreground font-medium pb-1">
                 <span>Absences enregistrées ({absencesList.length})</span>
@@ -1201,7 +1201,7 @@ export function MerchantStoreProfileForm({
         </Card>
       </div>
 
-      {/* Section 6: Chiffre d'Affaires Automatisé (Lecture seule) */}
+      {/* Section 6: Automated Turnover Metrics (Read-only) */}
       <Card className="border-border bg-card">
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1237,7 +1237,7 @@ export function MerchantStoreProfileForm({
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              {/* CA Mensuel */}
+              {/* Monthly Turnover */}
               <div className="p-4 rounded-xl bg-muted/30 border border-border/60 space-y-1">
                 <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   Mois en cours
@@ -1248,7 +1248,7 @@ export function MerchantStoreProfileForm({
                 <p className="text-[10px] text-muted-foreground">Ventes sur le mois civil actif</p>
               </div>
 
-              {/* CA Annuel */}
+              {/* Yearly Turnover */}
               <div className="p-4 rounded-xl bg-muted/30 border border-border/60 space-y-1">
                 <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   Année en cours
@@ -1259,7 +1259,7 @@ export function MerchantStoreProfileForm({
                 <p className="text-[10px] text-muted-foreground">Cumul sur l'année calendaire</p>
               </div>
 
-              {/* CA Total */}
+              {/* Total Turnover */}
               <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-1">
                 <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
                   Total Historique
@@ -1272,7 +1272,7 @@ export function MerchantStoreProfileForm({
                 </p>
               </div>
 
-              {/* Transactions complétées */}
+              {/* Completed Transactions */}
               <div className="p-4 rounded-xl bg-muted/30 border border-border/60 space-y-1">
                 <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   Transactions

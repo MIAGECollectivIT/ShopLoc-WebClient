@@ -280,7 +280,7 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
     setCategoryFilter('ALL');
   };
 
-  // Confirm Revocation (SLE-70)
+  // Confirm Revocation
   const handleConfirmRevoke = async () => {
     if (!revokingStore) return;
     const storeId = revokingStore.uid ?? revokingStore.id;
@@ -301,7 +301,7 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
     }
   };
 
-  // Confirm Reactivation (SLE-70)
+  // Confirm Reactivation
   const handleConfirmReactivate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reactivatingStore) return;
@@ -779,7 +779,7 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
         </Empty>
       )}
 
-      {/* Revocation Warning Dialog (SLE-70) */}
+      {/* Revocation Warning Dialog */}
       <Dialog open={!!revokingStore} onOpenChange={(open) => !open && setRevokingStore(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -830,7 +830,7 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Reactivation Dialog with new RIB (SLE-70) */}
+      {/* Reactivation Dialog with new RIB */}
       <Dialog
         open={!!reactivatingStore}
         onOpenChange={(open) => !open && setReactivatingStore(null)}

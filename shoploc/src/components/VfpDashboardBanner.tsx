@@ -8,7 +8,7 @@ import { Sparkles, CalendarClock, ArrowRight, TrendingUp } from 'lucide-react';
 
 /**
  * Dashboard indicator component showing VFP status, maintenance targets,
- * and countdown before status expiration for authenticated citizens (SLE-51 / SLE-240).
+ * and countdown before status expiration for authenticated citizens.
  */
 export function VfpDashboardBanner() {
   const { user, isAuthenticated, role } = useAuth();
@@ -42,7 +42,7 @@ export function VfpDashboardBanner() {
     return null;
   }
 
-  // Active VFP Customer Banner with Countdown (SLE-51 / SLE-240)
+  // Active VFP Customer Banner with Countdown
   if (progress.isVfp) {
     const days = progress.daysRemainingBeforeRevocation ?? 0;
     const hours = progress.hoursRemainingBeforeRevocation ?? 0;
@@ -102,7 +102,7 @@ export function VfpDashboardBanner() {
     );
   }
 
-  // Non-VFP Citizen: Progression indicator towards VFP threshold (SLE-51 / SLE-239)
+  // Non-VFP Citizen: Progression indicator towards VFP threshold
   const remaining = progress.remainingTransactionsToQualify;
   const current = progress.currentTransactionCount;
   const threshold = progress.threshold;

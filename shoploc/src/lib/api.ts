@@ -216,7 +216,7 @@ export async function getStores(includeRevoked: boolean = false): Promise<Store[
 }
 
 /**
- * Search and filter stores via /v1/stores/search (SLE-214, SLE-215).
+ * Search and filter stores via /v1/stores/search.
  * Supports name query and multiple category filters.
  */
 export async function searchStores(params?: {
@@ -254,7 +254,7 @@ export async function getStoreById(id: string | number): Promise<Store> {
 }
 
 /**
- * Revokes a partner store from the local animation program (SLE-70, SLE-255).
+ * Revokes a partner store from the local animation program.
  * Only accessible by ADMIN users.
  */
 export async function revokeStore(storeId: string | number): Promise<StoreResponse> {
@@ -286,7 +286,7 @@ export async function revokeStore(storeId: string | number): Promise<StoreRespon
 }
 
 /**
- * Reactivates a previously revoked partner store with a new valid RIB/IBAN (SLE-70, SLE-263).
+ * Reactivates a previously revoked partner store with a new valid RIB/IBAN.
  * Only accessible by ADMIN users.
  */
 export async function reactivateStore(
@@ -324,7 +324,7 @@ export async function reactivateStore(
 }
 
 /**
- * Retrieves the stores belonging to the currently authenticated merchant (anti-IDOR, SLE-70).
+ * Retrieves the stores belonging to the currently authenticated merchant (anti-IDOR).
  */
 export async function getMyStores(serverToken?: string): Promise<StoreResponse[]> {
   const endpoint = getApiEndpoint('/v1/stores/me');
@@ -345,7 +345,7 @@ export async function getMyStores(serverToken?: string): Promise<StoreResponse[]
 }
 
 /**
- * Retrieves registered partner accounts from users-service (SLE-87).
+ * Retrieves registered partner accounts from users-service.
  * Filters across name, company name, and email.
  */
 export async function getPartners(query?: string, limit: number = 20): Promise<PartnerAccount[]> {
@@ -373,7 +373,7 @@ export async function getPartners(query?: string, limit: number = 20): Promise<P
 }
 
 /**
- * Retrieves partner accounts for administrative management (SLE-126).
+ * Retrieves partner accounts for administrative management.
  * Restricted to administrators. Supports query filtering.
  */
 export async function getAdminPartners(
@@ -412,7 +412,7 @@ export async function getAdminPartners(
 }
 
 /**
- * Retrieves all registered users with multi-criteria filtering and pagination (SLE-68, SLE-252).
+ * Retrieves all registered users with multi-criteria filtering and pagination.
  * Restricted to administrators.
  */
 export async function getAdminUsers(params?: {
@@ -471,7 +471,7 @@ export async function getAdminUsers(params?: {
 }
 
 /**
- * Retrieves a specific user details by ID (SLE-68).
+ * Retrieves a specific user details by ID.
  */
 export async function getAdminUserById(id: string, authToken?: string): Promise<UserResponse> {
   const endpoint = getUsersApiEndpoint(`/v1/admin/users/${encodeURIComponent(id)}`);
@@ -497,7 +497,7 @@ export async function getAdminUserById(id: string, authToken?: string): Promise<
 }
 
 /**
- * Updates a user profile as administrator (SLE-68).
+ * Updates a user profile as administrator.
  */
 export async function updateAdminUser(
   id: string,
@@ -527,7 +527,7 @@ export async function updateAdminUser(
 }
 
 /**
- * Unlocks a temporarily locked user account (failed login attempts) (SLE-68).
+ * Unlocks a temporarily locked user account (failed login attempts).
  */
 export async function unlockAdminUser(id: string, authToken?: string): Promise<UserResponse> {
   const endpoint = getUsersApiEndpoint(`/v1/admin/users/${encodeURIComponent(id)}/unlock`);
@@ -551,7 +551,7 @@ export async function unlockAdminUser(id: string, authToken?: string): Promise<U
 }
 
 /**
- * Retrieves detailed administrative profile of a specific partner merchant (SLE-126).
+ * Retrieves detailed administrative profile of a specific partner merchant.
  * Returns partner details and associated store IDs.
  */
 export async function getAdminPartnerById(
@@ -585,7 +585,7 @@ export async function getAdminPartnerById(
 }
 
 /**
- * Associates an existing municipal store with a partner merchant (SLE-129 / SLE-126).
+ * Associates an existing municipal store with a partner merchant.
  */
 export async function addStoreToPartner(
   partnerId: string | number,
@@ -656,7 +656,7 @@ export interface AdminPartnerUpdateRequest {
 }
 
 /**
- * Updates identity and administrative profile of a partner merchant (SLE-127).
+ * Updates identity and administrative profile of a partner merchant.
  */
 export async function updateAdminPartner(
   partnerId: string | number,
@@ -707,7 +707,7 @@ function buildStoreMultipartFormData(payload: StoreCreateRequest, image: File): 
 }
 
 /**
- * Dispatches a store creation request to store-service /v1/stores (SLE-69, SLE-85).
+ * Dispatches a store creation request to store-service /v1/stores.
  * Supports JSON or multipart/form-data when an optional image file is uploaded.
  */
 export async function createStore(
@@ -752,7 +752,7 @@ export async function createStore(
 }
 
 /**
- * Partially updates store information (SLE-54, SLE-245).
+ * Partially updates store information.
  */
 export async function patchStore(
   storeId: string | number,
@@ -788,7 +788,7 @@ export async function patchStore(
 }
 
 /**
- * Récupère la liste des absences d'un commerce (SLE-54).
+ * Retrieves the list of absences for a store.
  */
 export async function getStoreAbsences(storeId: string | number): Promise<StoreAbsence[]> {
   const endpoint = getApiEndpoint(`/v1/stores/${storeId}/absences`);
@@ -810,7 +810,7 @@ export async function getStoreAbsences(storeId: string | number): Promise<StoreA
 }
 
 /**
- * Ajoute une absence à la liste d'un commerce (SLE-54).
+ * Adds an absence to a store schedule.
  */
 export async function addStoreAbsence(
   storeId: string | number,
@@ -845,7 +845,7 @@ export async function addStoreAbsence(
 }
 
 /**
- * Modifie une absence existante d'un commerce (SLE-54).
+ * Updates an existing store absence.
  */
 export async function updateStoreAbsence(
   storeId: string | number,
@@ -881,7 +881,7 @@ export async function updateStoreAbsence(
 }
 
 /**
- * Supprime une absence spécifique ou toutes les absences d'un commerce (SLE-54).
+ * Deletes a specific absence or all absences for a store.
  */
 export async function deleteStoreAbsence(
   storeId: string | number,
@@ -917,7 +917,7 @@ export async function deleteStoreAbsence(
 }
 
 /**
- * Updates a store's storefront image via S3 multipart endpoint (SLE-54, SLE-246).
+ * Updates a store's storefront image via S3 multipart endpoint.
  */
 export async function updateStoreImage(
   storeId: string | number,
@@ -955,7 +955,7 @@ export async function updateStoreImage(
 }
 
 /**
- * Retrieves automated turnover metrics generated by the ShopLoc application for a store (SLE-54).
+ * Retrieves automated turnover metrics generated by the ShopLoc application for a store.
  */
 export async function getStoreTurnover(storeId: string | number): Promise<StoreTurnoverResponse> {
   const endpoint = getApiEndpoint(`/v1/sales/stores/${storeId}/turnover`);
@@ -1206,7 +1206,7 @@ export async function updateUserProfile(
 
 /**
  * ==============================================================================
- * PRODUCT & CLICK & COLLECT CATALOG APIS (SLE-58, SLE-119, SLE-120, SLE-121, SLE-125)
+ * PRODUCT & CLICK & COLLECT CATALOG APIS
  * ==============================================================================
  */
 
@@ -1333,7 +1333,7 @@ export async function updateProduct(
 }
 
 /**
- * Uploads or updates a product image via S3 multipart endpoint PATCH /v1/stores/{storeId}/products/{productId}/image (SLE-143 & SLE-144).
+ * Uploads or updates a product image via S3 multipart endpoint PATCH /v1/stores/{storeId}/products/{productId}/image.
  */
 export async function updateProductImage(
   storeId: number | string,
@@ -1368,7 +1368,7 @@ export async function updateProductImage(
 }
 
 /**
- * Updates a product image with a direct URL via JSON endpoint PATCH /v1/stores/{storeId}/products/{productId}/image (SLE-143 & SLE-144).
+ * Updates a product image with a direct URL via JSON endpoint PATCH /v1/stores/{storeId}/products/{productId}/image.
  */
 export async function updateProductImageUrl(
   storeId: number | string,
@@ -1428,7 +1428,7 @@ export async function deleteProduct(
 }
 
 /**
- * Granularly adjusts product inventory stock via PATCH (SLE-121).
+ * Granularly adjusts product inventory stock via PATCH.
  */
 export async function updateProductStock(
   storeId: number | string,
@@ -1472,7 +1472,7 @@ export async function updateProductStock(
 
 /**
  * ==============================================================================
- * VEHICLES & LICENSE PLATES APIS (SLE-13)
+ * VEHICLES & LICENSE PLATES APIS
  * ==============================================================================
  */
 
@@ -1765,7 +1765,7 @@ export async function updateStoreLoyaltyRate(
 }
 
 /**
- * Retrieves the global public catalog of active loyalty gifts with optional filters (SLE-39 / SLE-223 / SLE-224).
+ * Retrieves the global public catalog of active loyalty gifts with optional filters.
  */
 export async function getPublicGifts(params?: {
   storeId?: number | string;
@@ -1797,7 +1797,7 @@ export async function getPublicGifts(params?: {
 }
 
 /**
- * Retrieves the list of loyalty gifts for a store (SLE-60 / SLE-192).
+ * Retrieves the list of loyalty gifts for a store.
  * By default returns active gifts. Set includeInactive to true to retrieve all gifts (for merchants/admins).
  */
 export async function getStoreGifts(
@@ -1822,7 +1822,7 @@ export async function getStoreGifts(
 }
 
 /**
- * Retrieves a single loyalty gift item (SLE-60 / SLE-192).
+ * Retrieves a single loyalty gift item.
  */
 export async function getStoreGiftById(
   storeId: number | string,
@@ -1848,7 +1848,7 @@ export async function getStoreGiftById(
 }
 
 /**
- * Creates a new gift in the store's loyalty catalog (JSON or Multipart with S3 image upload) (SLE-60 / SLE-192).
+ * Creates a new gift in the store's loyalty catalog (JSON or Multipart with S3 image upload).
  */
 export async function createGift(
   storeId: number | string,
@@ -1904,7 +1904,7 @@ export async function createGift(
 }
 
 /**
- * Updates an existing gift item (JSON or Multipart with S3 image upload) (SLE-60 / SLE-192).
+ * Updates an existing gift item (JSON or Multipart with S3 image upload).
  */
 export async function updateGift(
   storeId: number | string,
@@ -1961,7 +1961,7 @@ export async function updateGift(
 }
 
 /**
- * Adjusts the dedicated stock of a gift item (+/- delta) (SLE-60 / SLE-193).
+ * Adjusts the dedicated stock of a gift item (+/- delta).
  */
 export async function adjustGiftStock(
   storeId: number | string,
@@ -2000,7 +2000,7 @@ export async function adjustGiftStock(
 }
 
 /**
- * Deletes a gift item from the catalog (SLE-60 / SLE-192).
+ * Deletes a gift item from the catalog.
  */
 export async function deleteGift(storeId: number | string, giftId: number | string): Promise<void> {
   const resolvedStoreId = await resolveNumericStoreId(storeId);
@@ -2029,7 +2029,7 @@ export async function deleteGift(storeId: number | string, giftId: number | stri
 }
 
 /**
- * Retrieves the 15-day sliding window activity evaluation and VFP status for a user (SLE-44 / SLE-164).
+ * Retrieves the 15-day sliding window activity evaluation and VFP status for a user.
  * Restricted to the user themselves or administrators.
  */
 export async function getUserActivityEvaluation(
@@ -2067,7 +2067,7 @@ export async function getUserActivityEvaluation(
 }
 
 /**
- * Retrieves the Very Faithful Person (VFP) qualification status and metrics for a user (SLE-45 / SLE-204).
+ * Retrieves the Very Faithful Person (VFP) qualification status and metrics for a user.
  * Restricted to the user themselves or administrators.
  */
 export async function getUserVfpStatus(userId: string | number): Promise<UserVfpStatus> {
@@ -2103,7 +2103,7 @@ export async function getUserVfpStatus(userId: string | number): Promise<UserVfp
 }
 
 /**
- * Retrieves a customer's VFP progression metrics, maintenance requirements, and revocation countdown (SLE-51 / SLE-238).
+ * Retrieves a customer's VFP progression metrics, maintenance requirements, and revocation countdown.
  * Restricted to the user themselves or administrators.
  */
 export async function getUserVfpProgress(userId: string | number): Promise<UserVfpProgress> {
@@ -2139,7 +2139,7 @@ export async function getUserVfpProgress(userId: string | number): Promise<UserV
 }
 
 /**
- * Extracts a user's approved payment transactions within a date range (SLE-51 / SLE-238 / SLE-240).
+ * Extracts a user's approved payment transactions within a date range.
  */
 export async function getUserPaymentTransactions(
   userId: string | number,
@@ -2176,7 +2176,7 @@ export async function getUserPaymentTransactions(
 }
 
 /**
- * Fetches a customer's loyalty points balance and movement history (SLE-38 / SLE-176 / SLE-177 / SLE-178).
+ * Fetches a customer's loyalty points balance and movement history.
  */
 export async function getUserPointsBalance(
   userId?: string | number,
@@ -2325,7 +2325,7 @@ export async function getPaymentByReference(
 }
 
 /**
- * Identifies a customer by their 7-character loyalty code or scanned QR code (SLE-56).
+ * Identifies a customer by their 7-character loyalty code or scanned QR code.
  * Restricted to authenticated merchants and administrators.
  * Returns masked customer profile (GDPR compliant).
  */
@@ -2631,7 +2631,7 @@ export function triggerBlobDownload(blob: Blob, filename: string): void {
 }
 
 // ============================================================================
-// Digital Wallet API (SLE-15, SLE-17, SLE-18)
+// Digital Wallet API
 // ============================================================================
 
 import type {
@@ -2642,7 +2642,7 @@ import type {
 } from '@/types/wallet';
 
 /**
- * Retrieves the citizen's real-time wallet balance (SLE-17).
+ * Retrieves the citizen's real-time wallet balance.
  */
 export async function getWallet(token?: string): Promise<Wallet> {
   const authToken = token || getAuthToken();
@@ -2672,7 +2672,7 @@ export async function getWallet(token?: string): Promise<Wallet> {
 }
 
 /**
- * Reloads the citizen's wallet with a custom amount between 5.00 € and 100.00 € via bank gateway (SLE-15).
+ * Reloads the citizen's wallet with a custom amount between 5.00 € and 100.00 € via bank gateway.
  * Supports automatic client-generated idempotency key to prevent double charge on retries.
  */
 export async function reloadWallet(
@@ -2726,7 +2726,7 @@ export async function reloadWallet(
 }
 
 /**
- * Retrieves the ordered transaction history (newest to oldest) of the citizen's wallet (SLE-18).
+ * Retrieves the ordered transaction history (newest to oldest) of the citizen's wallet.
  */
 export async function getWalletTransactions(token?: string): Promise<WalletTransaction[]> {
   const authToken = token || getAuthToken();
@@ -2756,7 +2756,7 @@ export async function getWalletTransactions(token?: string): Promise<WalletTrans
 }
 
 /**
- * Debits the citizen's wallet for a purchase (SLE-18).
+ * Debits the citizen's wallet for a purchase.
  */
 export async function debitWallet(request: WalletDebitRequest, token?: string): Promise<Wallet> {
   const authToken = token || getAuthToken();

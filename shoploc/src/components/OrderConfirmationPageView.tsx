@@ -373,7 +373,7 @@ export function OrderConfirmationPageView({
             </p>
           )}
 
-          {/* Email notice & proof of purchase / invoice (SLE-21) */}
+          {/* Email notice & proof of purchase / invoice */}
           <div className="mt-4 p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 text-left flex items-start gap-3">
             <Mail className="size-4 mt-0.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <div className="space-y-1">

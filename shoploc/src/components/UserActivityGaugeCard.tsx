@@ -67,7 +67,7 @@ export function UserActivityGaugeCard({
       try {
         setError(null);
 
-        // Fetch consolidated VFP progress from Loyalty Service (SLE-51 / SLE-238)
+        // Fetch consolidated VFP progress from Loyalty Service
         const [progressData, evalData, statusData] = await Promise.all([
           getUserVfpProgress(userId).catch(() => null),
           getUserActivityEvaluation(userId).catch(() => null),
@@ -265,7 +265,7 @@ export function UserActivityGaugeCard({
               </CardTitle>
             </div>
             <CardDescription className="text-xs">
-              Évaluation dynamique de vos achats sur fenêtre glissante de 15 jours (SLE-51).
+              Évaluation dynamique de vos achats sur fenêtre glissante de 15 jours.
             </CardDescription>
           </div>
 
@@ -349,7 +349,7 @@ export function UserActivityGaugeCard({
                 </p>
               )}
 
-              {/* Maintenance requirement indicator (SLE-51 / Critère d'acceptation 2) */}
+              {/* Maintenance requirement indicator */}
               {remainingToMaintain > 0 && (
                 <div className="flex items-start gap-2 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-950 dark:text-emerald-200 text-xs">
                   <CheckCircle2 className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
@@ -369,7 +369,7 @@ export function UserActivityGaugeCard({
                 </div>
               )}
 
-              {/* Revocation countdown indicator (SLE-51 / Critère d'acceptation 3) */}
+              {/* Revocation countdown indicator */}
               {revocationForecast ? (
                 <div className="p-2.5 rounded-lg border bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-200 text-xs space-y-1.5">
                   <div className="flex items-center justify-between font-semibold">
@@ -402,7 +402,7 @@ export function UserActivityGaugeCard({
             </div>
           ) : (
             <div className="space-y-1.5">
-              {/* Non-VFP progression counter (SLE-51 / Critère d'acceptation 1) */}
+              {/* Non-VFP progression counter */}
               <div className="flex items-start gap-2 p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-xs">
                 <TrendingUp className="size-4 shrink-0 text-primary mt-0.5" />
                 <div className="space-y-0.5">
