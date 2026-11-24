@@ -331,12 +331,83 @@ function StoreImageUploadField({
   );
 }
 
+export type StoreFormMode = 'create' | 'edit' | 'reactivate';
+
 export interface StoreFormProps {
-  mode?: 'create' | 'edit' | 'reactivate';
+  mode?: StoreFormMode;
   initialStore?: StoreType | StoreResponse | null;
   onSuccess?: (store: StoreResponse) => void;
   onCancel?: () => void;
   isDialog?: boolean;
+}
+
+const STORE_FORM_MODE_CONFIG: Record<
+  StoreFormMode,
+  {
+    dialogTitle: string;
+    cardTitle: string;
+    cardDescription: string;
+    submitLabel: string;
+    submittingLabel: string;
+    fallbackError: string;
+  }
+> = {
+  create: {
+    dialogTitle: 'Créer un nouvel établissement',
+    cardTitle: 'Créer un nouvel établissement',
+    cardDescription:
+      'Renseignez les informations du commerce et associez-le obligatoirement à un compte partenaire préexistant.',
+    submitLabel: "Enregistrer l'établissement",
+    submittingLabel: 'Création en cours...',
+    fallbackError: "Une erreur inattendue est survenue lors de la création de l'établissement.",
+  },
+  edit: {
+    dialogTitle: 'Modifier le commerce partenaire',
+    cardTitle: "Modifier l'établissement",
+    cardDescription: 'Mettez à jour les coordonnées du commerce et ses paramètres.',
+    submitLabel: 'Enregistrer les modifications',
+    submittingLabel: 'Enregistrement...',
+    fallbackError: 'Une erreur est survenue lors de la mise à jour du commerce.',
+  },
+  reactivate: {
+    dialogTitle: 'Réactiver le commerce partenaire',
+    cardTitle: 'Réactiver le commerce partenaire',
+    cardDescription: 'Affectez un partenaire et saisissez un RIB/IBAN conventionnel valide.',
+    submitLabel: 'Confirmer la réactivation',
+    submittingLabel: 'Réactivation en cours...',
+    fallbackError: 'Une erreur est survenue lors de la réactivation du commerce.',
+  },
+};
+
+function buildStoreFormDefaults(store?: StoreType | StoreResponse | null): CreateStoreFormData {
+  return {
+    name: store?.name || '',
+    category: store?.category || '',
+    address: store?.address || '',
+    url: store?.url || '',
+    rib: store?.rib && store.rib !== 'REVOKED' ? store.rib : '',
+    ownerUid: store?.ownerUid || '',
+  };
+}
+
+function buildStorePatchPayload(values: CreateStoreFormData): StorePatchRequest {
+  return {
+    name: values.name.trim(),
+    category: values.category.trim(),
+    address: values.address.trim(),
+    url: values.url?.trim() || undefined,
+    rib: cleanRibOrIban(values.rib),
+    ownerUid: values.ownerUid ? values.ownerUid : undefined,
+  };
+}
+
+async function uploadStoreImageSafe(storeId: string, imageFile: File | null): Promise<void> {
+  if (!imageFile) return;
+  try {
+    await updateStoreImage(storeId, imageFile);
+  } catch (imgErr) {
+    console.warn("Échec du téléversement de l'image:", imgErr);
+  }
 }
 
 /**
@@ -353,6 +424,7 @@ export function StoreForm({
 }: StoreFormProps) {
   const isEditing = mode === 'edit';
   const isReactivating = mode === 'reactivate';
+  const modeConfig = STORE_FORM_MODE_CONFIG[mode];
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [createdStore, setCreatedStore] = React.useState<StoreResponse | null>(null);
 
@@ -386,14 +458,7 @@ export function StoreForm({
     formState: { errors, isSubmitting, isValid },
   } = useForm<CreateStoreFormData>({
     resolver: zodResolver(createStoreZodSchema),
-    defaultValues: {
-      name: initialStore?.name || '',
-      category: initialStore?.category || '',
-      address: initialStore?.address || '',
-      url: initialStore?.url || '',
-      rib: initialStore?.rib && initialStore.rib !== 'REVOKED' ? initialStore.rib : '',
-      ownerUid: initialStore?.ownerUid || '',
-    },
+    defaultValues: buildStoreFormDefaults(initialStore),
     mode: 'onChange',
   });
 
@@ -408,14 +473,7 @@ export function StoreForm({
 
   React.useEffect(() => {
     if (initialStore) {
-      reset({
-        name: initialStore.name || '',
-        category: initialStore.category || '',
-        address: initialStore.address || '',
-        url: initialStore.url || '',
-        rib: initialStore.rib && initialStore.rib !== 'REVOKED' ? initialStore.rib : '',
-        ownerUid: initialStore.ownerUid || '',
-      });
+      reset(buildStoreFormDefaults(initialStore));
     } else if (isMerchant && currentUser?.id) {
       setValue('ownerUid', currentUser.id, { shouldValidate: true, shouldDirty: true });
     }
@@ -424,63 +482,24 @@ export function StoreForm({
   const onSubmit = async (values: CreateStoreFormData) => {
     setErrorMessage(null);
     try {
-      if (isReactivating && initialStore) {
+      if ((isReactivating || isEditing) && initialStore) {
         const storeId = initialStore.uid || String(initialStore.id);
         const cleanedRib = cleanRibOrIban(values.rib);
-        let response = await reactivateStore(storeId, cleanedRib, values.ownerUid);
 
-        // Apply any additional field edits after reactivation
-        const patchPayload: StorePatchRequest = {
-          name: values.name.trim(),
-          category: values.category.trim(),
-          address: values.address.trim(),
-          url: values.url?.trim() || undefined,
-          rib: cleanedRib,
-          ownerUid: values.ownerUid ? values.ownerUid : undefined,
-        };
-        response = await patchStore(storeId, patchPayload);
+        if (isReactivating) {
+          await reactivateStore(storeId, cleanedRib, values.ownerUid);
+        }
 
-        if (values.ownerUid) {
+        const response = await patchStore(storeId, buildStorePatchPayload(values));
+
+        if (values.ownerUid && (isReactivating || values.ownerUid !== initialStore.ownerUid)) {
           try {
             await addStoreToPartner(values.ownerUid, storeId);
           } catch {
             // best-effort sync
           }
         }
-        if (imageFile) {
-          try {
-            await updateStoreImage(storeId, imageFile);
-          } catch (imgErr) {
-            console.warn("Échec du téléversement de l'image:", imgErr);
-          }
-        }
-        onSuccess?.(response);
-      } else if (isEditing && initialStore) {
-        const storeId = initialStore.uid || String(initialStore.id);
-        const patchPayload: StorePatchRequest = {
-          name: values.name.trim(),
-          category: values.category.trim(),
-          address: values.address.trim(),
-          url: values.url?.trim() || undefined,
-          rib: cleanRibOrIban(values.rib),
-          ownerUid: values.ownerUid ? values.ownerUid : undefined,
-        };
-
-        const response = await patchStore(storeId, patchPayload);
-        if (values.ownerUid && values.ownerUid !== initialStore.ownerUid) {
-          try {
-            await addStoreToPartner(values.ownerUid, storeId);
-          } catch {
-            // best-effort sync
-          }
-        }
-        if (imageFile) {
-          try {
-            await updateStoreImage(storeId, imageFile);
-          } catch (imgErr) {
-            console.warn("Échec du téléversement de l'image:", imgErr);
-          }
-        }
+        await uploadStoreImageSafe(storeId, imageFile);
         onSuccess?.(response);
       } else {
         const payload = {
@@ -495,14 +514,7 @@ export function StoreForm({
         };
 
         const response = await createStore(payload);
-        if (imageFile) {
-          try {
-            const storeId = response.uid || String(response.id);
-            await updateStoreImage(storeId, imageFile);
-          } catch (imgErr) {
-            console.warn("Échec du téléversement de l'image:", imgErr);
-          }
-        }
+        await uploadStoreImageSafe(response.uid || String(response.id), imageFile);
         if (onSuccess) {
           onSuccess(response);
         } else {
@@ -510,15 +522,7 @@ export function StoreForm({
         }
       }
     } catch (err: unknown) {
-      setErrorMessage(
-        err instanceof Error
-          ? err.message
-          : isReactivating
-            ? 'Une erreur est survenue lors de la réactivation du commerce.'
-            : isEditing
-              ? 'Une erreur est survenue lors de la mise à jour du commerce.'
-              : "Une erreur inattendue est survenue lors de la création de l'établissement."
-      );
+      setErrorMessage(err instanceof Error ? err.message : modeConfig.fallbackError);
     }
   };
 
@@ -717,13 +721,7 @@ export function StoreForm({
             ) : (
               <Store className="size-4 text-primary" />
             )}
-            <span>
-              {isReactivating
-                ? 'Réactiver le commerce partenaire'
-                : isEditing
-                  ? 'Modifier le commerce partenaire'
-                  : 'Créer un nouvel établissement'}
-            </span>
+            <span>{modeConfig.dialogTitle}</span>
           </DialogTitle>
           <DialogDescription>
             {isReactivating
@@ -752,22 +750,10 @@ export function StoreForm({
             {isSubmitting ? (
               <>
                 <Loader2 className="size-4 animate-spin mr-1.5" />
-                <span>
-                  {isReactivating
-                    ? 'Réactivation en cours...'
-                    : isEditing
-                      ? 'Enregistrement...'
-                      : 'Création en cours...'}
-                </span>
+                <span>{modeConfig.submittingLabel}</span>
               </>
             ) : (
-              <span>
-                {isReactivating
-                  ? 'Confirmer la réactivation'
-                  : isEditing
-                    ? 'Enregistrer les modifications'
-                    : "Enregistrer l'établissement"}
-              </span>
+              <span>{modeConfig.submitLabel}</span>
             )}
           </Button>
         </DialogFooter>

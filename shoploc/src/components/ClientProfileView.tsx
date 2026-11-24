@@ -11,6 +11,7 @@ import {
 } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 import { formatPoints } from '@/lib/format';
+import { UUID_REGEX } from '@/lib/validation/store';
 import type { UserResponse } from '@/types/user';
 import type { UserPointsBalanceResponse, UserVfpStatus } from '@/types/loyalty';
 import { ClientQrCodeCard } from './ClientQrCodeCard';
@@ -66,12 +67,13 @@ export function ClientProfileView({ targetUserId: propTargetUserId }: ClientProf
   }, []);
 
   const queryUserId = React.useMemo(() => {
-    if (propTargetUserId) return String(propTargetUserId);
-    if (typeof window !== 'undefined') {
-      const param = new URLSearchParams(window.location.search).get('userId');
-      if (param) return param;
-    }
-    return undefined;
+    const raw =
+      propTargetUserId ||
+      (typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('userId')
+        : null);
+    const trimmed = raw != null ? String(raw).trim() : undefined;
+    return trimmed && UUID_REGEX.test(trimmed) ? trimmed : undefined;
   }, [propTargetUserId, mounted]);
 
   const isAdminConsultation = Boolean(

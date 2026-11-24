@@ -1,4 +1,6 @@
 import * as React from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Dialog,
   DialogContent,
@@ -13,6 +15,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, MapPin, Loader2, Check, AlertCircle } from 'lucide-react';
 import { updateUserProfile } from '@/lib/api';
+import {
+  userProfileUpdateSchema,
+  type UserProfileUpdateFormData,
+} from '@/lib/validation/userProfile';
 import type { UserResponse, UserRole } from '@/types/user';
 
 export interface EditableProfileUser {
@@ -36,9 +42,19 @@ export interface UserProfileEditDialogProps {
   onSuccess?: (updatedUser: UserResponse) => void;
 }
 
+function buildProfileDefaults(user: EditableProfileUser | null): UserProfileUpdateFormData {
+  return {
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    pickupLocation: user?.pickupLocation || '',
+    birthDate: user?.birthDate ? user.birthDate.slice(0, 10) : '',
+  };
+}
+
 /**
  * Shared profile edit modal used both in the sidebar ("Modifier mes informations")
  * and in the admin users supervision table ("Modifier l'utilisateur").
+ * Enforces runtime Zod validation and cleans up pending timers on unmount.
  */
 export function UserProfileEditDialog({
   open,
@@ -49,51 +65,52 @@ export function UserProfileEditDialog({
   description,
   onSuccess,
 }: UserProfileEditDialogProps) {
-  const [profileForm, setProfileForm] = React.useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    pickupLocation: '',
-    birthDate: '',
-  });
-
-  const [isSavingProfile, setIsSavingProfile] = React.useState(false);
   const [profileSuccessMsg, setProfileSuccessMsg] = React.useState<string | null>(null);
   const [profileErrorMsg, setProfileErrorMsg] = React.useState<string | null>(null);
+  const closeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<UserProfileUpdateFormData>({
+    resolver: zodResolver(userProfileUpdateSchema),
+    defaultValues: buildProfileDefaults(user),
+    mode: 'onChange',
+  });
 
   React.useEffect(() => {
-    if (user && open) {
-      setProfileForm({
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        email: user.email || '',
-        pickupLocation: user.pickupLocation || '',
-        birthDate: user.birthDate ? user.birthDate.slice(0, 10) : '',
-      });
+    if (open) {
+      reset(buildProfileDefaults(user));
       setProfileErrorMsg(null);
       setProfileSuccessMsg(null);
     }
-  }, [user, open]);
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+    };
+  }, [user, open, reset]);
 
-  const handleSaveProfile = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const onSubmit = async (values: UserProfileUpdateFormData) => {
     if (!user?.id) return;
 
-    setIsSavingProfile(true);
     setProfileSuccessMsg(null);
     setProfileErrorMsg(null);
 
     try {
       const updated = await updateUserProfile(user.id, {
-        firstName: profileForm.firstName.trim() || undefined,
-        lastName: profileForm.lastName.trim() || undefined,
-        pickupLocation: profileForm.pickupLocation.trim() || undefined,
-        birthDate: profileForm.birthDate.trim() || undefined,
+        firstName: values.firstName.trim(),
+        lastName: values.lastName.trim(),
+        pickupLocation: values.pickupLocation?.trim() || undefined,
+        birthDate: values.birthDate.trim(),
       });
 
       setProfileSuccessMsg('Profil mis à jour avec succès !');
       onSuccess?.(updated);
-      setTimeout(() => {
+      closeTimerRef.current = setTimeout(() => {
         setProfileSuccessMsg(null);
         onOpenChange(false);
       }, 900);
@@ -101,8 +118,6 @@ export function UserProfileEditDialog({
       setProfileErrorMsg(
         err instanceof Error ? err.message : 'Erreur lors de la mise à jour du profil.'
       );
-    } finally {
-      setIsSavingProfile(false);
     }
   };
 
@@ -156,7 +171,7 @@ export function UserProfileEditDialog({
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSaveProfile} className="space-y-4 py-2">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2" noValidate>
             <div className="flex items-center gap-4 p-3 rounded-lg border bg-muted/40">
               <Avatar size="lg" className="border">
                 <AvatarFallback className="bg-primary text-primary-foreground font-semibold text-xs">
@@ -181,24 +196,28 @@ export function UserProfileEditDialog({
                 <Label htmlFor="prof-firstname">Prénom</Label>
                 <Input
                   id="prof-firstname"
-                  value={profileForm.firstName}
-                  onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
                   placeholder="Prénom"
-                  disabled={isSavingProfile}
-                  required
+                  disabled={isSubmitting}
+                  className={errors.firstName ? 'border-destructive' : ''}
+                  {...register('firstName')}
                 />
+                {errors.firstName && (
+                  <p className="text-destructive text-xs">{errors.firstName.message}</p>
+                )}
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="prof-lastname">Nom</Label>
                 <Input
                   id="prof-lastname"
-                  value={profileForm.lastName}
-                  onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
                   placeholder="Nom"
-                  disabled={isSavingProfile}
-                  required
+                  disabled={isSubmitting}
+                  className={errors.lastName ? 'border-destructive' : ''}
+                  {...register('lastName')}
                 />
+                {errors.lastName && (
+                  <p className="text-destructive text-xs">{errors.lastName.message}</p>
+                )}
               </div>
             </div>
 
@@ -207,7 +226,7 @@ export function UserProfileEditDialog({
               <Input
                 id="prof-email"
                 type="email"
-                value={profileForm.email}
+                value={user?.email || ''}
                 disabled
                 className="bg-muted/50 cursor-not-allowed"
               />
@@ -219,15 +238,15 @@ export function UserProfileEditDialog({
                 <MapPin className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
                 <Input
                   id="prof-pickup"
-                  className="pl-9"
-                  value={profileForm.pickupLocation}
-                  onChange={(e) =>
-                    setProfileForm({ ...profileForm, pickupLocation: e.target.value })
-                  }
+                  className={errors.pickupLocation ? 'pl-9 border-destructive' : 'pl-9'}
                   placeholder="Ex. Mairie Centrale, 1 Place de la Mairie"
-                  disabled={isSavingProfile}
+                  disabled={isSubmitting}
+                  {...register('pickupLocation')}
                 />
               </div>
+              {errors.pickupLocation && (
+                <p className="text-destructive text-xs">{errors.pickupLocation.message}</p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -235,11 +254,13 @@ export function UserProfileEditDialog({
               <Input
                 id="prof-birthdate"
                 type="date"
-                value={profileForm.birthDate}
-                onChange={(e) => setProfileForm({ ...profileForm, birthDate: e.target.value })}
-                disabled={isSavingProfile}
-                required
+                disabled={isSubmitting}
+                className={errors.birthDate ? 'border-destructive' : ''}
+                {...register('birthDate')}
               />
+              {errors.birthDate && (
+                <p className="text-destructive text-xs">{errors.birthDate.message}</p>
+              )}
             </div>
 
             {profileErrorMsg && (
@@ -261,12 +282,12 @@ export function UserProfileEditDialog({
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                disabled={isSavingProfile}
+                disabled={isSubmitting}
               >
                 Fermer
               </Button>
-              <Button type="submit" disabled={isSavingProfile}>
-                {isSavingProfile && <Loader2 className="size-4 mr-2 animate-spin" />}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting && <Loader2 className="size-4 mr-2 animate-spin" />}
                 Enregistrer les modifications
               </Button>
             </DialogFooter>
