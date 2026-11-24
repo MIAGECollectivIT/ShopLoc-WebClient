@@ -1,23 +1,19 @@
 import * as React from 'react';
-import type { Store as StoreType, StorePatchRequest } from '@/types/store';
+import type { Store as StoreType } from '@/types/store';
 import type { AdminPartnerSummary } from '@/types/partner';
 import type { UserResponse } from '@/types/user';
 import {
   getStores,
   revokeStore,
   reactivateStore,
-  patchStore,
   getAdminPartners,
-  addStoreToPartner,
   getAdminUserById,
+  addStoreToPartner,
 } from '@/lib/api';
-import {
-  adminStoreEditSchema,
-  type AdminStoreEditFormValues,
-  STORE_CATEGORIES,
-  isValidRibOrIban,
-} from '@/lib/validation/store';
+import { isValidRibOrIban } from '@/lib/validation/store';
 import { PartnerSelect } from '@/components/PartnerSelect';
+import { StoreForm } from '@/components/CreateStoreForm';
+import { RibInputField } from '@/components/RibInputField';
 import { ROUTES } from '@/config/routes';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -48,7 +44,6 @@ import {
   X,
   RefreshCw,
   AlertCircle,
-  Clock,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -117,14 +112,6 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
 
   // Edit Store Dialog State
   const [editingStore, setEditingStore] = React.useState<StoreType | null>(null);
-  const [editFormData, setEditFormData] = React.useState<AdminStoreEditFormValues>({
-    name: '',
-    category: '',
-    url: '',
-    ownerUid: '',
-  });
-  const [editFormErrors, setEditFormErrors] = React.useState<Record<string, string>>({});
-  const [isSubmittingEdit, setIsSubmittingEdit] = React.useState(false);
 
   // Partner merchants list (for owner resolution and reassignment)
   const [partners, setPartners] = React.useState<AdminPartnerSummary[]>([]);
@@ -257,9 +244,6 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
       if (statusFilter === 'REVOKED' && store.status !== 'REVOKED') {
         return false;
       }
-      if (statusFilter === 'ABSENT' && !store.isCurrentlyAbsent) {
-        return false;
-      }
 
       // Category filter
       if (categoryFilter !== 'ALL' && store.category !== categoryFilter) {
@@ -361,71 +345,6 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
   // Open Store Edit Dialog
   const handleOpenEdit = (store: StoreType) => {
     setEditingStore(store);
-    setEditFormData({
-      name: store.name || '',
-      category: store.category || '',
-      url: store.url || '',
-      ownerUid: store.ownerUid || '',
-    });
-    setEditFormErrors({});
-  };
-
-  // Submit Store Edit Form
-  const handleSubmitEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingStore) return;
-
-    const validationResult = adminStoreEditSchema.safeParse(editFormData);
-    if (!validationResult.success) {
-      const errors: Record<string, string> = {};
-      validationResult.error.issues.forEach((err) => {
-        if (err.path[0]) {
-          errors[err.path[0].toString()] = err.message;
-        }
-      });
-      setEditFormErrors(errors);
-      return;
-    }
-
-    const storeUid = editingStore.uid;
-    if (!storeUid) return;
-
-    setIsSubmittingEdit(true);
-    setEditFormErrors({});
-    try {
-      const newOwnerUid = validationResult.data.ownerUid || undefined;
-      const patchPayload: StorePatchRequest = {
-        name: validationResult.data.name,
-        category: validationResult.data.category,
-        url: validationResult.data.url ? validationResult.data.url : undefined,
-        ownerUid: newOwnerUid,
-      };
-      await patchStore(storeUid, patchPayload);
-
-      // If owner was changed, sync partner link
-      if (newOwnerUid && newOwnerUid !== editingStore.ownerUid) {
-        try {
-          await addStoreToPartner(newOwnerUid, storeUid);
-        } catch {
-          // best-effort sync
-        }
-      }
-
-      setActionSuccessMessage(
-        `Le commerce "${validationResult.data.name}" a été mis à jour avec succès.`
-      );
-      setEditingStore(null);
-      await fetchStores();
-    } catch (err: unknown) {
-      setEditFormErrors({
-        root:
-          err instanceof Error
-            ? err.message
-            : 'Erreur lors de la mise à jour des informations du commerce.',
-      });
-    } finally {
-      setIsSubmittingEdit(false);
-    }
   };
 
   return (
@@ -485,7 +404,6 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
               <option value="ALL">Tous les statuts</option>
               <option value="ACTIVE">Actifs uniquement</option>
               <option value="REVOKED">Révoqués uniquement</option>
-              <option value="ABSENT">En congé / absence</option>
             </select>
           </div>
 
@@ -651,15 +569,6 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
                             className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] uppercase font-semibold"
                           >
                             Actif
-                          </Badge>
-                        )}
-                        {store.isCurrentlyAbsent && (
-                          <Badge
-                            variant="destructive"
-                            className="bg-amber-600 text-[9px] uppercase font-semibold flex items-center gap-1"
-                          >
-                            <Clock className="size-2.5" />
-                            En absence
                           </Badge>
                         )}
                       </div>
@@ -907,20 +816,17 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
               </p>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Nouveau RIB ou IBAN conventionnel</label>
-              <Input
-                type="text"
-                placeholder="FR7630006000011234567890189"
-                value={reactivateRib}
-                onChange={(e) => setReactivateRib(e.target.value)}
-                className="font-mono text-xs uppercase"
-                disabled={isSubmittingReactivate}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                L&apos;établissement réintégrera immédiatement l&apos;annuaire public actif.
-              </p>
-            </div>
+            <RibInputField
+              id="reactivate-rib"
+              label="Nouveau RIB ou IBAN conventionnel"
+              value={reactivateRib}
+              onChange={(val) => {
+                setReactivateRib(val);
+                setReactivateRibError(null);
+              }}
+              error={reactivateRibError || undefined}
+              disabled={isSubmittingReactivate}
+            />
 
             <DialogFooter className="pt-4">
               <Button
@@ -945,123 +851,24 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Store Dialog */}
+      {/* Edit Store Dialog using unified StoreForm */}
       <Dialog open={!!editingStore} onOpenChange={(open) => !open && setEditingStore(null)}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-foreground">
-              <Edit className="size-4 text-primary" />
-              Modifier le commerce partenaire
-            </DialogTitle>
-            <DialogDescription>
-              Mise à jour des informations administratives et coordonnées de{' '}
-              <strong className="text-foreground">{editingStore?.name}</strong>.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSubmitEdit} className="space-y-4 py-2">
-            {editFormErrors.root && (
-              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-xs">
-                {editFormErrors.root}
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Nom de l&apos;établissement</label>
-              <Input
-                type="text"
-                value={editFormData.name}
-                onChange={(e) => setEditFormData((prev) => ({ ...prev, name: e.target.value }))}
-                disabled={isSubmittingEdit}
-                placeholder="ex: Boulangerie Moderne"
-              />
-              {editFormErrors.name && (
-                <p className="text-destructive text-xs">{editFormErrors.name}</p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Catégorie d&apos;activité</label>
-              <select
-                value={editFormData.category}
-                onChange={(e) => setEditFormData((prev) => ({ ...prev, category: e.target.value }))}
-                disabled={isSubmittingEdit}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="">Sélectionnez une catégorie...</option>
-                {STORE_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-                {editFormData.category &&
-                  !(STORE_CATEGORIES as readonly string[]).includes(editFormData.category) && (
-                    <option value={editFormData.category}>{editFormData.category}</option>
-                  )}
-              </select>
-              {editFormErrors.category && (
-                <p className="text-destructive text-xs">{editFormErrors.category}</p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Propriétaire (Commerçant / Partenaire)</label>
-              <select
-                value={editFormData.ownerUid ?? ''}
-                onChange={(e) =>
-                  setEditFormData((prev) => ({
-                    ...prev,
-                    ownerUid: e.target.value,
-                  }))
-                }
-                disabled={isSubmittingEdit}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <option value="">Sélectionnez un commerçant propriétaire...</option>
-                {partners.map((partner) => (
-                  <option key={partner.publicId} value={partner.publicId}>
-                    {partner.name} ({partner.email})
-                  </option>
-                ))}
-                {editFormData.ownerUid &&
-                  !partners.some((p) => p.publicId === editFormData.ownerUid) && (
-                    <option value={editFormData.ownerUid}>{editFormData.ownerUid}</option>
-                  )}
-              </select>
-              {editFormErrors.ownerUid && (
-                <p className="text-destructive text-xs">{editFormErrors.ownerUid}</p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Lien / URL vitrine (optionnel)</label>
-              <Input
-                type="text"
-                value={editFormData.url ?? ''}
-                onChange={(e) => setEditFormData((prev) => ({ ...prev, url: e.target.value }))}
-                disabled={isSubmittingEdit}
-                placeholder="ex: https://mon-commerce.fr"
-              />
-              {editFormErrors.url && (
-                <p className="text-destructive text-xs">{editFormErrors.url}</p>
-              )}
-            </div>
-
-            <DialogFooter className="pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setEditingStore(null)}
-                disabled={isSubmittingEdit}
-              >
-                Annuler
-              </Button>
-              <Button type="submit" size="sm" disabled={isSubmittingEdit}>
-                {isSubmittingEdit ? 'Enregistrement...' : 'Enregistrer les modifications'}
-              </Button>
-            </DialogFooter>
-          </form>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          {editingStore && (
+            <StoreForm
+              mode="edit"
+              initialStore={editingStore}
+              isDialog
+              onSuccess={(updatedStore) => {
+                setActionSuccessMessage(
+                  `Le commerce "${updatedStore.name}" a été mis à jour avec succès.`
+                );
+                setEditingStore(null);
+                fetchStores();
+              }}
+              onCancel={() => setEditingStore(null)}
+            />
+          )}
         </DialogContent>
       </Dialog>
 

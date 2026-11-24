@@ -26,6 +26,7 @@ import {
   Users,
   Unlock,
   Edit,
+  Eye,
   X,
   RefreshCw,
   AlertCircle,
@@ -35,6 +36,7 @@ import {
   CheckCircle2,
   Lock,
 } from 'lucide-react';
+import { ROUTES } from '@/config/routes';
 
 interface AdminUsersTabProps {
   initialUsers?: UserResponse[];
@@ -89,7 +91,6 @@ export function AdminUsersTab({ initialUsers = [] }: AdminUsersTabProps) {
     firstName: '',
     lastName: '',
     email: '',
-    role: 'CLIENT',
   });
   const [editFormErrors, setEditFormErrors] = React.useState<Record<string, string>>({});
   const [isSubmittingEdit, setIsSubmittingEdit] = React.useState(false);
@@ -162,7 +163,6 @@ export function AdminUsersTab({ initialUsers = [] }: AdminUsersTabProps) {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
-      role: user.role,
     });
     setEditFormErrors({});
   };
@@ -187,7 +187,12 @@ export function AdminUsersTab({ initialUsers = [] }: AdminUsersTabProps) {
     setIsSubmittingEdit(true);
     setEditFormErrors({});
     try {
-      const updated = await updateAdminUser(editingUser.id, validationResult.data);
+      const payload = {
+        firstName: validationResult.data.firstName,
+        lastName: validationResult.data.lastName,
+        email: validationResult.data.email,
+      };
+      const updated = await updateAdminUser(editingUser.id, payload);
       setActionSuccessMessage(
         `Le compte de ${updated.firstName} ${updated.lastName} a été mis à jour avec succès.`
       );
@@ -487,6 +492,17 @@ export function AdminUsersTab({ initialUsers = [] }: AdminUsersTabProps) {
                         <Button
                           variant="outline"
                           size="sm"
+                          render={<a href={`${ROUTES.profile.path}?userId=${user.id}`} />}
+                          className="h-8 px-2.5 text-xs gap-1"
+                          title="Consulter le profil"
+                        >
+                          <Eye className="size-3.5 text-primary" />
+                          <span>Profil</span>
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleOpenEdit(user)}
                           className="h-8 px-2.5 text-xs gap-1"
                         >
@@ -653,25 +669,11 @@ export function AdminUsersTab({ initialUsers = [] }: AdminUsersTabProps) {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium">Rôle du compte</label>
-              <select
-                value={editFormData.role}
-                onChange={(e) =>
-                  setEditFormData((prev) => ({
-                    ...prev,
-                    role: e.target.value as UserRole,
-                  }))
-                }
-                disabled={isSubmittingEdit}
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="CLIENT">Citoyen (CLIENT)</option>
-                <option value="MERCHANT">Commerçant (MERCHANT)</option>
-                <option value="ADMIN">Administrateur (ADMIN)</option>
-              </select>
-              {editFormErrors.role && (
-                <p className="text-destructive text-xs">{editFormErrors.role}</p>
-              )}
+              <label className="text-xs font-medium text-foreground">Rôle du compte</label>
+              <div className="flex items-center gap-2 pt-1">
+                {editingUser && getRoleBadge(editingUser.role)}
+                <span className="text-xs text-muted-foreground italic">(Non modifiable)</span>
+              </div>
             </div>
 
             <DialogFooter className="pt-4">

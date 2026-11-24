@@ -334,6 +334,30 @@ export const storeGeneralPatchSchema = z.object({
     .trim()
     .min(1, "La catégorie d'activité est obligatoire")
     .max(255, 'La catégorie ne doit pas dépasser 255 caractères'),
+  url: z
+    .string()
+    .trim()
+    .max(500, "L'URL ne doit pas dépasser 500 caractères")
+    .refine((val) => isValidHttpUrl(val), {
+      message:
+        "L'URL doit débuter obligatoirement par http:// ou https:// (ex: https://mon-commerce.fr)",
+    })
+    .optional()
+    .or(z.literal('')),
+  rib: z
+    .string()
+    .trim()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val || val.trim() === '') return true;
+        return isValidRibOrIban(val);
+      },
+      {
+        message: 'Format de RIB ou IBAN invalide avec contrôle modulo 97',
+      }
+    )
+    .or(z.literal('')),
 });
 export type StoreGeneralPatchData = z.infer<typeof storeGeneralPatchSchema>;
 
@@ -351,9 +375,8 @@ export const adminStoreEditSchema = z.object({
   address: z
     .string()
     .trim()
-    .max(255, "L'adresse ne doit pas dépasser 255 caractères")
-    .optional()
-    .or(z.literal('')),
+    .min(1, "L'adresse de l'établissement est obligatoire")
+    .max(255, "L'adresse ne doit pas dépasser 255 caractères"),
   url: z
     .string()
     .trim()
@@ -373,17 +396,10 @@ export const adminStoreEditSchema = z.object({
   rib: z
     .string()
     .trim()
-    .optional()
-    .refine(
-      (val) => {
-        if (!val || val.trim() === '') return true;
-        return isValidRibOrIban(val);
-      },
-      {
-        message:
-          'Le format ou la clé algorithmique du RIB/IBAN est invalide (RIB français 23 car. ou IBAN valide)',
-      }
-    )
-    .or(z.literal('')),
+    .min(1, 'Le RIB ou IBAN est obligatoire')
+    .refine((val) => Boolean(val && isValidRibOrIban(val)), {
+      message:
+        'Le format ou la clé algorithmique du RIB/IBAN est invalide (RIB français 23 car. ou IBAN valide)',
+    }),
 });
 export type AdminStoreEditFormValues = z.infer<typeof adminStoreEditSchema>;
