@@ -264,13 +264,13 @@ export function AppSidebar({ currentPath: _currentPath = '/' }: AppSidebarProps)
                     <SidebarMenuItem>
                       <SidebarMenuButton render={<a href={ROUTES.adminDashboard.path} />}>
                         <ShieldCheck className="size-4 text-primary" />
-                        <span className="font-medium text-foreground">Supervision & Comptes</span>
+                        <span className="font-medium text-foreground">Gestion Comptes</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
                       <SidebarMenuButton render={<a href={ROUTES.adminStores.path} />}>
                         <StoreIcon className="size-4 text-primary" />
-                        <span className="font-medium text-foreground">Commerces Partenaires</span>
+                        <span className="font-medium text-foreground">Gestion Commerces</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                     <SidebarMenuItem>
