@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -21,46 +22,55 @@ import {
 import { Field, FieldLabel, FieldError } from '@/components/ui/field';
 import { AddressAutocompleteInput } from '@/components/AddressAutocompleteInput';
 import { PartnerSelect } from '@/components/PartnerSelect';
+import { RibInputField } from '@/components/RibInputField';
 import {
   createStoreZodSchema,
   STORE_CATEGORIES,
-  formatRibOrIban,
   cleanRibOrIban,
   ACCEPTED_STORE_IMAGE_TYPES,
   isValidStoreImageType,
   isValidStoreImageSize,
   type CreateStoreFormData,
 } from '@/lib/validation/store';
-import { createStore } from '@/lib/api';
+import {
+  createStore,
+  patchStore,
+  reactivateStore,
+  updateStoreImage,
+  addStoreToPartner,
+} from '@/lib/api';
 import { resolveStoreImageUrl } from '@/lib/image';
 import { getAuthUser } from '@/lib/auth';
 import { ROUTES } from '@/config/routes';
-import type { StoreResponse } from '@/types/store';
+import type { StoreResponse, Store as StoreType, StorePatchRequest } from '@/types/store';
 import {
   Store,
-  MapPin,
   Tag,
-  CreditCard,
-  Globe,
   Loader2,
   AlertCircle,
   CheckCircle2,
   PlusCircle,
+  Edit,
   ArrowRight,
-  ShieldCheck,
-  RotateCcw,
   Upload,
   X,
+  RotateCcw,
 } from 'lucide-react';
 
 /**
  * Custom hook managing store image selection, size/MIME validation, and preview lifecycle.
  */
-function useStoreImageUpload() {
+function useStoreImageUpload(initialImageUrl?: string | null) {
   const [imageFile, setImageFile] = React.useState<File | null>(null);
-  const [imagePreview, setImagePreview] = React.useState<string | null>(null);
+  const [imagePreview, setImagePreview] = React.useState<string | null>(initialImageUrl || null);
   const [imageError, setImageError] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  React.useEffect(() => {
+    if (initialImageUrl && !imageFile) {
+      setImagePreview(initialImageUrl);
+    }
+  }, [initialImageUrl, imageFile]);
 
   // Automatically revoke in-memory object URL to prevent memory leaks
   React.useEffect(() => {
@@ -151,56 +161,79 @@ function StoreCreationSuccessCard({ store, onReset }: StoreCreationSuccessCardPr
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             <div>
-              <span className="text-muted-foreground block">Adresse</span>
-              <span className="font-medium flex items-center gap-1 mt-0.5">
-                <MapPin className="size-3 text-muted-foreground" />
-                {store.address}
+              <span className="text-muted-foreground block">Identifiant public :</span>
+              <span className="font-mono font-semibold text-foreground break-all">
+                {String(store.uid || store.id)}
               </span>
             </div>
             <div>
-              <span className="text-muted-foreground block">Compte propriétaire</span>
+              <span className="text-muted-foreground block">Compte propriétaire :</span>
               <span className="font-medium mt-0.5 block font-mono text-[11px]">
-                {store.ownerUid}
+                {String(
+                  store.ownerUid ||
+                    (store.merchantName ? `${store.merchantName} (${store.userId})` : store.userId)
+                )}
               </span>
             </div>
+            <div className="sm:col-span-2">
+              <span className="text-muted-foreground block">Adresse postale :</span>
+              <span className="font-medium text-foreground">{store.address}</span>
+            </div>
             {store.url && (
-              <div className="sm:col-span-2 space-y-2 pt-1">
-                <span className="text-muted-foreground block font-medium">
-                  Devanture de l'établissement
+              <div className="sm:col-span-2">
+                <span className="text-muted-foreground block">URL vitrine :</span>
+                <a
+                  href={store.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary hover:underline font-mono truncate block"
+                >
+                  {store.url}
+                </a>
+              </div>
+            )}
+            {store.rib && (
+              <div className="sm:col-span-2">
+                <span className="text-muted-foreground block">
+                  Coordonnées bancaires (RIB / IBAN) :
                 </span>
-                {resolvedImageUrl ? (
-                  <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
-                    <img
-                      src={resolvedImageUrl}
-                      alt={store.name}
-                      className="w-full h-44 sm:h-52 object-cover"
-                    />
-                  </div>
-                ) : (
-                  <a
-                    href={store.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-primary hover:underline flex items-center gap-1 text-xs truncate"
-                  >
-                    <Globe className="size-3" />
-                    {store.url}
-                  </a>
-                )}
+                <span className="font-mono text-muted-foreground">{store.rib}</span>
               </div>
             )}
           </div>
+
+          {resolvedImageUrl && (
+            <div className="pt-2 border-t">
+              <span className="text-xs text-muted-foreground block mb-1.5">Devanture :</span>
+              <img
+                src={resolvedImageUrl}
+                alt={store.name}
+                className="w-full h-36 object-cover rounded-md border"
+              />
+            </div>
+          )}
         </div>
       </CardContent>
 
-      <CardFooter className="flex flex-col sm:flex-row gap-2 justify-end pt-2">
-        <Button type="button" variant="outline" onClick={onReset} className="w-full sm:w-auto">
-          <RotateCcw className="size-4 mr-1.5" />
-          Ajouter un autre établissement
+      <CardFooter className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onReset}
+          className="w-full sm:w-auto flex items-center gap-2"
+        >
+          <PlusCircle className="size-4" />
+          <span>Créer un autre établissement</span>
         </Button>
-        <a href={ROUTES.stores.path} className={buttonVariants({ className: 'w-full sm:w-auto' })}>
-          Voir la liste des boutiques
-          <ArrowRight className="size-4 ml-1.5" />
+        <a
+          href={ROUTES.stores.path}
+          className={buttonVariants({
+            variant: 'default',
+            className: 'w-full sm:w-auto flex items-center gap-2',
+          })}
+        >
+          <span>Voir l'annuaire des commerces</span>
+          <ArrowRight className="size-4" />
         </a>
       </CardFooter>
     </Card>
@@ -254,9 +287,13 @@ function StoreImageUploadField({
             className="size-16 rounded-md object-cover border shrink-0"
           />
           <div className="flex-1 min-w-0">
-            <p className="text-xs sm:text-sm font-medium truncate">{imageFile?.name}</p>
+            <p className="text-xs sm:text-sm font-medium truncate">
+              {imageFile?.name || 'Photo actuelle de la devanture'}
+            </p>
             <p className="text-[11px] text-muted-foreground">
-              {imageFile ? `${(imageFile.size / (1024 * 1024)).toFixed(2)} Mo` : ''}
+              {imageFile
+                ? `${(imageFile.size / (1024 * 1024)).toFixed(2)} Mo`
+                : 'Enregistrée sur le serveur'}
             </p>
           </div>
           <Button
@@ -266,8 +303,8 @@ function StoreImageUploadField({
             disabled={isSubmitting}
             onClick={onRemoveImage}
             className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
-            title="Supprimer l'image"
-            aria-label="Supprimer l'image"
+            title="Supprimer la photo"
+            aria-label="Supprimer la photo"
           >
             <X className="size-4" />
           </Button>
@@ -294,14 +331,113 @@ function StoreImageUploadField({
   );
 }
 
+export type StoreFormMode = 'create' | 'edit' | 'reactivate';
+
+export interface StoreFormProps {
+  mode?: StoreFormMode;
+  initialStore?: StoreType | StoreResponse | null;
+  onSuccess?: (store: StoreResponse) => void;
+  onCancel?: () => void;
+  isDialog?: boolean;
+}
+
+const STORE_FORM_MODE_CONFIG: Record<
+  StoreFormMode,
+  {
+    dialogTitle: string;
+    cardTitle: string;
+    cardDescription: string;
+    submitLabel: string;
+    submittingLabel: string;
+    fallbackError: string;
+  }
+> = {
+  create: {
+    dialogTitle: 'Créer un nouvel établissement',
+    cardTitle: 'Créer un nouvel établissement',
+    cardDescription:
+      'Renseignez les informations du commerce et associez-le obligatoirement à un compte partenaire préexistant.',
+    submitLabel: "Enregistrer l'établissement",
+    submittingLabel: 'Création en cours...',
+    fallbackError: "Une erreur inattendue est survenue lors de la création de l'établissement.",
+  },
+  edit: {
+    dialogTitle: 'Modifier le commerce partenaire',
+    cardTitle: "Modifier l'établissement",
+    cardDescription: 'Mettez à jour les coordonnées du commerce et ses paramètres.',
+    submitLabel: 'Enregistrer les modifications',
+    submittingLabel: 'Enregistrement...',
+    fallbackError: 'Une erreur est survenue lors de la mise à jour du commerce.',
+  },
+  reactivate: {
+    dialogTitle: 'Réactiver le commerce partenaire',
+    cardTitle: 'Réactiver le commerce partenaire',
+    cardDescription: 'Affectez un partenaire et saisissez un RIB/IBAN conventionnel valide.',
+    submitLabel: 'Confirmer la réactivation',
+    submittingLabel: 'Réactivation en cours...',
+    fallbackError: 'Une erreur est survenue lors de la réactivation du commerce.',
+  },
+};
+
+function buildStoreFormDefaults(store?: StoreType | StoreResponse | null): CreateStoreFormData {
+  return {
+    name: store?.name || '',
+    category: store?.category || '',
+    address: store?.address || '',
+    url: store?.url || '',
+    rib: store?.rib && store.rib !== 'REVOKED' ? store.rib : '',
+    ownerUid: store?.ownerUid || '',
+  };
+}
+
+function buildStorePatchPayload(values: CreateStoreFormData): StorePatchRequest {
+  return {
+    name: values.name.trim(),
+    category: values.category.trim(),
+    address: values.address.trim(),
+    url: values.url?.trim() || undefined,
+    rib: cleanRibOrIban(values.rib),
+    ownerUid: values.ownerUid ? values.ownerUid : undefined,
+  };
+}
+
+async function uploadStoreImageSafe(storeId: string, imageFile: File | null): Promise<void> {
+  if (!imageFile) return;
+  try {
+    await updateStoreImage(storeId, imageFile);
+  } catch (imgErr) {
+    console.warn("Échec du téléversement de l'image:", imgErr);
+  }
+}
+
 /**
- * Creation form component for partner establishments.
- * Validates fields in real-time and links the new store to an existing partner account.
- * Powered by React Hook Form, Base UI Field primitives, and Zod validation.
+ * Unified establishment form component supporting creation, edition, and reactivation.
+ * Features real-time Zod validation, modulo 97 RIB algorithmic check,
+ * and storefront image upload lifecycle.
  */
-export function CreateStoreForm() {
+export function StoreForm({
+  mode = 'create',
+  initialStore,
+  onSuccess,
+  onCancel,
+  isDialog = false,
+}: StoreFormProps) {
+  const isEditing = mode === 'edit';
+  const isReactivating = mode === 'reactivate';
+  const modeConfig = STORE_FORM_MODE_CONFIG[mode];
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [createdStore, setCreatedStore] = React.useState<StoreResponse | null>(null);
+
+  const initialImageUrl = React.useMemo(() => {
+    if (
+      initialStore?.url &&
+      (initialStore.url.startsWith('http') || initialStore.url.startsWith('/'))
+    ) {
+      const publicId = initialStore.uid || (initialStore.id ? String(initialStore.id) : undefined);
+      return resolveStoreImageUrl(initialStore.url, publicId);
+    }
+    return null;
+  }, [initialStore]);
 
   const {
     imageFile,
@@ -310,7 +446,7 @@ export function CreateStoreForm() {
     fileInputRef,
     handleImageChange,
     handleRemoveImage,
-  } = useStoreImageUpload();
+  } = useStoreImageUpload(initialImageUrl);
 
   const {
     register,
@@ -319,61 +455,74 @@ export function CreateStoreForm() {
     reset,
     watch,
     setValue,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isValid },
   } = useForm<CreateStoreFormData>({
     resolver: zodResolver(createStoreZodSchema),
-    defaultValues: {
-      name: '',
-      category: '',
-      address: '',
-      url: '',
-      rib: '',
-      ownerUid: '',
-    },
+    defaultValues: buildStoreFormDefaults(initialStore),
     mode: 'onChange',
   });
 
   const currentUser = React.useMemo(() => getAuthUser(), []);
   const isMerchant = currentUser?.role === 'MERCHANT';
 
-  // Automatically pre-fill the ownerUid if logged in as a merchant
-  React.useEffect(() => {
-    if (isMerchant && currentUser?.id) {
-      setValue('ownerUid', currentUser.id, { shouldValidate: true, shouldDirty: true });
-    }
-  }, [isMerchant, currentUser?.id, setValue]);
-
-  const watchedRib = watch('rib') || '';
   const watchedAddress = watch('address') || '';
   const [coords, setCoords] = React.useState<{
     latitude?: number | null;
     longitude?: number | null;
   }>({});
 
+  React.useEffect(() => {
+    if (initialStore) {
+      reset(buildStoreFormDefaults(initialStore));
+    } else if (isMerchant && currentUser?.id) {
+      setValue('ownerUid', currentUser.id, { shouldValidate: true, shouldDirty: true });
+    }
+  }, [initialStore, isMerchant, currentUser?.id, reset, setValue]);
+
   const onSubmit = async (values: CreateStoreFormData) => {
     setErrorMessage(null);
     try {
-      const payload = {
-        name: values.name.trim(),
-        category: values.category.trim(),
-        address: values.address.trim(),
-        url: values.url?.trim() || undefined,
-        rib: cleanRibOrIban(values.rib),
-        ownerUid: values.ownerUid,
-        latitude: coords.latitude,
-        longitude: coords.longitude,
-      };
+      if ((isReactivating || isEditing) && initialStore) {
+        const storeId = initialStore.uid || String(initialStore.id);
+        const cleanedRib = cleanRibOrIban(values.rib);
 
-      const response = await createStore(payload, imageFile);
-      setCreatedStore(response);
-      handleRemoveImage();
-      reset();
+        if (isReactivating) {
+          await reactivateStore(storeId, cleanedRib, values.ownerUid);
+        }
+
+        const response = await patchStore(storeId, buildStorePatchPayload(values));
+
+        if (values.ownerUid && (isReactivating || values.ownerUid !== initialStore.ownerUid)) {
+          try {
+            await addStoreToPartner(values.ownerUid, storeId);
+          } catch {
+            // best-effort sync
+          }
+        }
+        await uploadStoreImageSafe(storeId, imageFile);
+        onSuccess?.(response);
+      } else {
+        const payload = {
+          name: values.name.trim(),
+          category: values.category.trim(),
+          address: values.address.trim(),
+          url: values.url?.trim() || undefined,
+          rib: cleanRibOrIban(values.rib),
+          ownerUid: values.ownerUid,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        };
+
+        const response = await createStore(payload);
+        await uploadStoreImageSafe(response.uid || String(response.id), imageFile);
+        if (onSuccess) {
+          onSuccess(response);
+        } else {
+          setCreatedStore(response);
+        }
+      }
     } catch (err: unknown) {
-      setErrorMessage(
-        err instanceof Error
-          ? err.message
-          : "Une erreur inattendue est survenue lors de la création de l'établissement."
-      );
+      setErrorMessage(err instanceof Error ? err.message : modeConfig.fallbackError);
     }
   };
 
@@ -382,8 +531,234 @@ export function CreateStoreForm() {
     handleRemoveImage();
   };
 
-  if (createdStore) {
+  if (createdStore && !isDialog) {
     return <StoreCreationSuccessCard store={createdStore} onReset={handleResetConfirmation} />;
+  }
+
+  const formFields = (
+    <div className="space-y-4 py-2">
+      {/* Global error alert */}
+      {errorMessage && (
+        <div className="border border-destructive/50 bg-destructive/10 p-3 rounded-lg flex items-center gap-2 text-destructive text-sm">
+          <AlertCircle className="size-4 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
+      {/* Partner user account selection */}
+      <Field>
+        <FieldLabel htmlFor="ownerUid">
+          <span>Compte partenaire propriétaire</span>
+          <span className="text-destructive">*</span>
+        </FieldLabel>
+        <Controller
+          name="ownerUid"
+          control={control}
+          render={({ field }) => (
+            <PartnerSelect
+              id="ownerUid"
+              value={field.value}
+              onValueChange={(val) => field.onChange(val)}
+              disabled={isSubmitting || (isMerchant && !isEditing)}
+            />
+          )}
+        />
+        {isMerchant && !isEditing && (
+          <p className="text-[11px] text-muted-foreground">
+            Connecté en tant que commerçant : ce nouvel établissement sera automatiquement associé à
+            votre compte personnel.
+          </p>
+        )}
+        <FieldError>{errors.ownerUid?.message}</FieldError>
+      </Field>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Store Name */}
+        <Field>
+          <FieldLabel htmlFor="name">
+            <span>Nom de l'établissement</span>
+            <span className="text-destructive">*</span>
+          </FieldLabel>
+          <div className="relative">
+            <Input
+              id="name"
+              type="text"
+              placeholder="Ex: Boulangerie du Centre"
+              disabled={isSubmitting}
+              className={errors.name ? 'border-destructive focus-visible:ring-destructive' : ''}
+              {...register('name')}
+            />
+          </div>
+          <FieldError>{errors.name?.message}</FieldError>
+        </Field>
+
+        {/* Store Category */}
+        <Field>
+          <FieldLabel htmlFor="category">
+            <span>Catégorie d'activité</span>
+            <span className="text-destructive">*</span>
+          </FieldLabel>
+          <Controller
+            name="category"
+            control={control}
+            render={({ field }) => (
+              <Select value={field.value} onValueChange={field.onChange} disabled={isSubmitting}>
+                <SelectTrigger
+                  id="category"
+                  aria-label="Catégorie d'activité"
+                  className={
+                    errors.category ? 'border-destructive focus-visible:ring-destructive' : ''
+                  }
+                >
+                  <SelectValue placeholder="Sélectionnez une catégorie" />
+                </SelectTrigger>
+                <SelectContent
+                  side="bottom"
+                  align="start"
+                  alignItemWithTrigger={false}
+                  sideOffset={6}
+                >
+                  {STORE_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          <FieldError>{errors.category?.message}</FieldError>
+        </Field>
+      </div>
+
+      {/* Physical Address */}
+      <Field>
+        <FieldLabel htmlFor="address">
+          <span>Adresse postale</span>
+          <span className="text-destructive">*</span>
+        </FieldLabel>
+        <div className="relative">
+          <AddressAutocompleteInput
+            id="address"
+            value={watchedAddress}
+            onChange={(val) =>
+              setValue('address', val, {
+                shouldValidate: true,
+                shouldDirty: true,
+                shouldTouch: true,
+              })
+            }
+            onSelectAddress={(res) => {
+              setValue('address', res.address, {
+                shouldValidate: true,
+                shouldDirty: true,
+                shouldTouch: true,
+              });
+              setCoords({ latitude: res.latitude, longitude: res.longitude });
+            }}
+            placeholder="Ex: 12 Rue Nationale, 59000 Lille"
+            disabled={isSubmitting}
+            className={errors.address ? 'border-destructive focus-visible:ring-destructive' : ''}
+          />
+        </div>
+        <FieldError>{errors.address?.message}</FieldError>
+      </Field>
+
+      {/* Website / Showcase URL */}
+      <Field>
+        <FieldLabel htmlFor="url">
+          <span>URL vitrine (Site web ou boutique en ligne)</span>
+          <span className="text-xs text-muted-foreground font-normal">(Optionnel)</span>
+        </FieldLabel>
+        <Input
+          id="url"
+          type="url"
+          placeholder="Ex: https://boulangerie-centre-lille.fr"
+          disabled={isSubmitting}
+          className={errors.url ? 'border-destructive focus-visible:ring-destructive' : ''}
+          {...register('url')}
+        />
+        <FieldError>{errors.url?.message}</FieldError>
+      </Field>
+
+      {/* Store Image Upload (MinIO / S3) */}
+      <StoreImageUploadField
+        imageFile={imageFile}
+        imagePreview={imagePreview}
+        imageError={imageError}
+        fileInputRef={fileInputRef}
+        isSubmitting={isSubmitting}
+        onImageChange={handleImageChange}
+        onRemoveImage={handleRemoveImage}
+      />
+
+      {/* Bank RIB / IBAN via Reusable RibInputField */}
+      <Controller
+        name="rib"
+        control={control}
+        render={({ field }) => (
+          <RibInputField
+            id="rib"
+            value={field.value || ''}
+            onChange={field.onChange}
+            error={errors.rib?.message}
+            disabled={isSubmitting}
+          />
+        )}
+      />
+    </div>
+  );
+
+  if (isDialog) {
+    return (
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-foreground">
+            {isReactivating ? (
+              <RotateCcw className="size-4 text-emerald-600" />
+            ) : isEditing ? (
+              <Edit className="size-4 text-primary" />
+            ) : (
+              <Store className="size-4 text-primary" />
+            )}
+            <span>{modeConfig.dialogTitle}</span>
+          </DialogTitle>
+          <DialogDescription>
+            {isReactivating
+              ? `Vérifiez les informations de ${initialStore?.name || "l'établissement"}, réaffectez un partenaire et saisissez un RIB/IBAN conventionnel valide.`
+              : isEditing
+                ? `Mise à jour des informations administratives et coordonnées de ${initialStore?.name || "l'établissement"}.`
+                : "Renseignez les coordonnées de l'établissement et associez-le à un partenaire."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {formFields}
+
+        <DialogFooter className="pt-4 gap-2 sm:gap-0">
+          {onCancel && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onCancel}
+              disabled={isSubmitting}
+            >
+              Annuler
+            </Button>
+          )}
+          <Button type="submit" size="sm" disabled={isSubmitting || !isValid}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="size-4 animate-spin mr-1.5" />
+                <span>{modeConfig.submittingLabel}</span>
+              </>
+            ) : (
+              <span>{modeConfig.submitLabel}</span>
+            )}
+          </Button>
+        </DialogFooter>
+      </form>
+    );
   }
 
   return (
@@ -394,234 +769,47 @@ export function CreateStoreForm() {
           <span>Administration ShopLoc</span>
         </div>
         <CardTitle className="text-xl sm:text-2xl font-bold">
-          Créer un nouvel établissement
+          {isEditing ? "Modifier l'établissement" : 'Créer un nouvel établissement'}
         </CardTitle>
         <CardDescription>
-          Renseignez les informations du commerce et associez-le obligatoirement à un compte
-          partenaire préexistant.
+          {isEditing
+            ? 'Mettez à jour les coordonnées du commerce et ses paramètres.'
+            : 'Renseignez les informations du commerce et associez-le obligatoirement à un compte partenaire préexistant.'}
         </CardDescription>
       </CardHeader>
 
       <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-5 pb-6">
-          {/* Global error alert */}
-          {errorMessage && (
-            <div className="border border-destructive/50 bg-destructive/10 p-3 rounded-lg flex items-center gap-2 text-destructive text-sm">
-              <AlertCircle className="size-4 shrink-0" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          {/* Partner user account selection */}
-          <Field>
-            <FieldLabel htmlFor="ownerUid">
-              <span>Compte partenaire propriétaire</span>
-              <span className="text-destructive">*</span>
-            </FieldLabel>
-            <Controller
-              name="ownerUid"
-              control={control}
-              render={({ field }) => (
-                <PartnerSelect
-                  id="ownerUid"
-                  value={field.value}
-                  onValueChange={(val) => field.onChange(val)}
-                  disabled={isSubmitting || isMerchant}
-                />
-              )}
-            />
-            {isMerchant && (
-              <p className="text-[11px] text-muted-foreground">
-                Connecté en tant que commerçant : ce nouvel établissement sera automatiquement
-                associé à votre compte personnel.
-              </p>
-            )}
-            <FieldError>{errors.ownerUid?.message}</FieldError>
-          </Field>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Store Name */}
-            <Field>
-              <FieldLabel htmlFor="name">
-                <span>Nom de l'établissement</span>
-                <span className="text-destructive">*</span>
-              </FieldLabel>
-              <div className="relative">
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Ex: Boulangerie du Centre"
-                  disabled={isSubmitting}
-                  className={errors.name ? 'border-destructive focus-visible:ring-destructive' : ''}
-                  {...register('name')}
-                />
-              </div>
-              <FieldError>{errors.name?.message}</FieldError>
-            </Field>
-
-            {/* Store Category */}
-            <Field>
-              <FieldLabel htmlFor="category">
-                <span>Catégorie d'activité</span>
-                <span className="text-destructive">*</span>
-              </FieldLabel>
-              <Controller
-                name="category"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    disabled={isSubmitting}
-                  >
-                    <SelectTrigger
-                      id="category"
-                      aria-label="Catégorie d'activité"
-                      className={
-                        errors.category ? 'border-destructive focus-visible:ring-destructive' : ''
-                      }
-                    >
-                      <SelectValue placeholder="Sélectionnez une catégorie" />
-                    </SelectTrigger>
-                    <SelectContent
-                      side="bottom"
-                      align="start"
-                      alignItemWithTrigger={false}
-                      sideOffset={6}
-                    >
-                      {STORE_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              <FieldError>{errors.category?.message}</FieldError>
-            </Field>
-          </div>
-
-          {/* Physical Address */}
-          <Field>
-            <FieldLabel htmlFor="address">
-              <span>Adresse postale</span>
-              <span className="text-destructive">*</span>
-            </FieldLabel>
-            <div className="relative">
-              <AddressAutocompleteInput
-                id="address"
-                value={watchedAddress}
-                onChange={(val) =>
-                  setValue('address', val, {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                    shouldTouch: true,
-                  })
-                }
-                onSelectAddress={(res) => {
-                  setValue('address', res.address, {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                    shouldTouch: true,
-                  });
-                  setCoords({ latitude: res.latitude, longitude: res.longitude });
-                }}
-                placeholder="Ex: 12 Rue Nationale, 59000 Lille"
-                disabled={isSubmitting}
-                className={
-                  errors.address ? 'border-destructive focus-visible:ring-destructive' : ''
-                }
-              />
-            </div>
-            <FieldError>{errors.address?.message}</FieldError>
-          </Field>
-
-          {/* Website / Showcase URL (optional) */}
-          <Field>
-            <FieldLabel htmlFor="url">
-              <span>Site web ou vitrine en ligne</span>
-              <span className="text-xs text-muted-foreground font-normal">(Optionnel)</span>
-            </FieldLabel>
-            <Input
-              id="url"
-              type="url"
-              placeholder="Ex: https://boulangerie-centre-lille.fr"
-              disabled={isSubmitting}
-              className={errors.url ? 'border-destructive focus-visible:ring-destructive' : ''}
-              {...register('url')}
-            />
-            <FieldError>{errors.url?.message}</FieldError>
-          </Field>
-
-          {/* Store Image Upload (MinIO / S3) - Optional */}
-          <StoreImageUploadField
-            imageFile={imageFile}
-            imagePreview={imagePreview}
-            imageError={imageError}
-            fileInputRef={fileInputRef}
-            isSubmitting={isSubmitting}
-            onImageChange={handleImageChange}
-            onRemoveImage={handleRemoveImage}
-          />
-
-          {/* Bank RIB / IBAN */}
-          <Field>
-            <div className="flex items-center justify-between">
-              <FieldLabel htmlFor="rib">
-                <span>Coordonnées bancaires (RIB / IBAN)</span>
-                <span className="text-destructive">*</span>
-              </FieldLabel>
-              <span className="text-[11px] text-muted-foreground font-normal flex items-center gap-1">
-                <ShieldCheck className="size-3 text-primary" />
-                Contrôle modulo 97
-              </span>
-            </div>
-            <div className="relative">
-              <Input
-                id="rib"
-                type="text"
-                placeholder="Ex: FR76 3000 6000 0112 3456 7890 189 ou RIB 23 car."
-                disabled={isSubmitting}
-                className={
-                  errors.rib
-                    ? 'border-destructive focus-visible:ring-destructive font-mono text-xs'
-                    : 'font-mono text-xs'
-                }
-                {...register('rib')}
-              />
-              <CreditCard className="absolute right-3 top-2.5 size-4 text-muted-foreground pointer-events-none" />
-            </div>
-
-            {/* Live formatting preview */}
-            {watchedRib.trim().length > 0 && !errors.rib && (
-              <p className="text-[11px] text-green-600 dark:text-green-400 flex items-center gap-1 mt-1 font-mono">
-                <CheckCircle2 className="size-3 shrink-0" />
-                <span>Format valide : {formatRibOrIban(watchedRib)}</span>
-              </p>
-            )}
-
-            <FieldError>{errors.rib?.message}</FieldError>
-          </Field>
-        </CardContent>
+        <CardContent className="pb-6">{formFields}</CardContent>
 
         <CardFooter className="flex flex-col sm:flex-row gap-3 justify-end pt-6 mt-2 border-t">
-          <a
-            href={ROUTES.stores.path}
-            className={buttonVariants({ variant: 'outline', className: 'w-full sm:w-auto' })}
-          >
-            Annuler
-          </a>
-          <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+          {onCancel ? (
+            <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
+              Annuler
+            </Button>
+          ) : (
+            <a
+              href={ROUTES.stores.path}
+              className={buttonVariants({ variant: 'outline', className: 'w-full sm:w-auto' })}
+            >
+              Annuler
+            </a>
+          )}
+          <Button type="submit" disabled={isSubmitting || !isValid} className="w-full sm:w-auto">
             {isSubmitting ? (
               <>
                 <Loader2 className="size-4 animate-spin mr-1.5" />
-                <span>Création en cours...</span>
+                <span>{isEditing ? 'Enregistrement...' : 'Création en cours...'}</span>
               </>
             ) : (
               <>
-                <PlusCircle className="size-4 mr-1.5" />
-                <span>Enregistrer l'établissement</span>
+                {isEditing ? (
+                  <Edit className="size-4 mr-1.5" />
+                ) : (
+                  <PlusCircle className="size-4 mr-1.5" />
+                )}
+                <span>
+                  {isEditing ? 'Enregistrer les modifications' : "Enregistrer l'établissement"}
+                </span>
               </>
             )}
           </Button>
@@ -629,4 +817,11 @@ export function CreateStoreForm() {
       </form>
     </Card>
   );
+}
+
+/**
+ * Backwards-compatible export wrapping StoreForm in creation mode.
+ */
+export function CreateStoreForm(props: StoreFormProps) {
+  return <StoreForm {...props} mode="create" />;
 }

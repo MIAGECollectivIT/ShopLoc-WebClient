@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useAuth } from '@/lib/auth';
 import {
   getCurrentUserProfile,
+  getAdminUserById,
   addVehicle,
   updateVehicle,
   deleteVehicle,
@@ -10,6 +11,7 @@ import {
 } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 import { formatPoints } from '@/lib/format';
+import { UUID_REGEX } from '@/lib/validation/store';
 import type { UserResponse } from '@/types/user';
 import type { UserPointsBalanceResponse, UserVfpStatus } from '@/types/loyalty';
 import { ClientQrCodeCard } from './ClientQrCodeCard';
@@ -49,15 +51,35 @@ import {
   Wallet,
   Award,
   ArrowRight,
+  ArrowLeft,
 } from 'lucide-react';
 
-export function ClientProfileView() {
+export interface ClientProfileViewProps {
+  targetUserId?: string | number;
+}
+
+export function ClientProfileView({ targetUserId: propTargetUserId }: ClientProfileViewProps = {}) {
   const { user: authUser, isAuthenticated, isLoading: authLoading, logout } = useAuth();
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
+
+  const queryUserId = React.useMemo(() => {
+    const raw =
+      propTargetUserId ||
+      (typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('userId')
+        : null);
+    const trimmed = raw != null ? String(raw).trim() : undefined;
+    return trimmed && UUID_REGEX.test(trimmed) ? trimmed : undefined;
+  }, [propTargetUserId, mounted]);
+
+  const isAdminConsultation = Boolean(
+    queryUserId && authUser?.role === 'ADMIN' && String(queryUserId) !== String(authUser?.id)
+  );
+
   const [profile, setProfile] = React.useState<UserResponse | null>(null);
   const [vfpStatus, setVfpStatus] = React.useState<UserVfpStatus | null>(null);
   const [pointsBalance, setPointsBalance] = React.useState<UserPointsBalanceResponse | null>(null);
@@ -81,7 +103,10 @@ export function ClientProfileView() {
 
       try {
         setError(null);
-        const data = await getCurrentUserProfile();
+        const data =
+          isAdminConsultation && queryUserId
+            ? await getAdminUserById(queryUserId)
+            : await getCurrentUserProfile();
         if (isMounted) {
           setProfile(data);
           if (data?.id) {
@@ -105,28 +130,38 @@ export function ClientProfileView() {
           }
         }
       } catch (err) {
-        console.warn('Impossible de charger le profil via API, fallback sur la session:', err);
-        // Fallback to local token/session data if the API is temporarily unreachable
-        if (isMounted && authUser) {
-          setProfile({
-            id: authUser.id,
-            email: authUser.email,
-            role: authUser.role,
-            firstName: authUser.firstName || '',
-            lastName: authUser.lastName || '',
-            birthDate: authUser.birthDate || '',
-            clientCode: authUser.clientCode,
-            pickupLocation: authUser.pickupLocation,
-            licensePlates: authUser.licensePlates || [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          });
-        } else if (isMounted) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : 'Une erreur est survenue lors de la récupération de votre profil.'
-          );
+        if (isAdminConsultation) {
+          if (isMounted) {
+            setError(
+              err instanceof Error
+                ? err.message
+                : 'Impossible de récupérer le profil de cet utilisateur.'
+            );
+          }
+        } else {
+          console.warn('Impossible de charger le profil via API, fallback sur la session:', err);
+          // Fallback to local token/session data if the API is temporarily unreachable
+          if (isMounted && authUser) {
+            setProfile({
+              id: authUser.id,
+              email: authUser.email,
+              role: authUser.role,
+              firstName: authUser.firstName || '',
+              lastName: authUser.lastName || '',
+              birthDate: authUser.birthDate || '',
+              clientCode: authUser.clientCode,
+              pickupLocation: authUser.pickupLocation,
+              licensePlates: authUser.licensePlates || [],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          } else if (isMounted) {
+            setError(
+              err instanceof Error
+                ? err.message
+                : 'Une erreur est survenue lors de la récupération de votre profil.'
+            );
+          }
         }
       } finally {
         if (isMounted) {
@@ -142,7 +177,7 @@ export function ClientProfileView() {
     return () => {
       isMounted = false;
     };
-  }, [isAuthenticated, authLoading, authUser]);
+  }, [isAuthenticated, authLoading, authUser, isAdminConsultation, queryUserId]);
 
   // Initial loading state
   if (authLoading || (isLoading && !profile)) {
@@ -281,6 +316,33 @@ export function ClientProfileView() {
 
   return (
     <div className="space-y-6">
+      {isAdminConsultation && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-primary/10 border border-primary/20 rounded-xl text-foreground">
+          <div className="flex items-center gap-2.5">
+            <ShieldCheck className="size-5 text-primary shrink-0" />
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-primary">
+                Mode Consultation Administrateur
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Consultation de la fiche profil de{' '}
+                <strong className="text-foreground">{fullName}</strong> (ID #{effectiveUser.id}{' '}
+                &bull; {effectiveUser.email}).
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            render={<a href={`${ROUTES.adminDashboard.path}?tab=users`} />}
+            className="h-8 text-xs gap-1.5 shrink-0 bg-background"
+          >
+            <ArrowLeft className="size-3.5" />
+            <span>Retour à l&apos;administration</span>
+          </Button>
+        </div>
+      )}
+
       {error && (
         <div className="flex items-center gap-2.5 p-3 rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-sm">
           <AlertCircle className="size-4 shrink-0" />
@@ -318,19 +380,31 @@ export function ClientProfileView() {
         </div>
 
         <div className="flex items-center gap-2 self-end sm:self-auto">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              logout();
-              window.location.href = ROUTES.login.path;
-            }}
-            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1.5"
-            title="Se déconnecter"
-          >
-            <LogOut className="size-4" />
-            <span>Déconnexion</span>
-          </Button>
+          {isAdminConsultation ? (
+            <Button
+              variant="outline"
+              size="sm"
+              render={<a href={`${ROUTES.adminDashboard.path}?tab=users`} />}
+              className="text-muted-foreground hover:text-foreground gap-1.5"
+            >
+              <ArrowLeft className="size-4" />
+              <span>Retour administration</span>
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                logout();
+                window.location.href = ROUTES.login.path;
+              }}
+              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1.5"
+              title="Se déconnecter"
+            >
+              <LogOut className="size-4" />
+              <span>Déconnexion</span>
+            </Button>
+          )}
         </div>
       </div>
 
@@ -427,7 +501,9 @@ export function ClientProfileView() {
               userId={effectiveUser.id}
               isVfp={Boolean(vfpStatus?.isVfp)}
               licensePlates={licensePlates}
-              onManageVehicles={() => setIsManageVehiclesOpen(true)}
+              onManageVehicles={
+                isAdminConsultation ? () => {} : () => setIsManageVehiclesOpen(true)
+              }
             />
           )}
 
@@ -441,24 +517,26 @@ export function ClientProfileView() {
                     <span>Plaques d'Immatriculation</span>
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Véhicules associés à votre compte pour la reconnaissance en caisse et les
-                    avantages de stationnement.
+                    Véhicules associés au compte pour la reconnaissance en caisse et les avantages
+                    de stationnement.
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="font-mono text-xs">
                     {licensePlates.length} {licensePlates.length > 1 ? 'plaques' : 'plaque'}
                   </Badge>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsManageVehiclesOpen(true)}
-                    className="h-8 gap-1.5 text-xs"
-                  >
-                    <Settings2 className="size-3.5" />
-                    <span>Gérer mes plaques</span>
-                  </Button>
+                  {!isAdminConsultation && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsManageVehiclesOpen(true)}
+                      className="h-8 gap-1.5 text-xs"
+                    >
+                      <Settings2 className="size-3.5" />
+                      <span>Gérer mes plaques</span>
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
 

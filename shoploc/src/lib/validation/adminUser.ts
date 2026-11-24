@@ -18,7 +18,7 @@ export const adminUserUpdateSchema = z.object({
     .min(1, "L'adresse email est obligatoire")
     .max(255, "L'adresse email ne doit pas dépasser 255 caractères")
     .regex(RFC_5322_EMAIL_REGEX, 'Format d’adresse email invalide'),
-  role: z.enum(['CLIENT', 'MERCHANT', 'ADMIN']),
+  role: z.enum(['CLIENT', 'MERCHANT', 'ADMIN']).optional(),
 });
 
 export type AdminUserUpdateFormValues = z.infer<typeof adminUserUpdateSchema>;

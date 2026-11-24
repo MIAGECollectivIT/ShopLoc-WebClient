@@ -17,10 +17,12 @@ import {
   storeAddressPatchSchema,
   storeOpeningHoursPatchSchema,
   storeGeneralPatchSchema,
+  cleanRibOrIban,
   ACCEPTED_STORE_IMAGE_TYPES,
   isValidStoreImageType,
   isValidStoreImageSize,
 } from '@/lib/validation/store';
+import { RibInputField } from '@/components/RibInputField';
 import {
   type DaySchedule,
   parseOpeningHours,
@@ -72,6 +74,10 @@ export function MerchantStoreProfileForm({
   // Section 1: General Info State
   const [name, setName] = React.useState<string>(store.name || '');
   const [category, setCategory] = React.useState<string>(store.category || '');
+  const [url, setUrl] = React.useState<string>(store.url || '');
+  const [rib, setRib] = React.useState<string>(store.rib || '');
+  const [ribError, setRibError] = React.useState<string | null>(null);
+  const [urlError, setUrlError] = React.useState<string | null>(null);
   const [savingGeneral, setSavingGeneral] = React.useState<boolean>(false);
   const [generalError, setGeneralError] = React.useState<string | null>(null);
   const [generalSuccess, setGeneralSuccess] = React.useState<boolean>(false);
@@ -182,6 +188,8 @@ export function MerchantStoreProfileForm({
     setName(initialStore.name || '');
     setCategory(initialStore.category || '');
     setAddress(initialStore.address || '');
+    setUrl(initialStore.url || '');
+    setRib(initialStore.rib || '');
 
     const parsedSchedule = parseOpeningHours(initialStore.openingHours);
     setSchedule(parsedSchedule);
@@ -208,10 +216,22 @@ export function MerchantStoreProfileForm({
     e.preventDefault();
     setGeneralError(null);
     setGeneralSuccess(false);
+    setRibError(null);
+    setUrlError(null);
 
-    const validation = storeGeneralPatchSchema.safeParse({ name, category });
+    const validation = storeGeneralPatchSchema.safeParse({
+      name,
+      category,
+      url: url.trim() || undefined,
+      rib: rib ? cleanRibOrIban(rib) : undefined,
+    });
     if (!validation.success) {
-      setGeneralError(validation.error.issues[0]?.message || 'Données invalides');
+      const err = validation.error.issues[0]?.message || 'Données invalides';
+      validation.error.issues.forEach((issue) => {
+        if (issue.path[0] === 'rib') setRibError(issue.message);
+        if (issue.path[0] === 'url') setUrlError(issue.message);
+      });
+      setGeneralError(err);
       return;
     }
 
@@ -221,6 +241,8 @@ export function MerchantStoreProfileForm({
       const updated = await patchStore(storeUid, {
         name: validation.data.name,
         category: validation.data.category,
+        url: validation.data.url?.trim() || undefined,
+        rib: validation.data.rib ? cleanRibOrIban(validation.data.rib) : undefined,
       });
       setStore(updated);
       setGeneralSuccess(true);
@@ -611,6 +633,40 @@ export function MerchantStoreProfileForm({
                   ))}
                 </select>
               </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="store-url" className="font-semibold text-foreground">
+                    URL vitrine (Site web ou boutique en ligne)
+                  </label>
+                  <span className="text-[11px] text-muted-foreground font-normal">(Optionnel)</span>
+                </div>
+                <Input
+                  id="store-url"
+                  type="url"
+                  value={url}
+                  onChange={(e) => {
+                    setUrl(e.target.value);
+                    setUrlError(null);
+                  }}
+                  placeholder="Ex: https://mon-commerce.fr"
+                  className="h-9 text-xs"
+                />
+                {urlError && <p className="text-destructive text-xs">{urlError}</p>}
+              </div>
+
+              <RibInputField
+                id="store-rib"
+                label="Coordonnées bancaires (RIB / IBAN)"
+                value={rib}
+                onChange={(val) => {
+                  setRib(val);
+                  setRibError(null);
+                }}
+                error={ribError || undefined}
+                disabled={savingGeneral}
+                required={false}
+              />
             </CardContent>
             <CardFooter className="pt-2 justify-end border-t border-border/50">
               <Button type="submit" size="sm" disabled={savingGeneral} className="gap-1.5 text-xs">
