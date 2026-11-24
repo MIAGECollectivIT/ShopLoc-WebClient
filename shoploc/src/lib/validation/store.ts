@@ -222,6 +222,13 @@ export function isValidHttpUrl(val?: string | null): boolean {
 }
 
 /**
+ * Standard 8-4-4-4-12 hexadecimal UUID regex compatible with PostgreSQL and Java UUID formats,
+ * without RFC 4122 strict variant bit limitations that reject valid database UUIDs.
+ */
+export const UUID_REGEX =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+/**
  * Zod schema for store creation form validation.
  * User-facing validation messages remain strictly in French.
  */
@@ -263,7 +270,7 @@ export const createStoreZodSchema = z.object({
     .string()
     .trim()
     .min(1, 'Veuillez sélectionner un compte partenaire')
-    .uuid('Identifiant de partenaire invalide'),
+    .regex(UUID_REGEX, 'Identifiant de partenaire invalide'),
 });
 
 export const createStoreValidationSchema = createStoreZodSchema;
@@ -360,7 +367,7 @@ export const adminStoreEditSchema = z.object({
   ownerUid: z
     .string()
     .trim()
-    .uuid('Identifiant de partenaire invalide')
+    .regex(UUID_REGEX, 'Identifiant de partenaire invalide')
     .optional()
     .or(z.literal('')),
   rib: z
