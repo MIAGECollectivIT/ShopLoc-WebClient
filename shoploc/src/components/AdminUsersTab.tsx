@@ -26,7 +26,6 @@ import {
   Users,
   Unlock,
   Edit,
-  Eye,
   X,
   RefreshCw,
   AlertCircle,
@@ -447,13 +446,21 @@ export function AdminUsersTab({ initialUsers = [] }: AdminUsersTabProps) {
                     {/* User Identity */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="size-9 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs border border-primary/20 shrink-0">
+                        <a
+                          href={`${ROUTES.profile.path}?userId=${user.id}`}
+                          className="size-9 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs border border-primary/20 shrink-0 hover:bg-primary/20 transition-colors cursor-pointer"
+                          title={`Consulter le profil de ${user.firstName} ${user.lastName}`}
+                        >
                           {getInitials(user.firstName, user.lastName)}
-                        </div>
+                        </a>
                         <div className="min-w-0">
-                          <p className="font-semibold text-foreground truncate max-w-[200px]">
+                          <a
+                            href={`${ROUTES.profile.path}?userId=${user.id}`}
+                            className="font-semibold text-foreground hover:text-primary hover:underline truncate max-w-[200px] block transition-colors cursor-pointer"
+                            title={`Consulter le profil de ${user.firstName} ${user.lastName}`}
+                          >
                             {user.firstName} {user.lastName}
-                          </p>
+                          </a>
                           <p className="text-xs text-muted-foreground truncate max-w-[220px]">
                             {user.email}
                           </p>
@@ -489,17 +496,6 @@ export function AdminUsersTab({ initialUsers = [] }: AdminUsersTabProps) {
                     {/* Actions */}
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          render={<a href={`${ROUTES.profile.path}?userId=${user.id}`} />}
-                          className="h-8 px-2.5 text-xs gap-1"
-                          title="Consulter le profil"
-                        >
-                          <Eye className="size-3.5 text-primary" />
-                          <span>Profil</span>
-                        </Button>
-
                         <Button
                           variant="outline"
                           size="sm"
