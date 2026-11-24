@@ -1,6 +1,10 @@
 import * as React from 'react';
-import { activateVfpParkingSession, getVfpDailyEligibility } from '@/lib/api';
-import type { ParkingSessionAcknowledgment } from '@/types/loyalty';
+import {
+  activateVfpParkingSession,
+  activateVfpTransitTicket,
+  getVfpDailyEligibility,
+} from '@/lib/api';
+import type { ParkingSessionAcknowledgment, TransitTicketAcknowledgment } from '@/types/loyalty';
 import { FrenchLicensePlateBadge } from './FrenchLicensePlateBadge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +29,9 @@ import {
   Lock,
   ParkingSquare,
   Plus,
+  QrCode,
   RefreshCw,
+  Ticket,
 } from 'lucide-react';
 
 interface VfpParkingSessionCardProps {
@@ -36,9 +42,10 @@ interface VfpParkingSessionCardProps {
 }
 
 type BenefitId = 'parking' | 'transit';
-type FeedbackDialogKind = 'vfp-required' | 'transit-soon' | 'benefit-used' | null;
+type FeedbackDialogKind = 'vfp-required' | 'benefit-used' | null;
 
 const STORAGE_KEY_PREFIX = 'shoploc_vfp_parking_';
+const TRANSIT_STORAGE_KEY_PREFIX = 'shoploc_vfp_transit_';
 
 const BENEFIT_OPTIONS: ReadonlyArray<{
   id: BenefitId;
@@ -57,8 +64,8 @@ const BENEFIT_OPTIONS: ReadonlyArray<{
   {
     id: 'transit',
     title: 'Transports en commun',
-    subtitle: 'Titre urbain offert',
-    perkBadge: 'Bientôt',
+    subtitle: 'Titre urbain 1h offert',
+    perkBadge: '1 titre / jour',
     icon: Bus,
   },
 ];
@@ -67,12 +74,27 @@ function getStorageKey(userId: string): string {
   return `${STORAGE_KEY_PREFIX}${userId}`;
 }
 
+function getTransitStorageKey(userId: string): string {
+  return `${TRANSIT_STORAGE_KEY_PREFIX}${userId}`;
+}
+
 function clearPersistedSession(userId: string): void {
   if (typeof window === 'undefined' || !userId) {
     return;
   }
   try {
     window.localStorage.removeItem(getStorageKey(userId));
+  } catch {
+    // Ignore storage access errors in private browsing
+  }
+}
+
+function clearPersistedTransitTicket(userId: string): void {
+  if (typeof window === 'undefined' || !userId) {
+    return;
+  }
+  try {
+    window.localStorage.removeItem(getTransitStorageKey(userId));
   } catch {
     // Ignore storage access errors in private browsing
   }
@@ -96,12 +118,41 @@ function readPersistedSession(userId: string): ParkingSessionAcknowledgment | nu
   }
 }
 
+function readPersistedTransitTicket(userId: string): TransitTicketAcknowledgment | null {
+  if (typeof window === 'undefined' || !userId) {
+    return null;
+  }
+  try {
+    const raw = window.localStorage.getItem(getTransitStorageKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as TransitTicketAcknowledgment;
+    if (!parsed.expiresAt || Date.parse(parsed.expiresAt) <= Date.now()) {
+      clearPersistedTransitTicket(userId);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 function persistSession(userId: string, session: ParkingSessionAcknowledgment): void {
   if (typeof window === 'undefined' || !userId) {
     return;
   }
   try {
     window.localStorage.setItem(getStorageKey(userId), JSON.stringify(session));
+  } catch {
+    // Ignore storage quota errors in private browsing
+  }
+}
+
+function persistTransitTicket(userId: string, ticket: TransitTicketAcknowledgment): void {
+  if (typeof window === 'undefined' || !userId) {
+    return;
+  }
+  try {
+    window.localStorage.setItem(getTransitStorageKey(userId), JSON.stringify(ticket));
   } catch {
     // Ignore storage quota errors in private browsing
   }
@@ -136,11 +187,15 @@ export function VfpParkingSessionCard({
   const [acknowledgment, setAcknowledgment] = React.useState<ParkingSessionAcknowledgment | null>(
     () => readPersistedSession(userId)
   );
+  const [transitTicket, setTransitTicket] = React.useState<TransitTicketAcknowledgment | null>(() =>
+    readPersistedTransitTicket(userId)
+  );
   const [nowMs, setNowMs] = React.useState<number>(() => Date.now());
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [copiedReference, setCopiedReference] = React.useState(false);
   const [isParkingDialogOpen, setIsParkingDialogOpen] = React.useState(false);
+  const [isTransitDialogOpen, setIsTransitDialogOpen] = React.useState(false);
   const [feedbackDialog, setFeedbackDialog] = React.useState<FeedbackDialogKind>(null);
   const [consumedToday, setConsumedToday] = React.useState(false);
 
@@ -161,9 +216,20 @@ export function VfpParkingSessionCard({
         ) {
           setAcknowledgment(eligibility.activeParkingSession);
           persistSession(userId, eligibility.activeParkingSession);
-        } else {
+        } else if (!readPersistedSession(userId)) {
           setAcknowledgment(null);
           clearPersistedSession(userId);
+        }
+
+        if (
+          eligibility.activeTransitTicket &&
+          Date.parse(eligibility.activeTransitTicket.expiresAt) > Date.now()
+        ) {
+          setTransitTicket(eligibility.activeTransitTicket);
+          persistTransitTicket(userId, eligibility.activeTransitTicket);
+        } else if (!readPersistedTransitTicket(userId)) {
+          setTransitTicket(null);
+          clearPersistedTransitTicket(userId);
         }
       })
       .catch(() => {
@@ -183,17 +249,18 @@ export function VfpParkingSessionCard({
   }, [licensePlates, selectedPlate]);
 
   React.useEffect(() => {
-    if (!acknowledgment) {
+    if (!acknowledgment && !transitTicket) {
       return undefined;
     }
     const intervalId = window.setInterval(() => {
       setNowMs(Date.now());
     }, 1000);
     return () => window.clearInterval(intervalId);
-  }, [acknowledgment]);
+  }, [acknowledgment, transitTicket]);
 
   const isSessionActive = acknowledgment !== null && Date.parse(acknowledgment.expiresAt) > nowMs;
-  const isBenefitLockedToday = isVfp && !isSessionActive && consumedToday;
+  const isTransitActive = transitTicket !== null && Date.parse(transitTicket.expiresAt) > nowMs;
+  const isBenefitLockedToday = isVfp && !isSessionActive && !isTransitActive && consumedToday;
 
   function handleBenefitClick(benefitId: BenefitId) {
     if (!isVfp) {
@@ -205,14 +272,15 @@ export function VfpParkingSessionCard({
       return;
     }
     if (benefitId === 'transit') {
-      setFeedbackDialog('transit-soon');
+      setErrorMessage(null);
+      setIsTransitDialogOpen(true);
       return;
     }
     setErrorMessage(null);
     setIsParkingDialogOpen(true);
   }
 
-  async function handleActivate() {
+  async function handleActivateParking() {
     if (!selectedPlate || isSubmitting) {
       return;
     }
@@ -230,7 +298,32 @@ export function VfpParkingSessionCard({
       setErrorMessage(
         err instanceof Error
           ? err.message
-          : 'Une erreur est survenue lors de la demande de stationnement.'
+          : "Une erreur inattendue est survenue lors de l'activation du stationnement."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleActivateTransit() {
+    if (isSubmitting) {
+      return;
+    }
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const result = await activateVfpTransitTicket();
+      setTransitTicket(result);
+      setConsumedToday(true);
+      setNowMs(Date.now());
+      persistTransitTicket(userId, result);
+      setIsTransitDialogOpen(false);
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error
+          ? err.message
+          : "Une erreur inattendue est survenue lors de l'activation du titre de transport."
       );
     } finally {
       setIsSubmitting(false);
@@ -253,6 +346,8 @@ export function VfpParkingSessionCard({
         {BENEFIT_OPTIONS.map((benefit) => {
           const Icon = benefit.icon;
           const isParkingActive = benefit.id === 'parking' && isSessionActive;
+          const isThisTransitActive = benefit.id === 'transit' && isTransitActive;
+          const isActive = isParkingActive || isThisTransitActive;
           const isDisabledState = !isVfp || isBenefitLockedToday;
 
           return (
@@ -260,13 +355,12 @@ export function VfpParkingSessionCard({
               key={benefit.id}
               type="button"
               variant="outline"
-              // Keep button clickable when locked so feedback dialog can still open
               aria-disabled={isDisabledState}
               onClick={() => handleBenefitClick(benefit.id)}
               className={`h-auto w-full justify-between px-4 py-3 text-left whitespace-normal ${
                 isDisabledState
                   ? 'border-dashed opacity-60 text-muted-foreground hover:opacity-80'
-                  : isParkingActive
+                  : isActive
                     ? 'border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/15'
                     : ''
               }`}
@@ -274,7 +368,7 @@ export function VfpParkingSessionCard({
               <div className="flex items-center gap-2.5 min-w-0">
                 <Icon
                   className={`size-4 shrink-0 ${
-                    isParkingActive ? 'text-emerald-600 dark:text-emerald-400' : ''
+                    isActive ? 'text-emerald-600 dark:text-emerald-400' : ''
                   }`}
                 />
                 <div className="min-w-0">
@@ -292,14 +386,16 @@ export function VfpParkingSessionCard({
               <div className="flex items-center gap-1.5 shrink-0">
                 {isDisabledState && <Lock className="size-3.5 text-muted-foreground" />}
                 <Badge
-                  variant={isParkingActive ? 'default' : 'secondary'}
+                  variant={isActive ? 'default' : 'secondary'}
                   className={`text-[11px] font-semibold ${
-                    isParkingActive ? 'bg-emerald-600 text-white' : ''
+                    isActive ? 'bg-emerald-600 text-white' : ''
                   }`}
                 >
                   {isParkingActive && acknowledgment
                     ? formatRemainingCountdown(acknowledgment.expiresAt, nowMs)
-                    : benefit.perkBadge}
+                    : isThisTransitActive && transitTicket
+                      ? formatRemainingCountdown(transitTicket.expiresAt, nowMs)
+                      : benefit.perkBadge}
                 </Badge>
               </div>
             </Button>
@@ -307,6 +403,7 @@ export function VfpParkingSessionCard({
         })}
       </div>
 
+      {/* Active Parking Session Display */}
       {isSessionActive && acknowledgment && (
         <Card
           className="border-emerald-500/50 bg-gradient-to-br from-emerald-500/10 via-card to-card shadow-sm"
@@ -361,6 +458,68 @@ export function VfpParkingSessionCard({
         </Card>
       )}
 
+      {/* Active Transit Ticket Display */}
+      {isTransitActive && transitTicket && (
+        <Card
+          className="border-emerald-500/50 bg-gradient-to-br from-emerald-500/10 via-card to-card shadow-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <div className="p-3 bg-white rounded-xl border border-border shadow-xs flex items-center justify-center shrink-0">
+                <QrCode className="size-20 text-neutral-900" />
+              </div>
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs w-full">
+                <div className="rounded-lg bg-background/80 border p-2.5 flex flex-col justify-center">
+                  <span className="block text-[11px] text-muted-foreground mb-0.5">
+                    Validité 1 heure (Réseau urbain)
+                  </span>
+                  <span className="font-mono font-bold text-base text-foreground">
+                    {formatParisTime(transitTicket.startedAt)} →{' '}
+                    <span className="text-emerald-700 dark:text-emerald-400">
+                      {formatParisTime(transitTicket.expiresAt)}
+                    </span>
+                  </span>
+                  <span className="text-[11px] text-muted-foreground mt-0.5">
+                    Temps restant : {formatRemainingCountdown(transitTicket.expiresAt, nowMs)}
+                  </span>
+                </div>
+
+                <div className="rounded-lg bg-background/80 border p-2.5 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="block text-[11px] text-muted-foreground">
+                      Code de contrôle
+                    </span>
+                    <span className="block font-mono text-sm font-bold text-primary break-all">
+                      {transitTicket.ticketCode}
+                    </span>
+                    <span className="block font-mono text-[10px] text-muted-foreground/80 truncate">
+                      Réf: {transitTicket.ticketReference}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyReference(transitTicket.ticketCode)}
+                    className="shrink-0 min-h-8 gap-1 text-xs"
+                    aria-label="Copier le code de contrôle"
+                  >
+                    {copiedReference ? (
+                      <Check className="size-3.5 text-emerald-600" />
+                    ) : (
+                      <Copy className="size-3.5" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Parking Dialog */}
       <Dialog open={isParkingDialogOpen} onOpenChange={setIsParkingDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -439,7 +598,7 @@ export function VfpParkingSessionCard({
                     <p>{errorMessage}</p>
                     <button
                       type="button"
-                      onClick={handleActivate}
+                      onClick={handleActivateParking}
                       className="inline-flex items-center gap-1 font-semibold underline"
                     >
                       <RefreshCw className="size-3" />
@@ -451,7 +610,7 @@ export function VfpParkingSessionCard({
 
               <Button
                 type="button"
-                onClick={handleActivate}
+                onClick={handleActivateParking}
                 disabled={!selectedPlate || isSubmitting}
                 className="w-full min-h-11 gap-2 text-sm font-semibold"
               >
@@ -472,6 +631,88 @@ export function VfpParkingSessionCard({
         </DialogContent>
       </Dialog>
 
+      {/* Transit Dialog */}
+      <Dialog open={isTransitDialogOpen} onOpenChange={setIsTransitDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bus className="size-5 text-primary" />
+              <span>Activer un titre de transport gratuit (1h)</span>
+            </DialogTitle>
+            <DialogDescription>
+              {isTransitActive
+                ? 'Votre titre de transport urbain gratuit est déjà actif.'
+                : 'Profitez de la gratuité sur l’ensemble du réseau de bus et tramways de la collectivité pour vous rendre chez vos commerçants.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {isTransitActive && transitTicket ? (
+            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3.5 text-xs space-y-2">
+              <p className="font-semibold text-emerald-700 dark:text-emerald-400">
+                Titre actif jusqu’à {formatParisTime(transitTicket.expiresAt)}
+              </p>
+              <p className="font-mono text-foreground break-all">
+                Code : {transitTicket.ticketCode} (Réf : {transitTicket.ticketReference})
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-xl border bg-muted/20 p-3.5 text-xs space-y-2">
+                <div className="flex items-center gap-2 font-semibold text-foreground">
+                  <Ticket className="size-4 text-primary" />
+                  <span>Conditions d&apos;utilisation VFP</span>
+                </div>
+                <p className="text-muted-foreground leading-relaxed">
+                  Valable <strong>1 heure</strong> sur tout le réseau urbain Collectiv&apos;IT dès
+                  l&apos;activation. En activant ce titre, vous consommez votre avantage
+                  institutionnel du jour (le stationnement ne sera plus activable aujourd&apos;hui).
+                </p>
+              </div>
+
+              {errorMessage && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive"
+                >
+                  <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-1.5">
+                    <p>{errorMessage}</p>
+                    <button
+                      type="button"
+                      onClick={handleActivateTransit}
+                      className="inline-flex items-center gap-1 font-semibold underline"
+                    >
+                      <RefreshCw className="size-3" />
+                      <span>Réessayer</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <Button
+                type="button"
+                onClick={handleActivateTransit}
+                disabled={isSubmitting}
+                className="w-full min-h-11 gap-2 text-sm font-semibold"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    <span>Émission du titre en cours…</span>
+                  </>
+                ) : (
+                  <>
+                    <Bus className="size-4" />
+                    <span>Activer mon titre 1h gratuit</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Feedback Dialog */}
       <Dialog
         open={feedbackDialog !== null}
         onOpenChange={(open) => {
@@ -486,24 +727,17 @@ export function VfpParkingSessionCard({
                   <Crown className="size-5 text-amber-500" />
                   <span>Réservé aux membres VFP</span>
                 </>
-              ) : feedbackDialog === 'benefit-used' ? (
+              ) : (
                 <>
                   <Lock className="size-5 text-muted-foreground" />
                   <span>Avantage journalier déjà utilisé</span>
-                </>
-              ) : (
-                <>
-                  <Bus className="size-5 text-primary" />
-                  <span>Transports en commun VFP</span>
                 </>
               )}
             </DialogTitle>
             <DialogDescription>
               {feedbackDialog === 'vfp-required'
                 ? 'Cet avantage est réservé aux clients disposant du statut Very Faithful Person (VFP) actif. Effectuez au moins 10 achats sur 15 jours glissants pour le débloquer.'
-                : feedbackDialog === 'benefit-used'
-                  ? 'Vous avez déjà bénéficié de votre avantage gratuit aujourd’hui. Un nouvel avantage sera disponible demain.'
-                  : 'L’activation des titres de transport en commun gratuits sera disponible prochainement.'}
+                : 'Vous avez déjà bénéficié de votre avantage gratuit aujourd’hui (stationnement ou transport). Un nouvel avantage sera disponible demain.'}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
