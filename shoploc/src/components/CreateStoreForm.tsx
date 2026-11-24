@@ -32,7 +32,13 @@ import {
   isValidStoreImageSize,
   type CreateStoreFormData,
 } from '@/lib/validation/store';
-import { createStore, patchStore, updateStoreImage, addStoreToPartner } from '@/lib/api';
+import {
+  createStore,
+  patchStore,
+  reactivateStore,
+  updateStoreImage,
+  addStoreToPartner,
+} from '@/lib/api';
 import { resolveStoreImageUrl } from '@/lib/image';
 import { getAuthUser } from '@/lib/auth';
 import { ROUTES } from '@/config/routes';
@@ -48,6 +54,7 @@ import {
   ArrowRight,
   Upload,
   X,
+  RotateCcw,
 } from 'lucide-react';
 
 /**
@@ -325,7 +332,7 @@ function StoreImageUploadField({
 }
 
 export interface StoreFormProps {
-  mode?: 'create' | 'edit';
+  mode?: 'create' | 'edit' | 'reactivate';
   initialStore?: StoreType | StoreResponse | null;
   onSuccess?: (store: StoreResponse) => void;
   onCancel?: () => void;
@@ -333,7 +340,7 @@ export interface StoreFormProps {
 }
 
 /**
- * Unified establishment form component supporting both creation and edition.
+ * Unified establishment form component supporting creation, edition, and reactivation.
  * Features real-time Zod validation, modulo 97 RIB algorithmic check,
  * and storefront image upload lifecycle.
  */
@@ -345,6 +352,7 @@ export function StoreForm({
   isDialog = false,
 }: StoreFormProps) {
   const isEditing = mode === 'edit';
+  const isReactivating = mode === 'reactivate';
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [createdStore, setCreatedStore] = React.useState<StoreResponse | null>(null);
 
@@ -383,7 +391,7 @@ export function StoreForm({
       category: initialStore?.category || '',
       address: initialStore?.address || '',
       url: initialStore?.url || '',
-      rib: initialStore?.rib || '',
+      rib: initialStore?.rib && initialStore.rib !== 'REVOKED' ? initialStore.rib : '',
       ownerUid: initialStore?.ownerUid || '',
     },
     mode: 'onChange',
@@ -405,7 +413,7 @@ export function StoreForm({
         category: initialStore.category || '',
         address: initialStore.address || '',
         url: initialStore.url || '',
-        rib: initialStore.rib || '',
+        rib: initialStore.rib && initialStore.rib !== 'REVOKED' ? initialStore.rib : '',
         ownerUid: initialStore.ownerUid || '',
       });
     } else if (isMerchant && currentUser?.id) {
@@ -416,7 +424,38 @@ export function StoreForm({
   const onSubmit = async (values: CreateStoreFormData) => {
     setErrorMessage(null);
     try {
-      if (isEditing && initialStore) {
+      if (isReactivating && initialStore) {
+        const storeId = initialStore.uid || String(initialStore.id);
+        const cleanedRib = cleanRibOrIban(values.rib);
+        let response = await reactivateStore(storeId, cleanedRib, values.ownerUid);
+
+        // Apply any additional field edits after reactivation
+        const patchPayload: StorePatchRequest = {
+          name: values.name.trim(),
+          category: values.category.trim(),
+          address: values.address.trim(),
+          url: values.url?.trim() || undefined,
+          rib: cleanedRib,
+          ownerUid: values.ownerUid ? values.ownerUid : undefined,
+        };
+        response = await patchStore(storeId, patchPayload);
+
+        if (values.ownerUid) {
+          try {
+            await addStoreToPartner(values.ownerUid, storeId);
+          } catch {
+            // best-effort sync
+          }
+        }
+        if (imageFile) {
+          try {
+            await updateStoreImage(storeId, imageFile);
+          } catch (imgErr) {
+            console.warn("Échec du téléversement de l'image:", imgErr);
+          }
+        }
+        onSuccess?.(response);
+      } else if (isEditing && initialStore) {
         const storeId = initialStore.uid || String(initialStore.id);
         const patchPayload: StorePatchRequest = {
           name: values.name.trim(),
@@ -474,9 +513,11 @@ export function StoreForm({
       setErrorMessage(
         err instanceof Error
           ? err.message
-          : isEditing
-            ? 'Une erreur est survenue lors de la mise à jour du commerce.'
-            : "Une erreur inattendue est survenue lors de la création de l'établissement."
+          : isReactivating
+            ? 'Une erreur est survenue lors de la réactivation du commerce.'
+            : isEditing
+              ? 'Une erreur est survenue lors de la mise à jour du commerce.'
+              : "Une erreur inattendue est survenue lors de la création de l'établissement."
       );
     }
   };
@@ -669,19 +710,27 @@ export function StoreForm({
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-foreground">
-            {isEditing ? (
+            {isReactivating ? (
+              <RotateCcw className="size-4 text-emerald-600" />
+            ) : isEditing ? (
               <Edit className="size-4 text-primary" />
             ) : (
               <Store className="size-4 text-primary" />
             )}
             <span>
-              {isEditing ? 'Modifier le commerce partenaire' : 'Créer un nouvel établissement'}
+              {isReactivating
+                ? 'Réactiver le commerce partenaire'
+                : isEditing
+                  ? 'Modifier le commerce partenaire'
+                  : 'Créer un nouvel établissement'}
             </span>
           </DialogTitle>
           <DialogDescription>
-            {isEditing
-              ? `Mise à jour des informations administratives et coordonnées de ${initialStore?.name || "l'établissement"}.`
-              : "Renseignez les coordonnées de l'établissement et associez-le à un partenaire."}
+            {isReactivating
+              ? `Vérifiez les informations de ${initialStore?.name || "l'établissement"}, réaffectez un partenaire et saisissez un RIB/IBAN conventionnel valide.`
+              : isEditing
+                ? `Mise à jour des informations administratives et coordonnées de ${initialStore?.name || "l'établissement"}.`
+                : "Renseignez les coordonnées de l'établissement et associez-le à un partenaire."}
           </DialogDescription>
         </DialogHeader>
 
@@ -703,11 +752,21 @@ export function StoreForm({
             {isSubmitting ? (
               <>
                 <Loader2 className="size-4 animate-spin mr-1.5" />
-                <span>{isEditing ? 'Enregistrement...' : 'Création en cours...'}</span>
+                <span>
+                  {isReactivating
+                    ? 'Réactivation en cours...'
+                    : isEditing
+                      ? 'Enregistrement...'
+                      : 'Création en cours...'}
+                </span>
               </>
             ) : (
               <span>
-                {isEditing ? 'Enregistrer les modifications' : "Enregistrer l'établissement"}
+                {isReactivating
+                  ? 'Confirmer la réactivation'
+                  : isEditing
+                    ? 'Enregistrer les modifications'
+                    : "Enregistrer l'établissement"}
               </span>
             )}
           </Button>

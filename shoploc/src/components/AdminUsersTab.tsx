@@ -1,7 +1,7 @@
 import * as React from 'react';
 import type { UserResponse, UserRole } from '@/types/user';
-import { getAdminUsers, updateAdminUser, unlockAdminUser } from '@/lib/api';
-import { adminUserUpdateSchema, type AdminUserUpdateFormValues } from '@/lib/validation/adminUser';
+import { getAdminUsers, unlockAdminUser } from '@/lib/api';
+import { UserProfileEditDialog } from '@/components/UserProfileEditDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,13 +86,6 @@ export function AdminUsersTab({ initialUsers = [] }: AdminUsersTabProps) {
 
   // Edit user modal state
   const [editingUser, setEditingUser] = React.useState<UserResponse | null>(null);
-  const [editFormData, setEditFormData] = React.useState<AdminUserUpdateFormValues>({
-    firstName: '',
-    lastName: '',
-    email: '',
-  });
-  const [editFormErrors, setEditFormErrors] = React.useState<Record<string, string>>({});
-  const [isSubmittingEdit, setIsSubmittingEdit] = React.useState(false);
 
   // Unlock confirmation state
   const [unlockTargetUser, setUnlockTargetUser] = React.useState<UserResponse | null>(null);
@@ -158,55 +151,6 @@ export function AdminUsersTab({ initialUsers = [] }: AdminUsersTabProps) {
   // Open Edit Dialog
   const handleOpenEdit = (user: UserResponse) => {
     setEditingUser(user);
-    setEditFormData({
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-    });
-    setEditFormErrors({});
-  };
-
-  // Submit Edit Form with Zod validation
-  const handleSubmitEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingUser) return;
-
-    const validationResult = adminUserUpdateSchema.safeParse(editFormData);
-    if (!validationResult.success) {
-      const errors: Record<string, string> = {};
-      validationResult.error.issues.forEach((err) => {
-        if (err.path[0]) {
-          errors[err.path[0].toString()] = err.message;
-        }
-      });
-      setEditFormErrors(errors);
-      return;
-    }
-
-    setIsSubmittingEdit(true);
-    setEditFormErrors({});
-    try {
-      const payload = {
-        firstName: validationResult.data.firstName,
-        lastName: validationResult.data.lastName,
-        email: validationResult.data.email,
-      };
-      const updated = await updateAdminUser(editingUser.id, payload);
-      setActionSuccessMessage(
-        `Le compte de ${updated.firstName} ${updated.lastName} a été mis à jour avec succès.`
-      );
-      setEditingUser(null);
-      await fetchUsers();
-    } catch (err: unknown) {
-      setEditFormErrors({
-        root:
-          err instanceof Error
-            ? err.message
-            : 'Erreur lors de la mise à jour des informations utilisateur.',
-      });
-    } finally {
-      setIsSubmittingEdit(false);
-    }
   };
 
   // Unlock User Account
@@ -597,98 +541,24 @@ export function AdminUsersTab({ initialUsers = [] }: AdminUsersTabProps) {
       )}
 
       {/* Edit User Modal */}
-      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-foreground">
-              <Edit className="size-4 text-primary" />
-              Modifier l&apos;utilisateur
-            </DialogTitle>
-            <DialogDescription>
-              Mise à jour des coordonnées et privilèges de{' '}
-              <strong className="text-foreground">
-                {editingUser?.firstName} {editingUser?.lastName}
-              </strong>
-              .
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSubmitEdit} className="space-y-4 py-2">
-            {editFormErrors.root && (
-              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-xs">
-                {editFormErrors.root}
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium">Prénom</label>
-                <Input
-                  type="text"
-                  value={editFormData.firstName}
-                  onChange={(e) =>
-                    setEditFormData((prev) => ({ ...prev, firstName: e.target.value }))
-                  }
-                  disabled={isSubmittingEdit}
-                />
-                {editFormErrors.firstName && (
-                  <p className="text-destructive text-xs">{editFormErrors.firstName}</p>
-                )}
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium">Nom</label>
-                <Input
-                  type="text"
-                  value={editFormData.lastName}
-                  onChange={(e) =>
-                    setEditFormData((prev) => ({ ...prev, lastName: e.target.value }))
-                  }
-                  disabled={isSubmittingEdit}
-                />
-                {editFormErrors.lastName && (
-                  <p className="text-destructive text-xs">{editFormErrors.lastName}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium">Adresse email</label>
-              <Input
-                type="email"
-                value={editFormData.email}
-                onChange={(e) => setEditFormData((prev) => ({ ...prev, email: e.target.value }))}
-                disabled={isSubmittingEdit}
-              />
-              {editFormErrors.email && (
-                <p className="text-destructive text-xs">{editFormErrors.email}</p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-foreground">Rôle du compte</label>
-              <div className="flex items-center gap-2 pt-1">
-                {editingUser && getRoleBadge(editingUser.role)}
-                <span className="text-xs text-muted-foreground italic">(Non modifiable)</span>
-              </div>
-            </div>
-
-            <DialogFooter className="pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setEditingUser(null)}
-                disabled={isSubmittingEdit}
-              >
-                Annuler
-              </Button>
-              <Button type="submit" size="sm" disabled={isSubmittingEdit}>
-                {isSubmittingEdit ? 'Enregistrement...' : 'Enregistrer'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Edit User Modal (reusing shared UserProfileEditDialog) */}
+      <UserProfileEditDialog
+        open={!!editingUser}
+        onOpenChange={(open) => !open && setEditingUser(null)}
+        user={editingUser}
+        title="Modifier l'utilisateur"
+        description={
+          editingUser
+            ? `Consultez et modifiez les informations de ${editingUser.firstName} ${editingUser.lastName}.`
+            : undefined
+        }
+        onSuccess={(updated) => {
+          setActionSuccessMessage(
+            `Le compte de ${updated.firstName} ${updated.lastName} a été mis à jour avec succès.`
+          );
+          fetchUsers();
+        }}
+      />
 
       {/* Unlock Confirmation Modal */}
       <Dialog open={!!unlockTargetUser} onOpenChange={(open) => !open && setUnlockTargetUser(null)}>

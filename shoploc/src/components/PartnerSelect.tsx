@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { getPartners } from '@/lib/api';
 import type { PartnerAccount } from '@/types/store';
-import { UserCheck, Search, Mail, Loader2, Store, UserPlus, ExternalLink } from 'lucide-react';
+import { UserCheck, Search, Mail, Loader2, Store } from 'lucide-react';
 
 interface PartnerSelectProps {
   value: string;
@@ -171,22 +171,10 @@ export function PartnerSelect({
 
             {/* Empty state when no partners match the query */}
             {!isLoading && partners.length === 0 && (
-              <div className="p-4 space-y-2 text-center">
+              <div className="p-4 text-center">
                 <p className="text-xs text-muted-foreground">
                   Aucun compte partenaire trouvé {searchQuery ? `pour « ${searchQuery} »` : ''}.
                 </p>
-                <div className="pt-1">
-                  <a
-                    href="/register"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline bg-primary/10 hover:bg-primary/15 px-2.5 py-1.5 rounded-md transition-colors"
-                  >
-                    <UserPlus className="size-3.5" />
-                    <span>Créer un nouveau compte partenaire</span>
-                    <ExternalLink className="size-3" />
-                  </a>
-                </div>
               </div>
             )}
 

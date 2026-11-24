@@ -1,19 +1,8 @@
 import * as React from 'react';
 import type { Store as StoreType } from '@/types/store';
 import type { AdminPartnerSummary } from '@/types/partner';
-import type { UserResponse } from '@/types/user';
-import {
-  getStores,
-  revokeStore,
-  reactivateStore,
-  getAdminPartners,
-  getAdminUserById,
-  addStoreToPartner,
-} from '@/lib/api';
-import { isValidRibOrIban } from '@/lib/validation/store';
-import { PartnerSelect } from '@/components/PartnerSelect';
+import { getStores, revokeStore, getAdminPartners } from '@/lib/api';
 import { StoreForm } from '@/components/CreateStoreForm';
-import { RibInputField } from '@/components/RibInputField';
 import { ROUTES } from '@/config/routes';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -49,7 +38,6 @@ import {
   ChevronRight,
   Edit,
   User,
-  Loader2,
 } from 'lucide-react';
 
 interface AdminStoresTabProps {
@@ -104,23 +92,12 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
 
   // Reactivate Dialog State
   const [reactivatingStore, setReactivatingStore] = React.useState<StoreType | null>(null);
-  const [reactivateRib, setReactivateRib] = React.useState('');
-  const [reactivateRibError, setReactivateRibError] = React.useState<string | null>(null);
-  const [reactivateUserId, setReactivateUserId] = React.useState<string>('');
-  const [reactivatePartnerError, setReactivatePartnerError] = React.useState<string | null>(null);
-  const [isSubmittingReactivate, setIsSubmittingReactivate] = React.useState(false);
 
   // Edit Store Dialog State
   const [editingStore, setEditingStore] = React.useState<StoreType | null>(null);
 
   // Partner merchants list (for owner resolution and reassignment)
   const [partners, setPartners] = React.useState<AdminPartnerSummary[]>([]);
-
-  // Inspect User Modal State
-  const [inspectingUserId, setInspectingUserId] = React.useState<string | null>(null);
-  const [inspectingUser, setInspectingUser] = React.useState<UserResponse | null>(null);
-  const [isLoadingUserDetails, setIsLoadingUserDetails] = React.useState(false);
-  const [userDetailError, setUserDetailError] = React.useState<string | null>(null);
 
   // Load partners on mount
   React.useEffect(() => {
@@ -142,31 +119,6 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
     });
     return map;
   }, [partners]);
-
-  const handleOpenUserDetail = async (userId: string) => {
-    setInspectingUserId(userId);
-    setIsLoadingUserDetails(true);
-    setUserDetailError(null);
-    setInspectingUser(null);
-    try {
-      const user = await getAdminUserById(userId);
-      setInspectingUser(user);
-    } catch (err: unknown) {
-      setUserDetailError(
-        err instanceof Error
-          ? err.message
-          : 'Impossible de récupérer les informations de cet utilisateur.'
-      );
-    } finally {
-      setIsLoadingUserDetails(false);
-    }
-  };
-
-  const getUserInitials = (firstName?: string, lastName?: string) => {
-    const f = firstName?.trim() ? firstName.trim()[0].toUpperCase() : '';
-    const l = lastName?.trim() ? lastName.trim()[0].toUpperCase() : '';
-    return f || l ? `${f}${l}` : 'U';
-  };
 
   // Debounce search input by 300ms
   React.useEffect(() => {
@@ -285,60 +237,6 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la révocation du commerce.');
     } finally {
       setIsSubmittingRevoke(false);
-    }
-  };
-
-  // Confirm Reactivation
-  const handleConfirmReactivate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reactivatingStore) return;
-    const storeUid = reactivatingStore.uid;
-    if (!storeUid) return;
-
-    if (!reactivateUserId) {
-      setReactivatePartnerError(
-        'Veuillez sélectionner un commerçant partenaire à qui affecter le commerce réactivé.'
-      );
-      return;
-    }
-
-    const trimmedRib = reactivateRib.trim().toUpperCase();
-    if (!trimmedRib) {
-      setReactivateRibError('Le RIB ou IBAN est obligatoire pour réactiver le commerce.');
-      return;
-    }
-    if (!isValidRibOrIban(trimmedRib)) {
-      setReactivateRibError(
-        'Le format ou la clé algorithmique du RIB/IBAN est invalide (RIB français 23 car. ou IBAN valide).'
-      );
-      return;
-    }
-
-    setIsSubmittingReactivate(true);
-    setReactivateRibError(null);
-    setReactivatePartnerError(null);
-    try {
-      await reactivateStore(storeUid, trimmedRib, reactivateUserId);
-      try {
-        await addStoreToPartner(reactivateUserId, storeUid);
-      } catch {
-        // Backend store-service synchronise déjà avec users-service
-      }
-      setActionSuccessMessage(
-        `Le commerce "${reactivatingStore.name}" a été réactivé avec succès et réaffecté au commerçant partenaire.`
-      );
-      setReactivatingStore(null);
-      setReactivateRib('');
-      setReactivateUserId('');
-      setReactivateRibError(null);
-      setReactivatePartnerError(null);
-      await fetchStores();
-    } catch (err: unknown) {
-      setReactivateRibError(
-        err instanceof Error ? err.message : 'Erreur lors de la réactivation du commerce.'
-      );
-    } finally {
-      setIsSubmittingReactivate(false);
     }
   };
 
@@ -535,17 +433,16 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
                         (() => {
                           const partner = partnerMap.get(store.ownerUid);
                           return (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenUserDetail(store.ownerUid)}
+                            <a
+                              href={`${ROUTES.profile.path}?userId=${store.ownerUid}`}
                               className="text-xs font-medium text-foreground hover:text-primary hover:underline flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded group text-left"
-                              title="Cliquer pour afficher la fiche de cet utilisateur"
+                              title="Consulter le profil de cet utilisateur"
                             >
                               <User className="size-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
                               <span className="truncate max-w-[160px]">
                                 {partner ? partner.name : store.ownerUid}
                               </span>
-                            </button>
+                            </a>
                           );
                         })()
                       ) : (
@@ -615,13 +512,7 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => {
-                                setReactivatingStore(store);
-                                setReactivateRib('');
-                                setReactivateRibError(null);
-                                setReactivateUserId(store.ownerUid ?? '');
-                                setReactivatePartnerError(null);
-                              }}
+                              onClick={() => setReactivatingStore(store)}
                               className="h-8 px-2.5 text-xs gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 border-emerald-500/30"
                               title="Réactiver ce commerce révoqué"
                             >
@@ -760,94 +651,27 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Reactivation Dialog with new RIB and partner assignment */}
+      {/* Reactivate Store Dialog using unified StoreForm */}
       <Dialog
         open={!!reactivatingStore}
-        onOpenChange={(open) => {
-          if (!open) {
-            setReactivatingStore(null);
-            setReactivateUserId('');
-            setReactivateRibError(null);
-            setReactivatePartnerError(null);
-          }
-        }}
+        onOpenChange={(open) => !open && setReactivatingStore(null)}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-foreground">
-              <RotateCcw className="size-5 text-emerald-600" />
-              Réactiver le commerce partenaire
-            </DialogTitle>
-            <DialogDescription>
-              Pour réactiver <strong className="text-foreground">{reactivatingStore?.name}</strong>,
-              veuillez affecter le commerçant partenaire responsable et saisir des coordonnées
-              bancaires à jour (nouveau RIB/IBAN).
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleConfirmReactivate} className="space-y-4 py-2">
-            {reactivateRibError && (
-              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-xs">
-                {reactivateRibError}
-              </div>
-            )}
-            {reactivatePartnerError && (
-              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-xs">
-                {reactivatePartnerError}
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <label className="text-xs font-medium flex items-center justify-between">
-                <span>Commerçant partenaire affecté</span>
-                <span className="text-[11px] text-destructive font-normal">* Obligatoire</span>
-              </label>
-              <PartnerSelect
-                value={reactivateUserId}
-                onValueChange={(val) => {
-                  setReactivateUserId(val);
-                  setReactivatePartnerError(null);
-                }}
-                disabled={isSubmittingReactivate}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Recherchez et sélectionnez le compte commerçant auquel rattacher ce commerce
-                réactivé.
-              </p>
-            </div>
-
-            <RibInputField
-              id="reactivate-rib"
-              label="Nouveau RIB ou IBAN conventionnel"
-              value={reactivateRib}
-              onChange={(val) => {
-                setReactivateRib(val);
-                setReactivateRibError(null);
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          {reactivatingStore && (
+            <StoreForm
+              mode="reactivate"
+              initialStore={reactivatingStore}
+              isDialog
+              onSuccess={(reactivatedStore) => {
+                setActionSuccessMessage(
+                  `Le commerce "${reactivatedStore.name}" a été réactivé avec succès et réaffecté au commerçant partenaire.`
+                );
+                setReactivatingStore(null);
+                fetchStores();
               }}
-              error={reactivateRibError || undefined}
-              disabled={isSubmittingReactivate}
+              onCancel={() => setReactivatingStore(null)}
             />
-
-            <DialogFooter className="pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setReactivatingStore(null);
-                  setReactivateUserId('');
-                  setReactivateRibError(null);
-                  setReactivatePartnerError(null);
-                }}
-                disabled={isSubmittingReactivate}
-              >
-                Annuler
-              </Button>
-              <Button type="submit" size="sm" disabled={isSubmittingReactivate}>
-                {isSubmittingReactivate ? 'Réactivation en cours...' : 'Confirmer la réactivation'}
-              </Button>
-            </DialogFooter>
-          </form>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -869,163 +693,6 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
               onCancel={() => setEditingStore(null)}
             />
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* User Details Dialog */}
-      <Dialog
-        open={inspectingUserId !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setInspectingUserId(null);
-            setInspectingUser(null);
-            setUserDetailError(null);
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-foreground">
-              <User className="size-4 text-primary" />
-              Fiche utilisateur
-            </DialogTitle>
-            <DialogDescription>
-              Détails du compte et statut dans l&apos;écosystème ShopLoc.
-            </DialogDescription>
-          </DialogHeader>
-
-          {isLoadingUserDetails && (
-            <div className="py-8 flex flex-col items-center justify-center space-y-3">
-              <Loader2 className="size-6 animate-spin text-primary" />
-              <p className="text-xs text-muted-foreground">Chargement des informations...</p>
-            </div>
-          )}
-
-          {userDetailError && (
-            <div className="p-3.5 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-xs flex items-center gap-2">
-              <AlertCircle className="size-4 shrink-0" />
-              <span>{userDetailError}</span>
-            </div>
-          )}
-
-          {!isLoadingUserDetails && !userDetailError && inspectingUser && (
-            <div className="space-y-4 py-2">
-              {/* Header profile */}
-              <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-xl border">
-                <div className="size-11 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-sm border border-primary/20 shrink-0">
-                  {getUserInitials(inspectingUser.firstName, inspectingUser.lastName)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-foreground text-sm truncate">
-                      {inspectingUser.firstName} {inspectingUser.lastName}
-                    </h3>
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] uppercase font-semibold shrink-0"
-                    >
-                      {inspectingUser.role === 'ADMIN'
-                        ? 'Administrateur'
-                        : inspectingUser.role === 'MERCHANT'
-                          ? 'Commerçant'
-                          : 'Citoyen'}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground truncate">{inspectingUser.email}</p>
-                </div>
-              </div>
-
-              {/* Information list */}
-              <div className="divide-y divide-border/60 text-xs rounded-xl border bg-card">
-                <div className="px-3.5 py-2.5 flex items-center justify-between">
-                  <span className="text-muted-foreground">Sécurité & Connexion</span>
-                  {inspectingUser.isLocked ? (
-                    <Badge variant="destructive" className="text-[10px] font-semibold">
-                      Compte verrouillé
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="secondary"
-                      className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] font-semibold"
-                    >
-                      Actif
-                    </Badge>
-                  )}
-                </div>
-
-                {inspectingUser.clientCode && (
-                  <div className="px-3.5 py-2.5 flex items-center justify-between">
-                    <span className="text-muted-foreground">Code client citoyen</span>
-                    <span className="font-mono font-semibold text-foreground bg-muted px-1.5 py-0.5 rounded">
-                      {inspectingUser.clientCode}
-                    </span>
-                  </div>
-                )}
-
-                {inspectingUser.birthDate && (
-                  <div className="px-3.5 py-2.5 flex items-center justify-between">
-                    <span className="text-muted-foreground">Date de naissance</span>
-                    <span className="text-foreground">
-                      {new Date(inspectingUser.birthDate).toLocaleDateString('fr-FR')}
-                    </span>
-                  </div>
-                )}
-
-                {inspectingUser.pickupLocation && (
-                  <div className="px-3.5 py-2.5 flex items-center justify-between">
-                    <span className="text-muted-foreground">Point de retrait carte</span>
-                    <span className="text-foreground truncate max-w-[200px]">
-                      {inspectingUser.pickupLocation}
-                    </span>
-                  </div>
-                )}
-
-                {inspectingUser.licensePlates && inspectingUser.licensePlates.length > 0 && (
-                  <div className="px-3.5 py-2.5 flex items-center justify-between">
-                    <span className="text-muted-foreground">Immatriculation(s)</span>
-                    <div className="flex flex-wrap gap-1">
-                      {inspectingUser.licensePlates.map((plate) => (
-                        <span
-                          key={plate}
-                          className="font-mono text-[11px] bg-muted px-1.5 py-0.5 rounded"
-                        >
-                          {plate}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {inspectingUser.createdAt && (
-                  <div className="px-3.5 py-2.5 flex items-center justify-between">
-                    <span className="text-muted-foreground">Date d&apos;inscription</span>
-                    <span className="text-foreground">
-                      {new Date(inspectingUser.createdAt).toLocaleDateString('fr-FR', {
-                        day: '2-digit',
-                        month: 'long',
-                        year: 'numeric',
-                      })}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <DialogFooter className="pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setInspectingUserId(null);
-                setInspectingUser(null);
-                setUserDetailError(null);
-              }}
-            >
-              Fermer
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
