@@ -113,6 +113,17 @@ export interface ParkingSessionAcknowledgment {
   expiresAt: string;
 }
 
+export interface TransitTicketAcknowledgment {
+  uid: string;
+  userId: string;
+  ticketReference: string;
+  ticketCode: string;
+  networkName: string;
+  status: string;
+  startedAt: string;
+  expiresAt: string;
+}
+
 export interface VfpDailyEligibility {
   isVfp: boolean;
   eligible: boolean;
@@ -120,4 +131,5 @@ export interface VfpDailyEligibility {
   transitUsedToday: boolean;
   consumedBenefitType?: string | null;
   activeParkingSession?: ParkingSessionAcknowledgment | null;
+  activeTransitTicket?: TransitTicketAcknowledgment | null;
 }

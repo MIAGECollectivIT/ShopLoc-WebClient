@@ -17,6 +17,7 @@ import type {
   MerchantLoyaltyRate,
   MerchantLoyaltyRateRequest,
   ParkingSessionAcknowledgment,
+  TransitTicketAcknowledgment,
   UserActivityEvaluation,
   UserPointsBalanceResponse,
   UserVfpStatus,
@@ -2814,6 +2815,36 @@ export async function activateVfpParkingSession(
   }
 
   return (await res.json()) as ParkingSessionAcknowledgment;
+}
+
+const TRANSIT_ERROR_MESSAGES: Record<number, string> = {
+  401: 'Vous devez être connecté pour activer votre titre de transport gratuit.',
+  403: 'Cet avantage est réservé aux usagers disposant du statut VFP actif.',
+  409: 'Vous avez déjà consommé votre avantage institutionnel gratuit aujourd’hui (stationnement ou transport).',
+  502: 'Le service des transports en commun est temporairement indisponible. Veuillez réessayer.',
+};
+
+export async function activateVfpTransitTicket(): Promise<TransitTicketAcknowledgment> {
+  const endpoint = getApiEndpoint('/v1/loyalty/vfp/transit-tickets');
+  const token = getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    const mappedMessage = TRANSIT_ERROR_MESSAGES[res.status];
+    if (mappedMessage) {
+      throw new Error(mappedMessage);
+    }
+    throw new Error(`Impossible d'activer le titre de transport (HTTP ${res.status}).`);
+  }
+
+  return (await res.json()) as TransitTicketAcknowledgment;
 }
 
 export async function getVfpDailyEligibility(): Promise<VfpDailyEligibility> {
