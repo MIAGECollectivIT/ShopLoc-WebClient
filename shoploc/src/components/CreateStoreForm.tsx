@@ -33,6 +33,7 @@ import {
 } from '@/lib/validation/store';
 import { createStore } from '@/lib/api';
 import { resolveStoreImageUrl } from '@/lib/image';
+import { getAuthUser } from '@/lib/auth';
 import { ROUTES } from '@/config/routes';
 import type { StoreResponse } from '@/types/store';
 import {
@@ -318,7 +319,7 @@ export function CreateStoreForm() {
     reset,
     watch,
     setValue,
-    formState: { errors, isSubmitting, isValid },
+    formState: { errors, isSubmitting },
   } = useForm<CreateStoreFormData>({
     resolver: zodResolver(createStoreZodSchema),
     defaultValues: {
@@ -329,8 +330,18 @@ export function CreateStoreForm() {
       rib: '',
       ownerUid: '',
     },
-    mode: 'onTouched',
+    mode: 'onChange',
   });
+
+  const currentUser = React.useMemo(() => getAuthUser(), []);
+  const isMerchant = currentUser?.role === 'MERCHANT';
+
+  // Automatically pre-fill the ownerUid if logged in as a merchant
+  React.useEffect(() => {
+    if (isMerchant && currentUser?.id) {
+      setValue('ownerUid', currentUser.id, { shouldValidate: true, shouldDirty: true });
+    }
+  }, [isMerchant, currentUser?.id, setValue]);
 
   const watchedRib = watch('rib') || '';
   const watchedAddress = watch('address') || '';
@@ -415,10 +426,16 @@ export function CreateStoreForm() {
                   id="ownerUid"
                   value={field.value}
                   onValueChange={(val) => field.onChange(val)}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isMerchant}
                 />
               )}
             />
+            {isMerchant && (
+              <p className="text-[11px] text-muted-foreground">
+                Connecté en tant que commerçant : ce nouvel établissement sera automatiquement
+                associé à votre compte personnel.
+              </p>
+            )}
             <FieldError>{errors.ownerUid?.message}</FieldError>
           </Field>
 
@@ -495,9 +512,19 @@ export function CreateStoreForm() {
               <AddressAutocompleteInput
                 id="address"
                 value={watchedAddress}
-                onChange={(val) => setValue('address', val, { shouldValidate: true })}
+                onChange={(val) =>
+                  setValue('address', val, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                    shouldTouch: true,
+                  })
+                }
                 onSelectAddress={(res) => {
-                  setValue('address', res.address, { shouldValidate: true });
+                  setValue('address', res.address, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                    shouldTouch: true,
+                  });
                   setCoords({ latitude: res.latitude, longitude: res.longitude });
                 }}
                 placeholder="Ex: 12 Rue Nationale, 59000 Lille"
@@ -585,7 +612,7 @@ export function CreateStoreForm() {
           >
             Annuler
           </a>
-          <Button type="submit" disabled={isSubmitting || !isValid} className="w-full sm:w-auto">
+          <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
             {isSubmitting ? (
               <>
                 <Loader2 className="size-4 animate-spin mr-1.5" />
