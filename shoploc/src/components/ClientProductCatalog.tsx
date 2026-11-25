@@ -1,21 +1,12 @@
 import * as React from 'react';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ProductImage } from '@/components/ProductImage';
+import { CatalogItemCard, CatalogStockBadge } from '@/components/CatalogItemCard';
 import { getStoreProducts } from '@/lib/api';
 import { type Product, getStockStatus } from '@/types/product';
-import {
-  ShoppingBag,
-  Search,
-  Package,
-  CheckCircle2,
-  AlertCircle,
-  Plus,
-  Minus,
-  Check,
-} from 'lucide-react';
+import { ShoppingBag, Search, Package, AlertCircle, Plus, Minus, Check } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
 import type { CartItem } from '@/types/cart';
 import { CART_STORAGE_KEY } from '@/lib/cart';
@@ -269,65 +260,28 @@ export function ClientProductCatalog({ storeUid, storeName }: ClientProductCatal
             const selectedQty = Math.min(remainingStock || 1, quantities[product.uid] || 1);
 
             return (
-              <Card
+              <CatalogItemCard
                 key={product.uid}
-                className="group flex flex-col justify-between overflow-hidden border-border hover:shadow-lg transition-all duration-200 bg-card rounded-xl"
-              >
-                <div>
-                  {/* Image container */}
-                  <div className="relative aspect-4/3 w-full bg-muted/60 overflow-hidden flex items-center justify-center border-b border-border">
-                    <ProductImage
-                      storeUid={product.storeUid || storeUid}
-                      productUid={product.uid}
-                      imageUrl={product.imageUrl}
-                      alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      fallbackText="Visuel bientôt disponible"
-                    />
-
-                    {/* Stock status badge */}
-                    <div className="absolute top-2.5 right-2.5">
-                      {status === 'IN_STOCK' && (
-                        <span className="bg-emerald-500/95 text-white font-medium text-[11px] px-2.5 py-0.5 rounded-full shadow-xs backdrop-blur-xs flex items-center gap-1">
-                          <CheckCircle2 className="size-3" />
-                          En stock
-                        </span>
-                      )}
-                      {status === 'LOW_STOCK' && (
-                        <span className="bg-amber-500/95 text-white font-medium text-[11px] px-2.5 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
-                          Plus que {product.stockQuantity} dispo !
-                        </span>
-                      )}
-                      {status === 'OUT_OF_STOCK' && (
-                        <span className="bg-rose-600/95 text-white font-medium text-[11px] px-2.5 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
-                          Rupture
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Body Content */}
-                  <CardHeader className="p-4 pb-2 space-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base font-semibold text-foreground line-clamp-1">
-                        {product.name}
-                      </CardTitle>
-                      <span className="font-bold text-base text-primary whitespace-nowrap">
-                        {product.price.toFixed(2)} €
-                      </span>
-                    </div>
-
-                    {product.description && (
-                      <CardDescription className="text-xs line-clamp-2 text-muted-foreground pt-1">
-                        {product.description}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-                </div>
-
-                {/* Footer: Quantity selector and Add to Cart */}
-                <div className="p-4 pt-2 border-t border-border/50 bg-muted/20 space-y-2">
-                  {!isAvailable ? (
+                media={
+                  <ProductImage
+                    storeUid={product.storeUid || storeUid}
+                    productUid={product.uid}
+                    imageUrl={product.imageUrl}
+                    alt={product.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    fallbackText="Visuel bientôt disponible"
+                  />
+                }
+                topRightBadge={<CatalogStockBadge status={status} stock={product.stockQuantity} />}
+                title={product.name}
+                valueSlot={
+                  <span className="font-bold text-base text-primary whitespace-nowrap">
+                    {product.price.toFixed(2)} €
+                  </span>
+                }
+                description={product.description}
+                footer={
+                  !isAvailable ? (
                     <Button
                       type="button"
                       variant="secondary"
@@ -415,9 +369,9 @@ export function ClientProductCatalog({ storeUid, storeName }: ClientProductCatal
                         </p>
                       )}
                     </div>
-                  )}
-                </div>
-              </Card>
+                  )
+                }
+              />
             );
           })}
         </div>

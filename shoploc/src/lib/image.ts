@@ -14,6 +14,12 @@ function getBrowserImageEndpoint(path: string): string {
   return path.startsWith('/') ? path : `/${path}`;
 }
 
+const SAFE_DATA_IMAGE_RE = /^data:image\/(png|jpeg|jpg|webp|gif);base64,/i;
+
+function isSafePreviewOrDataUri(trimmed: string): boolean {
+  return trimmed.startsWith('blob:') || SAFE_DATA_IMAGE_RE.test(trimmed);
+}
+
 /**
  * Resolves a reliable, browser-accessible URL for a product image hosted on S3/MinIO.
  *
@@ -29,8 +35,8 @@ export function resolveProductImageUrl(options: ResolveImageOptions): string | n
   if (imageUrl) {
     const trimmed = imageUrl.trim();
 
-    // 1. In-memory object preview (during upload) or base64 data URI
-    if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) {
+    // 1. In-memory object preview (during upload) or safe raster base64 data URI
+    if (isSafePreviewOrDataUri(trimmed)) {
       return trimmed;
     }
 
@@ -100,8 +106,8 @@ export function resolveGiftImageUrl(options: ResolveGiftImageOptions): string | 
   if (imageUrl) {
     const trimmed = imageUrl.trim();
 
-    // 1. In-memory object preview (during upload) or base64 data URI
-    if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) {
+    // 1. In-memory object preview (during upload) or safe raster base64 data URI
+    if (isSafePreviewOrDataUri(trimmed)) {
       return trimmed;
     }
 

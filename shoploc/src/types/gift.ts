@@ -9,6 +9,7 @@ export interface LoyaltyGift {
   stock: number;
   imageUrl?: string | null;
   active: boolean;
+  vfpExclusive?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -19,6 +20,7 @@ export interface GiftCreateRequest {
   pointsCost: number;
   stock?: number;
   imageUrl?: string;
+  vfpExclusive?: boolean;
 }
 
 export interface GiftUpdateRequest {
@@ -26,6 +28,7 @@ export interface GiftUpdateRequest {
   description?: string;
   pointsCost: number;
   imageUrl?: string;
+  vfpExclusive?: boolean;
 }
 
 export interface GiftStockAdjustRequest {

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { GiftImage } from '@/components/GiftImage';
 import type { LoyaltyGift } from '@/types/gift';
-import { Coins, Check, Plus, Minus, Trash2 } from 'lucide-react';
+import { Coins, Check, Plus, Minus, Trash2, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface PhysicalGiftSelectionCardProps {
@@ -13,6 +13,7 @@ export interface PhysicalGiftSelectionCardProps {
   onDecrement: (gift: LoyaltyGift) => void;
   onRemove?: (gift: LoyaltyGift) => void;
   disabled?: boolean;
+  vfpLocked?: boolean;
 }
 
 /**
@@ -26,6 +27,7 @@ export function PhysicalGiftSelectionCard({
   onDecrement,
   onRemove,
   disabled = false,
+  vfpLocked = false,
 }: PhysicalGiftSelectionCardProps) {
   const isSelected = quantity > 0;
   const subtotalPoints = gift.pointsCost * quantity;
@@ -83,7 +85,17 @@ export function PhysicalGiftSelectionCard({
 
       {/* Footer selection controls */}
       <div className="p-4 pt-2 border-t border-border/50 bg-muted/20 space-y-2">
-        {!isSelected ? (
+        {vfpLocked ? (
+          <Button
+            type="button"
+            variant="outline"
+            disabled
+            className="w-full h-9 text-xs gap-1.5 border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300 opacity-90 cursor-not-allowed"
+          >
+            <Lock className="size-3.5 shrink-0" />
+            <span>Réservé VFP</span>
+          </Button>
+        ) : !isSelected ? (
           <Button
             type="button"
             variant="outline"

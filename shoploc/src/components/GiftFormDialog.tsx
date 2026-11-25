@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { giftSchema } from '@/lib/validation/gift';
 import { calculatePointsEuroEquivalent } from '@/lib/validation/loyalty';
 import { createGift, getStoreLoyaltyRate, updateGift } from '@/lib/api';
@@ -27,6 +28,7 @@ import {
   Trash2,
   RefreshCw,
   Image as ImageIcon,
+  Crown,
 } from 'lucide-react';
 
 interface GiftFormDialogProps {
@@ -57,6 +59,7 @@ export function GiftFormDialog({
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [isImageRemoved, setIsImageRemoved] = React.useState(false);
+  const [vfpExclusive, setVfpExclusive] = React.useState(false);
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [serverError, setServerError] = React.useState<string | null>(null);
@@ -101,6 +104,7 @@ export function GiftFormDialog({
       setStock(String(gift.stock));
       setImageUrl(gift.imageUrl || '');
       setIsImageRemoved(false);
+      setVfpExclusive(Boolean(gift.vfpExclusive));
 
       const initialPreview = gift.imageUrl?.trim()
         ? resolveGiftImageUrl({
@@ -118,6 +122,7 @@ export function GiftFormDialog({
       setImageUrl('');
       setPreviewUrl(null);
       setIsImageRemoved(false);
+      setVfpExclusive(false);
     }
     setSelectedFile(null);
     if (fileInputRef.current) {
@@ -205,6 +210,7 @@ export function GiftFormDialog({
       pointsCost,
       stock,
       imageUrl: selectedFile || isImageRemoved ? undefined : imageUrl.trim() || undefined,
+      vfpExclusive,
     };
 
     const result = giftSchema.safeParse(rawValues);
@@ -228,6 +234,7 @@ export function GiftFormDialog({
           name: validated.name,
           description: validated.description || undefined,
           pointsCost: validated.pointsCost,
+          vfpExclusive: validated.vfpExclusive,
         };
         if (selectedFile) {
           saved = await updateGift(storeUid, gift.uid, payload, selectedFile);
@@ -249,6 +256,7 @@ export function GiftFormDialog({
           pointsCost: validated.pointsCost,
           stock: validated.stock,
           imageUrl: selectedFile ? undefined : validated.imageUrl || undefined,
+          vfpExclusive: validated.vfpExclusive,
         };
         saved = await createGift(storeUid, payload, selectedFile || undefined);
       }
@@ -404,6 +412,34 @@ export function GiftFormDialog({
                 </p>
               ) : null}
             </div>
+          </div>
+
+          {/* VFP Exclusive Toggle */}
+          <div className="flex items-center justify-between gap-4 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0">
+                <Crown className="size-4" />
+              </div>
+              <div className="space-y-0.5">
+                <Label
+                  htmlFor="gift-vfp-exclusive"
+                  className="text-xs font-semibold text-foreground cursor-pointer"
+                >
+                  Réservé aux membres VFP
+                </Label>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Ce cadeau sera mis en avant dans l&apos;onglet Privilèges VFP et uniquement
+                  accessible aux clients disposant du statut VFP.
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="gift-vfp-exclusive"
+              checked={vfpExclusive}
+              onCheckedChange={setVfpExclusive}
+              disabled={isSubmitting}
+              aria-label="Réserver ce cadeau aux membres VFP"
+            />
           </div>
 
           {/* Photo Management */}

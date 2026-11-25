@@ -9,55 +9,39 @@ import {
   EmptyDescription,
 } from '@/components/ui/empty';
 import { useAuth } from '@/lib/auth';
-import { getPublicGifts, getUserPointsBalance } from '@/lib/api';
+import { getPublicGifts } from '@/lib/api';
+import { useCustomerLoyaltyStatus } from '@/hooks/useCustomerLoyaltyStatus';
 import type { LoyaltyGift } from '@/types/gift';
 import { InteractiveGiftCard, InteractiveGiftCardSkeleton } from './InteractiveGiftCard';
-import { Gift, Coins, RefreshCw, AlertCircle } from 'lucide-react';
+import { VfpPrivilegesBanner } from './VfpPrivilegesBanner';
+import { VfpBenefitsDialog } from './VfpBenefitsDialog';
+import { Gift, Coins, RefreshCw, AlertCircle, Crown } from 'lucide-react';
 
 export interface StoreClientGiftsCatalogProps {
   storeUid: string;
   storeName?: string;
+  catalogMode?: 'standard' | 'vfp';
 }
 
-export function StoreClientGiftsCatalog({ storeUid, storeName }: StoreClientGiftsCatalogProps) {
+export function StoreClientGiftsCatalog({
+  storeUid,
+  storeName,
+  catalogMode = 'standard',
+}: StoreClientGiftsCatalogProps) {
   const { user, token, isAuthenticated } = useAuth();
+  const isVfpTab = catalogMode === 'vfp';
 
   const [gifts, setGifts] = React.useState<LoyaltyGift[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  // User loyalty points balance
-  const [userPoints, setUserPoints] = React.useState<number | null>(null);
-  const [isLoadingPoints, setIsLoadingPoints] = React.useState(false);
-
-  // Fetch user loyalty points if authenticated
-  React.useEffect(() => {
-    if (!isAuthenticated || !user?.id) {
-      setUserPoints(null);
-      return;
-    }
-
-    let isMounted = true;
-    setIsLoadingPoints(true);
-
-    getUserPointsBalance(user.id, token || undefined)
-      .then((res) => {
-        if (isMounted) {
-          const balance = typeof res.balance === 'number' ? res.balance : (res.points ?? 0);
-          setUserPoints(balance);
-        }
-      })
-      .catch(() => {
-        if (isMounted) setUserPoints(0);
-      })
-      .finally(() => {
-        if (isMounted) setIsLoadingPoints(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isAuthenticated, user?.id, token]);
+  // User loyalty points & VFP status
+  const { userPoints, isLoadingPoints, vfpStatus, isVfp } = useCustomerLoyaltyStatus(
+    isAuthenticated,
+    user?.id,
+    token
+  );
+  const [isVfpDialogOpen, setIsVfpDialogOpen] = React.useState(false);
 
   // Load active gifts for this store
   const loadGifts = React.useCallback(async () => {
@@ -81,6 +65,11 @@ export function StoreClientGiftsCatalog({ storeUid, storeName }: StoreClientGift
     loadGifts();
   }, [loadGifts]);
 
+  const displayedGifts = React.useMemo(
+    () => gifts.filter((g) => (isVfpTab ? Boolean(g.vfpExclusive) : !g.vfpExclusive)),
+    [gifts, isVfpTab]
+  );
+
   return (
     <div className="space-y-6">
       {/* Header toolbar */}
@@ -88,16 +77,21 @@ export function StoreClientGiftsCatalog({ storeUid, storeName }: StoreClientGift
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <Gift className="size-5 text-primary" />
-              <span>Cadeaux</span>
+              {isVfpTab ? (
+                <Crown className="size-5 text-amber-600 dark:text-amber-400" />
+              ) : (
+                <Gift className="size-5 text-primary" />
+              )}
+              <span>{isVfpTab ? 'Privilèges VFP' : 'Cadeaux'}</span>
             </h2>
             <Badge variant="secondary" className="font-mono text-xs">
-              {gifts.length} {gifts.length > 1 ? 'lots' : 'lot'}
+              {displayedGifts.length} {displayedGifts.length > 1 ? 'lots' : 'lot'}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Échangez vos points contre ces récompenses offertes par{' '}
-            <strong className="text-foreground">{storeName || 'ce commerce'}</strong>.
+            {isVfpTab
+              ? `Sélection exclusive réservée aux membres VFP chez ${storeName || 'ce commerce'}.`
+              : `Échangez vos points contre ces récompenses offertes par ${storeName || 'ce commerce'}.`}
           </p>
         </div>
 
@@ -112,6 +106,16 @@ export function StoreClientGiftsCatalog({ storeUid, storeName }: StoreClientGift
           )}
         </div>
       </div>
+
+      {/* Contextual VFP banner when viewing VFP-exclusive gifts */}
+      {isVfpTab && (
+        <VfpPrivilegesBanner
+          isVfp={isVfp}
+          isAuthenticated={isAuthenticated}
+          currentTransactionCount={vfpStatus?.currentTransactionCount}
+          onOpenVfpDialog={() => setIsVfpDialogOpen(true)}
+        />
+      )}
 
       {/* Gifts Grid */}
       {isLoading ? (
@@ -135,32 +139,49 @@ export function StoreClientGiftsCatalog({ storeUid, storeName }: StoreClientGift
             <span>Réessayer</span>
           </Button>
         </div>
-      ) : gifts.length === 0 ? (
+      ) : displayedGifts.length === 0 ? (
         <Empty className="border border-border rounded-xl bg-card p-12">
           <EmptyHeader>
             <EmptyMedia>
-              <Gift className="size-10 text-muted-foreground stroke-1" />
+              {isVfpTab ? (
+                <Crown className="size-10 text-amber-500 stroke-1" />
+              ) : (
+                <Gift className="size-10 text-muted-foreground stroke-1" />
+              )}
             </EmptyMedia>
-            <EmptyTitle>Aucun cadeau pour le moment</EmptyTitle>
+            <EmptyTitle>
+              {isVfpTab
+                ? 'Aucun cadeau exclusif VFP pour le moment'
+                : 'Aucun cadeau pour le moment'}
+            </EmptyTitle>
             <EmptyDescription>
-              {storeName || 'Ce commerce'} n'a pas encore configuré de catalogue de récompenses
-              fidélité.
+              {isVfpTab
+                ? `${storeName || 'Ce commerce'} n'a pas encore publié de récompenses réservées aux membres VFP.`
+                : `${storeName || 'Ce commerce'} n'a pas encore configuré de catalogue de récompenses fidélité.`}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {gifts.map((gift) => (
+          {displayedGifts.map((gift) => (
             <InteractiveGiftCard
               key={gift.uid}
               gift={gift}
               userPoints={userPoints}
               isAuthenticated={isAuthenticated}
               isLoadingUserPoints={isLoadingPoints}
+              isVfp={isVfp}
             />
           ))}
         </div>
       )}
+
+      <VfpBenefitsDialog
+        isOpen={isVfpDialogOpen}
+        onClose={() => setIsVfpDialogOpen(false)}
+        isVfp={isVfp}
+        currentTransactionCount={vfpStatus?.currentTransactionCount}
+      />
     </div>
   );
 }
