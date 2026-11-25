@@ -24,7 +24,13 @@ import type {
   UserVfpProgress,
   VfpDailyEligibility,
 } from '@/types/loyalty';
-import type { LoyaltyGift, GiftCreateRequest, GiftUpdateRequest } from '@/types/gift';
+import type {
+  LoyaltyGift,
+  GiftCreateRequest,
+  GiftUpdateRequest,
+  PhysicalGiftRedemptionRequest,
+  PhysicalGiftRedemptionResponse,
+} from '@/types/gift';
 import type {
   PaymentAuthorizationRequest,
   PaymentAuthorizationResponse,
@@ -2499,6 +2505,96 @@ export async function getCustomerLoyaltyPoints(
   } catch {
     return 0;
   }
+}
+
+/**
+ * Retrieves a customer's current loyalty points balance for an authenticated merchant or admin.
+ * Throws an explicit error on auth or server failure so cashier validation never relies on a stale 0 fallback.
+ */
+export async function getCustomerPointsBalanceForMerchant(customerId: string): Promise<number> {
+  const token = getAuthToken();
+  const endpoint = getApiEndpoint(`/v1/loyalty/customers/${encodeURIComponent(customerId)}/points`);
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise pour consulter le solde de points du client.');
+  }
+  if (res.status === 403) {
+    throw new Error('Accès refusé pour consulter le solde de points de ce client.');
+  }
+  if (!res.ok) {
+    let errorDetail = `Impossible de récupérer le solde de points du client (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  const data = await res.json();
+  return typeof data.balance === 'number'
+    ? data.balance
+    : typeof data.points === 'number'
+      ? data.points
+      : 0;
+}
+
+/**
+ * Validates an in-store physical gift redemption for an identified customer,
+ * atomically verifying and debiting loyalty points without checking store stock.
+ */
+export async function redeemPhysicalGifts(
+  storeUid: string,
+  payload: PhysicalGiftRedemptionRequest
+): Promise<PhysicalGiftRedemptionResponse> {
+  const token = getAuthToken();
+  const endpoint = getApiEndpoint(
+    `/v1/loyalty/stores/${encodeURIComponent(storeUid)}/gifts/physical-redemption`
+  );
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (res.status === 401) {
+    throw new Error('Authentification requise pour valider la remise de cadeaux.');
+  }
+  if (res.status === 403) {
+    throw new Error("Accès refusé : vous n'êtes pas autorisé à valider des lots pour ce commerce.");
+  }
+  if (res.status === 404) {
+    throw new Error('Commerce ou cadeau introuvable.');
+  }
+  if (res.status === 409) {
+    let conflictDetail = 'Cette remise de cadeaux a déjà été enregistrée.';
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) conflictDetail = errorJson.message;
+    } catch {}
+    throw new Error(conflictDetail);
+  }
+  if (!res.ok) {
+    let errorDetail = `Erreur lors de la validation des cadeaux (${res.status})`;
+    try {
+      const errorJson = await res.json();
+      if (errorJson.message) errorDetail = errorJson.message;
+      else if (errorJson.error) errorDetail = errorJson.error;
+    } catch {}
+    throw new Error(errorDetail);
+  }
+
+  return (await res.json()) as PhysicalGiftRedemptionResponse;
 }
 
 export async function getCustomerOrders(token?: string): Promise<OrderResponse[]> {

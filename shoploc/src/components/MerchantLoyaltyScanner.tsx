@@ -7,9 +7,12 @@ import { ManualClientCodeForm } from '@/components/ManualClientCodeForm';
 import { RecognizedCustomerCard } from '@/components/RecognizedCustomerCard';
 import { PhysicalCheckoutForm } from '@/components/PhysicalCheckoutForm';
 import { PhysicalSaleSuccessCard } from '@/components/PhysicalSaleSuccessCard';
+import { PhysicalGiftRedemptionView } from '@/components/PhysicalGiftRedemptionView';
+import { PhysicalGiftSuccessCard } from '@/components/PhysicalGiftSuccessCard';
 import { identifyCustomerByCardNumber } from '@/lib/api';
 import type { CustomerIdentificationResponse } from '@/types/user';
 import type { PhysicalSaleResponse } from '@/types/sales';
+import type { PhysicalGiftRedemptionResponse } from '@/types/gift';
 import { QrCode, Keyboard, Camera, AlertCircle, Sparkles, Store } from 'lucide-react';
 import { cn } from 'cn';
 
@@ -19,7 +22,8 @@ export interface MerchantLoyaltyScannerProps {
   className?: string;
 }
 
-type CashierStep = 'scan' | 'customer' | 'checkout' | 'success';
+type CashierStep =
+  'scan' | 'customer' | 'checkout' | 'success' | 'gift-redemption' | 'gift-success';
 
 /**
  * Main merchant cashier component.
@@ -39,6 +43,8 @@ export function MerchantLoyaltyScanner({
     React.useState<CustomerIdentificationResponse | null>(null);
   const [cashierStep, setCashierStep] = React.useState<CashierStep>('scan');
   const [lastReceipt, setLastReceipt] = React.useState<PhysicalSaleResponse | null>(null);
+  const [lastGiftReceipt, setLastGiftReceipt] =
+    React.useState<PhysicalGiftRedemptionResponse | null>(null);
 
   const [isLoading, setIsLoading] = React.useState(false);
   const [apiError, setApiError] = React.useState<string | null>(null);
@@ -69,9 +75,19 @@ export function MerchantLoyaltyScanner({
     setCashierStep('checkout');
   };
 
+  const handleStartGiftRedemption = () => {
+    setLastGiftReceipt(null);
+    setCashierStep('gift-redemption');
+  };
+
   const handleCheckoutSuccess = (receipt: PhysicalSaleResponse) => {
     setLastReceipt(receipt);
     setCashierStep('success');
+  };
+
+  const handleGiftRedemptionSuccess = (receipt: PhysicalGiftRedemptionResponse) => {
+    setLastGiftReceipt(receipt);
+    setCashierStep('gift-success');
   };
 
   const handleNewSaleForCustomer = () => {
@@ -79,16 +95,52 @@ export function MerchantLoyaltyScanner({
     setCashierStep('checkout');
   };
 
+  const handleBackToCustomer = () => {
+    setLastGiftReceipt(null);
+    setCashierStep('customer');
+  };
+
   const handleReset = () => {
     setIdentifiedCustomer(null);
     setLastReceipt(null);
+    setLastGiftReceipt(null);
     setCashierStep('scan');
     setApiError(null);
     setIsLoading(false);
   };
 
   return (
-    <div className={cn('flex flex-col items-center gap-6 w-full max-w-2xl mx-auto', className)}>
+    <div
+      className={cn(
+        'flex flex-col items-center gap-6 w-full mx-auto',
+        cashierStep === 'gift-redemption' ? 'max-w-4xl' : 'max-w-2xl',
+        className
+      )}
+    >
+      {/* STEP 4b: Physical gift redemption confirmation receipt */}
+      {cashierStep === 'gift-success' && lastGiftReceipt && identifiedCustomer && (
+        <PhysicalGiftSuccessCard
+          receipt={lastGiftReceipt}
+          customer={identifiedCustomer}
+          storeName={storeName}
+          onNewOperation={handleBackToCustomer}
+          onReset={handleReset}
+          className="animate-in fade-in zoom-in-95 duration-200"
+        />
+      )}
+
+      {/* STEP 3b: Physical gift selection & redemption view */}
+      {cashierStep === 'gift-redemption' && identifiedCustomer && (
+        <PhysicalGiftRedemptionView
+          storeUid={storeUid}
+          storeName={storeName}
+          customer={identifiedCustomer}
+          onCancel={() => setCashierStep('customer')}
+          onSuccess={handleGiftRedemptionSuccess}
+          className="animate-in fade-in zoom-in-95 duration-200"
+        />
+      )}
+
       {/* STEP 4: Success confirmation receipt */}
       {cashierStep === 'success' && lastReceipt && identifiedCustomer && (
         <PhysicalSaleSuccessCard
@@ -119,6 +171,7 @@ export function MerchantLoyaltyScanner({
           customer={identifiedCustomer}
           onReset={handleReset}
           onStartCheckout={handleStartCheckout}
+          onStartGiftRedemption={handleStartGiftRedemption}
           className="animate-in fade-in zoom-in-95 duration-200"
         />
       )}
