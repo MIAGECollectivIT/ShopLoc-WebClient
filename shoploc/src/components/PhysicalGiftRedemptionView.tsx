@@ -13,7 +13,12 @@ import {
 import { InteractiveGiftCardSkeleton } from '@/components/InteractiveGiftCard';
 import { PhysicalGiftSelectionCard } from '@/components/PhysicalGiftSelectionCard';
 import { PhysicalGiftConfirmDialog } from '@/components/PhysicalGiftConfirmDialog';
-import { getStoreGifts, getCustomerPointsBalanceForMerchant, redeemPhysicalGifts } from '@/lib/api';
+import {
+  getStoreGifts,
+  getCustomerPointsBalanceForMerchant,
+  getUserVfpStatus,
+  redeemPhysicalGifts,
+} from '@/lib/api';
 import type { CustomerIdentificationResponse } from '@/types/user';
 import type { LoyaltyGift, PhysicalGiftRedemptionResponse } from '@/types/gift';
 import {
@@ -62,6 +67,7 @@ export function PhysicalGiftRedemptionView({
   const [customerPoints, setCustomerPoints] = React.useState<number | null>(null);
   const [isLoadingPoints, setIsLoadingPoints] = React.useState(true);
   const [pointsError, setPointsError] = React.useState<string | null>(null);
+  const [isCustomerVfp, setIsCustomerVfp] = React.useState(false);
 
   const [selectedQuantities, setSelectedQuantities] = React.useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -110,7 +116,22 @@ export function PhysicalGiftRedemptionView({
   React.useEffect(() => {
     loadGifts();
     loadCustomerPoints();
-  }, [loadGifts, loadCustomerPoints]);
+    let isMounted = true;
+    if (customer.publicId) {
+      getUserVfpStatus(customer.publicId)
+        .then((status) => {
+          if (isMounted) setIsCustomerVfp(Boolean(status.isVfp));
+        })
+        .catch(() => {
+          if (isMounted) setIsCustomerVfp(false);
+        });
+    } else {
+      setIsCustomerVfp(false);
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [loadGifts, loadCustomerPoints, customer.publicId]);
 
   const handleIncrement = (gift: LoyaltyGift) => {
     setValidationError(null);
@@ -527,6 +548,7 @@ export function PhysicalGiftRedemptionView({
               onDecrement={handleDecrement}
               onRemove={handleRemove}
               disabled={isSubmitting || isVerifyingBalance}
+              vfpLocked={Boolean(gift.vfpExclusive) && !isCustomerVfp}
             />
           ))}
         </div>
