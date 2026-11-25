@@ -474,14 +474,12 @@ export function MerchantGiftsDashboard({
                       fallbackText="Aucun visuel"
                     />
 
-                    {/* Points & VFP Overlay Badge (Top Left) */}
-                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
-                      <span className="bg-background/90 backdrop-blur-xs text-foreground font-mono text-[10px] font-semibold px-2 py-0.5 rounded shadow-xs border border-border flex items-center gap-1">
-                        <Coins className="size-3 text-amber-500" />
-                        <span>{gift.pointsCost} pts</span>
-                      </span>
-                      {gift.vfpExclusive && <VfpBadge isVfp size="sm" label="Exclusif VFP" />}
-                    </div>
+                    {/* VFP Overlay Badge (Top Left) */}
+                    {gift.vfpExclusive && (
+                      <div className="absolute top-2.5 left-2.5">
+                        <VfpBadge isVfp size="sm" label="Exclusif VFP" />
+                      </div>
+                    )}
 
                     {/* Stock Status Badge Overlay (Top Right) */}
                     <div className="absolute top-2.5 right-2.5">
