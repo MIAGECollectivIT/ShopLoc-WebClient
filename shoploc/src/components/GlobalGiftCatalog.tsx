@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Empty,
   EmptyHeader,
@@ -12,11 +13,11 @@ import {
   EmptyContent,
 } from '@/components/ui/empty';
 import { useAuth } from '@/lib/auth';
-import { getStores, getPublicGifts, getUserPointsBalance, getUserVfpStatus } from '@/lib/api';
+import { getStores, getPublicGifts } from '@/lib/api';
+import { useCustomerLoyaltyStatus } from '@/hooks/useCustomerLoyaltyStatus';
 import { ROUTES } from '@/config/routes';
 import type { Store } from '@/types/store';
 import type { LoyaltyGift } from '@/types/gift';
-import type { UserVfpStatus } from '@/types/loyalty';
 import { InteractiveGiftCard, InteractiveGiftCardSkeleton } from './InteractiveGiftCard';
 import { VfpPrivilegesBanner } from './VfpPrivilegesBanner';
 import { VfpBenefitsDialog } from './VfpBenefitsDialog';
@@ -44,13 +45,13 @@ export function GlobalGiftCatalog() {
   const [error, setError] = React.useState<string | null>(null);
 
   // User loyalty points & VFP state
-  const [userPoints, setUserPoints] = React.useState<number | null>(null);
-  const [isLoadingPoints, setIsLoadingPoints] = React.useState(false);
-  const [vfpStatus, setVfpStatus] = React.useState<UserVfpStatus | null>(null);
+  const { userPoints, isLoadingPoints, vfpStatus, isVfp } = useCustomerLoyaltyStatus(
+    isAuthenticated,
+    user?.id,
+    token
+  );
   const [isVfpDialogOpen, setIsVfpDialogOpen] = React.useState(false);
   const [activeCatalogTab, setActiveCatalogTab] = React.useState<'standard' | 'vfp'>('standard');
-
-  const isVfp = Boolean(vfpStatus?.isVfp);
 
   // Filters
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -61,47 +62,6 @@ export function GlobalGiftCatalog() {
   const [sortBy, setSortBy] = React.useState<'default' | 'points-asc' | 'points-desc' | 'name'>(
     'default'
   );
-
-  // Fetch authenticated customer points balance and VFP status
-  React.useEffect(() => {
-    let isMounted = true;
-    if (!isAuthenticated || !user?.id) {
-      setUserPoints(null);
-      setVfpStatus(null);
-      return;
-    }
-
-    setIsLoadingPoints(true);
-    getUserPointsBalance(user.id, token || undefined)
-      .then((res) => {
-        if (isMounted) {
-          const balance = typeof res.balance === 'number' ? res.balance : (res.points ?? 0);
-          setUserPoints(balance);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setUserPoints(null);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoadingPoints(false);
-        }
-      });
-
-    getUserVfpStatus(user.id)
-      .then((status) => {
-        if (isMounted) setVfpStatus(status);
-      })
-      .catch(() => {
-        if (isMounted) setVfpStatus(null);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isAuthenticated, user?.id, token]);
 
   // Read initial query params from URL if available
   React.useEffect(() => {
@@ -273,9 +233,7 @@ export function GlobalGiftCatalog() {
                 </span>
                 <div className="text-2xl font-bold text-foreground">
                   {isLoadingPoints ? (
-                    <span className="text-base text-muted-foreground animate-pulse">
-                      Chargement...
-                    </span>
+                    <Skeleton className="h-7 w-24 my-0.5" />
                   ) : (
                     <span>
                       {userPoints ?? 0}{' '}
@@ -297,11 +255,17 @@ export function GlobalGiftCatalog() {
       </div>
 
       {/* Catalog Separation Tabs: Standard vs Exclusive VFP */}
-      <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-muted/60 border border-border">
+      <div
+        role="tablist"
+        aria-label="Catégories du catalogue de cadeaux"
+        className="inline-flex items-center gap-1 p-1 rounded-xl bg-muted/60 border border-border"
+      >
         <button
           type="button"
+          role="tab"
+          aria-selected={activeCatalogTab === 'standard'}
           onClick={() => setActiveCatalogTab('standard')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             activeCatalogTab === 'standard'
               ? 'bg-background text-foreground font-semibold shadow-xs'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -316,8 +280,10 @@ export function GlobalGiftCatalog() {
 
         <button
           type="button"
+          role="tab"
+          aria-selected={activeCatalogTab === 'vfp'}
           onClick={() => setActiveCatalogTab('vfp')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             activeCatalogTab === 'vfp'
               ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 font-semibold shadow-xs border border-amber-500/30'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'

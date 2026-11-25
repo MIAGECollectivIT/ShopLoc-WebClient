@@ -9,9 +9,9 @@ import {
   EmptyDescription,
 } from '@/components/ui/empty';
 import { useAuth } from '@/lib/auth';
-import { getPublicGifts, getUserPointsBalance, getUserVfpStatus } from '@/lib/api';
+import { getPublicGifts } from '@/lib/api';
+import { useCustomerLoyaltyStatus } from '@/hooks/useCustomerLoyaltyStatus';
 import type { LoyaltyGift } from '@/types/gift';
-import type { UserVfpStatus } from '@/types/loyalty';
 import { InteractiveGiftCard, InteractiveGiftCardSkeleton } from './InteractiveGiftCard';
 import { VfpPrivilegesBanner } from './VfpPrivilegesBanner';
 import { VfpBenefitsDialog } from './VfpBenefitsDialog';
@@ -36,50 +36,12 @@ export function StoreClientGiftsCatalog({
   const [error, setError] = React.useState<string | null>(null);
 
   // User loyalty points & VFP status
-  const [userPoints, setUserPoints] = React.useState<number | null>(null);
-  const [isLoadingPoints, setIsLoadingPoints] = React.useState(false);
-  const [vfpStatus, setVfpStatus] = React.useState<UserVfpStatus | null>(null);
+  const { userPoints, isLoadingPoints, vfpStatus, isVfp } = useCustomerLoyaltyStatus(
+    isAuthenticated,
+    user?.id,
+    token
+  );
   const [isVfpDialogOpen, setIsVfpDialogOpen] = React.useState(false);
-
-  const isVfp = Boolean(vfpStatus?.isVfp);
-
-  // Fetch user loyalty points and VFP status if authenticated
-  React.useEffect(() => {
-    if (!isAuthenticated || !user?.id) {
-      setUserPoints(null);
-      setVfpStatus(null);
-      return;
-    }
-
-    let isMounted = true;
-    setIsLoadingPoints(true);
-
-    getUserPointsBalance(user.id, token || undefined)
-      .then((res) => {
-        if (isMounted) {
-          const balance = typeof res.balance === 'number' ? res.balance : (res.points ?? 0);
-          setUserPoints(balance);
-        }
-      })
-      .catch(() => {
-        if (isMounted) setUserPoints(0);
-      })
-      .finally(() => {
-        if (isMounted) setIsLoadingPoints(false);
-      });
-
-    getUserVfpStatus(user.id)
-      .then((status) => {
-        if (isMounted) setVfpStatus(status);
-      })
-      .catch(() => {
-        if (isMounted) setVfpStatus(null);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isAuthenticated, user?.id, token]);
 
   // Load active gifts for this store
   const loadGifts = React.useCallback(async () => {

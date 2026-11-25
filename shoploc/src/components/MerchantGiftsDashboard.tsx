@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -11,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { CatalogItemCard, CatalogStockBadge } from '@/components/CatalogItemCard';
 import { GiftStockControl } from '@/components/GiftStockControl';
 import { GiftFormDialog } from '@/components/GiftFormDialog';
 import { GiftImage } from '@/components/GiftImage';
@@ -454,17 +454,11 @@ export function MerchantGiftsDashboard({
             const status = getGiftStockStatus(gift.stock);
 
             return (
-              <Card
+              <CatalogItemCard
                 key={gift.uid}
-                className={`group relative flex flex-col justify-between overflow-hidden hover:shadow-md transition-shadow bg-card ${
-                  gift.vfpExclusive
-                    ? 'border-amber-500/40 ring-1 ring-amber-500/20'
-                    : 'border-border'
-                }`}
-              >
-                <div>
-                  {/* Gift Image with overlays */}
-                  <div className="relative aspect-4/3 w-full bg-muted/60 overflow-hidden flex items-center justify-center border-b border-border">
+                className={gift.vfpExclusive ? 'border-amber-500/40 ring-1 ring-amber-500/20' : ''}
+                media={
+                  <>
                     <GiftImage
                       storeUid={gift.storeUid || storeUid}
                       giftUid={gift.uid}
@@ -473,89 +467,59 @@ export function MerchantGiftsDashboard({
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       fallbackText="Aucun visuel"
                     />
-
-                    {/* VFP Overlay Badge (Top Left) */}
                     {gift.vfpExclusive && (
                       <div className="absolute top-2.5 left-2.5">
                         <VfpBadge isVfp size="sm" label="Exclusif VFP" />
                       </div>
                     )}
-
-                    {/* Stock Status Badge Overlay (Top Right) */}
-                    <div className="absolute top-2.5 right-2.5">
-                      {status === 'IN_STOCK' && (
-                        <span className="bg-emerald-500/90 text-white font-medium text-[11px] px-2 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
-                          En stock ({gift.stock})
-                        </span>
-                      )}
-                      {status === 'LOW_STOCK' && (
-                        <span className="bg-amber-500/90 text-white font-medium text-[11px] px-2 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
-                          Faible ({gift.stock})
-                        </span>
-                      )}
-                      {status === 'OUT_OF_STOCK' && (
-                        <span className="bg-rose-600/90 text-white font-medium text-[11px] px-2 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
-                          Rupture
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Header / Info: Points replaces Price on the right! */}
-                  <CardHeader className="p-4 pb-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <CardTitle className="text-base font-semibold text-foreground line-clamp-1">
-                        {gift.name}
-                      </CardTitle>
-                      <span className="font-bold text-base text-primary whitespace-nowrap flex items-center gap-1">
-                        <Coins className="size-4 text-amber-500" />
-                        <span>{gift.pointsCost} pts</span>
+                  </>
+                }
+                topRightBadge={<CatalogStockBadge status={status} stock={gift.stock} />}
+                title={gift.name}
+                valueSlot={
+                  <span className="font-bold text-base text-primary whitespace-nowrap flex items-center gap-1 shrink-0">
+                    <Coins className="size-4 text-amber-500" />
+                    <span>{gift.pointsCost} pts</span>
+                  </span>
+                }
+                description={gift.description}
+                footer={
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Ajuster le stock :
                       </span>
+                      <GiftStockControl gift={gift} onStockUpdated={handleStockUpdated} />
                     </div>
-                    {gift.description && (
-                      <CardDescription className="text-xs line-clamp-2 mt-1">
-                        {gift.description}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-                </div>
 
-                {/* Footer Controls: Quick Stock +/- and Actions */}
-                <div className="p-4 pt-2 border-t border-border/60 bg-muted/20 space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Ajuster le stock :
-                    </span>
-                    <GiftStockControl gift={gift} onStockUpdated={handleStockUpdated} />
+                    <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/40">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs gap-1.5"
+                        onClick={() => handleOpenEdit(gift)}
+                        title="Modifier les détails du cadeau"
+                      >
+                        <Pencil className="size-3.5" />
+                        Modifier
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="h-8 text-xs gap-1.5"
+                        onClick={() => setGiftToDelete(gift)}
+                        title="Supprimer définitivement ce cadeau"
+                      >
+                        <Trash2 className="size-3.5" />
+                        Supprimer
+                      </Button>
+                    </div>
                   </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/40">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-xs gap-1.5"
-                      onClick={() => handleOpenEdit(gift)}
-                      title="Modifier les détails du cadeau"
-                    >
-                      <Pencil className="size-3.5" />
-                      Modifier
-                    </Button>
-
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="h-8 text-xs gap-1.5"
-                      onClick={() => setGiftToDelete(gift)}
-                      title="Supprimer définitivement ce cadeau"
-                    >
-                      <Trash2 className="size-3.5" />
-                      Supprimer
-                    </Button>
-                  </div>
-                </div>
-              </Card>
+                }
+              />
             );
           })}
         </div>
