@@ -28,6 +28,7 @@ export interface UserResponse {
   licensePlates?: string[];
   createdAt: string;
   updatedAt: string;
+  storesCount?: number;
 }
 
 export interface AdminUserUpdateRequest {

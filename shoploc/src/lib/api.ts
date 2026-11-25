@@ -437,6 +437,7 @@ export async function getAdminUsers(params?: {
   query?: string;
   role?: UserRole;
   locked?: boolean;
+  eligibleForStore?: boolean;
   from?: string;
   to?: string;
   page?: number;
@@ -452,6 +453,9 @@ export async function getAdminUsers(params?: {
   }
   if (params?.locked !== undefined) {
     searchParams.set('locked', String(params.locked));
+  }
+  if (params?.eligibleForStore !== undefined) {
+    searchParams.set('eligibleForStore', String(params.eligibleForStore));
   }
   if (params?.from) {
     searchParams.set('from', params.from);

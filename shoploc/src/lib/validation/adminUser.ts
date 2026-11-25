@@ -22,3 +22,13 @@ export const adminUserUpdateSchema = z.object({
 });
 
 export type AdminUserUpdateFormValues = z.infer<typeof adminUserUpdateSchema>;
+
+export const storeOwnerSelectionSchema = z.object({
+  ownerUid: z
+    .string()
+    .trim()
+    .min(1, 'Veuillez sélectionner un utilisateur')
+    .uuid('Identifiant utilisateur invalide'),
+});
+
+export type StoreOwnerSelectionValues = z.infer<typeof storeOwnerSelectionSchema>;
