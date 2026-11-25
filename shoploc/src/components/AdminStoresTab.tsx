@@ -442,6 +442,7 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
                               <span className="truncate max-w-[160px]">
                                 {partner ? partner.name : store.ownerUid}
                               </span>
+                              <ExternalLink className="size-3 text-muted-foreground opacity-60 group-hover:opacity-100 group-hover:text-primary transition-opacity shrink-0" />
                             </a>
                           );
                         })()

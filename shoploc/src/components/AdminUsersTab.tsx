@@ -33,6 +33,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
+  ExternalLink,
   Lock,
 } from 'lucide-react';
 import { ROUTES } from '@/config/routes';
@@ -400,10 +401,13 @@ export function AdminUsersTab({ initialUsers = [] }: AdminUsersTabProps) {
                         <div className="min-w-0">
                           <a
                             href={`${ROUTES.profile.path}?userId=${user.id}`}
-                            className="font-semibold text-foreground hover:text-primary hover:underline truncate max-w-[200px] block transition-colors cursor-pointer"
+                            className="font-semibold text-foreground hover:text-primary hover:underline transition-colors flex items-center gap-1.5 truncate max-w-[220px] group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm cursor-pointer"
                             title={`Consulter le profil de ${user.firstName} ${user.lastName}`}
                           >
-                            {user.firstName} {user.lastName}
+                            <span className="truncate">
+                              {user.firstName} {user.lastName}
+                            </span>
+                            <ExternalLink className="size-3 text-muted-foreground opacity-60 group-hover:opacity-100 group-hover:text-primary transition-opacity shrink-0" />
                           </a>
                           <p className="text-xs text-muted-foreground truncate max-w-[220px]">
                             {user.email}
