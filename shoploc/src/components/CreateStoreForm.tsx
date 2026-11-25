@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select';
 import { Field, FieldLabel, FieldError } from '@/components/ui/field';
 import { AddressAutocompleteInput } from '@/components/AddressAutocompleteInput';
-import { PartnerSelect } from '@/components/PartnerSelect';
+import { StoreOwnerSelector } from '@/components/StoreOwnerSelectionModal';
 import { RibInputField } from '@/components/RibInputField';
 import {
   createStoreZodSchema,
@@ -555,7 +555,7 @@ export function StoreForm({
           name="ownerUid"
           control={control}
           render={({ field }) => (
-            <PartnerSelect
+            <StoreOwnerSelector
               id="ownerUid"
               value={field.value}
               onValueChange={(val) => field.onChange(val)}

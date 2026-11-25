@@ -99,18 +99,19 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
   // Partner merchants list (for owner resolution and reassignment)
   const [partners, setPartners] = React.useState<AdminPartnerSummary[]>([]);
 
-  // Load partners on mount
-  React.useEffect(() => {
-    async function loadPartners() {
-      try {
-        const data = await getAdminPartners('', 100);
-        setPartners(data);
-      } catch {
-        // Silently ignore
-      }
+  // Load partners on mount and refresh
+  const loadPartners = React.useCallback(async () => {
+    try {
+      const data = await getAdminPartners('', 100);
+      setPartners(data);
+    } catch {
+      // Silently ignore
     }
-    loadPartners();
   }, []);
+
+  React.useEffect(() => {
+    loadPartners();
+  }, [loadPartners]);
 
   const partnerMap = React.useMemo(() => {
     const map = new Map<string, AdminPartnerSummary>();
@@ -138,7 +139,7 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getStores(true);
+      const [data] = await Promise.all([getStores(true), loadPartners()]);
       setStores(data);
     } catch (err: unknown) {
       setError(
@@ -147,7 +148,7 @@ export function AdminStoresTab({ initialStores = [] }: AdminStoresTabProps) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [loadPartners]);
 
   React.useEffect(() => {
     if (initialStores.length === 0) {
