@@ -12,11 +12,15 @@ import {
   EmptyContent,
 } from '@/components/ui/empty';
 import { useAuth } from '@/lib/auth';
-import { getStores, getPublicGifts, getUserPointsBalance } from '@/lib/api';
+import { getStores, getPublicGifts, getUserPointsBalance, getUserVfpStatus } from '@/lib/api';
 import { ROUTES } from '@/config/routes';
 import type { Store } from '@/types/store';
 import type { LoyaltyGift } from '@/types/gift';
+import type { UserVfpStatus } from '@/types/loyalty';
 import { InteractiveGiftCard, InteractiveGiftCardSkeleton } from './InteractiveGiftCard';
+import { VfpPrivilegesBanner } from './VfpPrivilegesBanner';
+import { VfpBenefitsDialog } from './VfpBenefitsDialog';
+import { VfpPermanentBenefitCards } from './VfpPermanentBenefitCards';
 import {
   Gift,
   Search,
@@ -25,6 +29,7 @@ import {
   Store as StoreIcon,
   Sparkles,
   ArrowRight,
+  Crown,
 } from 'lucide-react';
 
 const SELECT_CLASS =
@@ -38,9 +43,14 @@ export function GlobalGiftCatalog() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
-  // User loyalty points state
+  // User loyalty points & VFP state
   const [userPoints, setUserPoints] = React.useState<number | null>(null);
   const [isLoadingPoints, setIsLoadingPoints] = React.useState(false);
+  const [vfpStatus, setVfpStatus] = React.useState<UserVfpStatus | null>(null);
+  const [isVfpDialogOpen, setIsVfpDialogOpen] = React.useState(false);
+  const [activeCatalogTab, setActiveCatalogTab] = React.useState<'standard' | 'vfp'>('standard');
+
+  const isVfp = Boolean(vfpStatus?.isVfp);
 
   // Filters
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -52,11 +62,12 @@ export function GlobalGiftCatalog() {
     'default'
   );
 
-  // Fetch authenticated customer points balance
+  // Fetch authenticated customer points balance and VFP status
   React.useEffect(() => {
     let isMounted = true;
     if (!isAuthenticated || !user?.id) {
       setUserPoints(null);
+      setVfpStatus(null);
       return;
     }
 
@@ -77,6 +88,14 @@ export function GlobalGiftCatalog() {
         if (isMounted) {
           setIsLoadingPoints(false);
         }
+      });
+
+    getUserVfpStatus(user.id)
+      .then((status) => {
+        if (isMounted) setVfpStatus(status);
+      })
+      .catch(() => {
+        if (isMounted) setVfpStatus(null);
       });
 
     return () => {
@@ -173,10 +192,22 @@ export function GlobalGiftCatalog() {
     Boolean(searchQuery.trim()) ||
     sortBy !== 'default';
 
-  // Client-side filtering (search query, stock, affordability, and sorting)
+  const standardGiftsCount = React.useMemo(
+    () => gifts.filter((g) => !g.vfpExclusive).length,
+    [gifts]
+  );
+
+  const vfpGiftsCount = React.useMemo(
+    () => gifts.filter((g) => Boolean(g.vfpExclusive)).length,
+    [gifts]
+  );
+
+  // Client-side filtering (tab exclusivity, search query, stock, affordability, and sorting)
   const filteredGifts = React.useMemo(() => {
     return gifts
       .filter((gift) => {
+        if (activeCatalogTab === 'vfp' && !gift.vfpExclusive) return false;
+        if (activeCatalogTab === 'standard' && gift.vfpExclusive) return false;
         if (inStockOnly && gift.stock <= 0) return false;
         if (affordableOnly && userPoints !== null && gift.pointsCost > userPoints) return false;
 
@@ -197,7 +228,7 @@ export function GlobalGiftCatalog() {
         if (sortBy === 'name') return a.name.localeCompare(b.name);
         return 0;
       });
-  }, [gifts, inStockOnly, affordableOnly, userPoints, searchQuery, sortBy]);
+  }, [gifts, activeCatalogTab, inStockOnly, affordableOnly, userPoints, searchQuery, sortBy]);
 
   const handleResetFilters = () => {
     setSearchQuery('');
@@ -264,6 +295,54 @@ export function GlobalGiftCatalog() {
           )}
         </div>
       </div>
+
+      {/* Catalog Separation Tabs: Standard vs Exclusive VFP */}
+      <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-muted/60 border border-border">
+        <button
+          type="button"
+          onClick={() => setActiveCatalogTab('standard')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+            activeCatalogTab === 'standard'
+              ? 'bg-background text-foreground font-semibold shadow-xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Gift className="size-3.5 text-primary" />
+          <span>Cadeaux Fidélité</span>
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-mono">
+            {standardGiftsCount}
+          </Badge>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveCatalogTab('vfp')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+            activeCatalogTab === 'vfp'
+              ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 font-semibold shadow-xs border border-amber-500/30'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Crown className="size-3.5 text-amber-600 dark:text-amber-400" />
+          <span>Privilèges VFP</span>
+          <Badge
+            variant="outline"
+            className="text-[10px] px-1.5 py-0 h-4 font-mono border-amber-500/40 text-amber-700 dark:text-amber-300"
+          >
+            {vfpGiftsCount}
+          </Badge>
+        </button>
+      </div>
+
+      {/* VFP Contextual Banner (How to become VFP / Active VFP status) */}
+      {activeCatalogTab === 'vfp' && (
+        <VfpPrivilegesBanner
+          isVfp={isVfp}
+          isAuthenticated={isAuthenticated}
+          currentTransactionCount={vfpStatus?.currentTransactionCount}
+          onOpenVfpDialog={() => setIsVfpDialogOpen(true)}
+        />
+      )}
 
       {/* Filter and search toolbar matching GlobalProductCatalog style */}
       <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between bg-muted/40 p-4 rounded-xl border border-border">
@@ -385,7 +464,7 @@ export function GlobalGiftCatalog() {
             Réessayer
           </Button>
         </Card>
-      ) : gifts.length === 0 ? (
+      ) : activeCatalogTab === 'standard' && gifts.length === 0 ? (
         <Empty className="bg-card">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -406,7 +485,7 @@ export function GlobalGiftCatalog() {
             </a>
           </EmptyContent>
         </Empty>
-      ) : filteredGifts.length === 0 ? (
+      ) : activeCatalogTab === 'standard' && filteredGifts.length === 0 ? (
         <Empty className="bg-card">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -427,6 +506,13 @@ export function GlobalGiftCatalog() {
         </Empty>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {activeCatalogTab === 'vfp' && (
+            <VfpPermanentBenefitCards
+              isAuthenticated={isAuthenticated}
+              isVfp={isVfp}
+              licensePlates={user?.licensePlates || []}
+            />
+          )}
           {filteredGifts.map((gift) => (
             <InteractiveGiftCard
               key={gift.uid}
@@ -434,10 +520,18 @@ export function GlobalGiftCatalog() {
               userPoints={userPoints}
               isAuthenticated={isAuthenticated}
               isLoadingUserPoints={isLoadingPoints}
+              isVfp={isVfp}
             />
           ))}
         </div>
       )}
+
+      <VfpBenefitsDialog
+        isOpen={isVfpDialogOpen}
+        onClose={() => setIsVfpDialogOpen(false)}
+        isVfp={isVfp}
+        currentTransactionCount={vfpStatus?.currentTransactionCount}
+      />
     </div>
   );
 }

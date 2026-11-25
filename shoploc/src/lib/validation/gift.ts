@@ -40,6 +40,7 @@ export const giftSchema = z.object({
     .regex(/^(https?:\/\/.*)?$/, "L'URL de l'image doit être une URL http(s) valide")
     .optional()
     .or(z.literal('')),
+  vfpExclusive: z.boolean().default(false),
 });
 
 export type GiftFormValues = z.infer<typeof giftSchema>;

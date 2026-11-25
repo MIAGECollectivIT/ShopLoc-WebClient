@@ -25,6 +25,7 @@ import {
   Ban,
   AlertCircle,
   ShoppingBag,
+  Crown,
 } from 'lucide-react';
 
 interface StoreProductsViewProps {
@@ -38,7 +39,9 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
   const [viewMode, setViewMode] = React.useState<
     'merchant' | 'gifts' | 'loyalty' | 'scan' | 'profile' | 'client'
   >('merchant');
-  const [clientActiveTab, setClientActiveTab] = React.useState<'products' | 'gifts'>('products');
+  const [clientActiveTab, setClientActiveTab] = React.useState<'products' | 'gifts' | 'vfp-gifts'>(
+    'products'
+  );
 
   React.useEffect(() => {
     setCurrentStore(store);
@@ -128,12 +131,35 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
           <Gift className="size-3.5 text-primary" />
           <span>Cadeaux Fidélité</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setClientActiveTab('vfp-gifts')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+            clientActiveTab === 'vfp-gifts'
+              ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 font-semibold shadow-xs border border-amber-500/30'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          }`}
+        >
+          <Crown className="size-3.5 text-amber-600 dark:text-amber-400" />
+          <span>Privilèges VFP</span>
+        </button>
       </div>
 
       {clientActiveTab === 'products' ? (
         <ClientProductCatalog storeUid={storeUid} storeName={currentStore.name} />
+      ) : clientActiveTab === 'vfp-gifts' ? (
+        <StoreClientGiftsCatalog
+          storeUid={storeUid}
+          storeName={currentStore.name}
+          catalogMode="vfp"
+        />
       ) : (
-        <StoreClientGiftsCatalog storeUid={storeUid} storeName={currentStore.name} />
+        <StoreClientGiftsCatalog
+          storeUid={storeUid}
+          storeName={currentStore.name}
+          catalogMode="standard"
+        />
       )}
     </div>
   );

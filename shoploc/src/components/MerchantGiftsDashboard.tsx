@@ -14,6 +14,7 @@ import {
 import { GiftStockControl } from '@/components/GiftStockControl';
 import { GiftFormDialog } from '@/components/GiftFormDialog';
 import { GiftImage } from '@/components/GiftImage';
+import { VfpBadge } from '@/components/VfpBadge';
 import { getStoreGifts, deleteGift } from '@/lib/api';
 import { type LoyaltyGift, type GiftStockStatus, getGiftStockStatus } from '@/types/gift';
 import {
@@ -30,6 +31,7 @@ import {
   RefreshCw,
   SlidersHorizontal,
   X,
+  Crown,
 } from 'lucide-react';
 
 interface MerchantGiftsDashboardProps {
@@ -48,6 +50,7 @@ export function MerchantGiftsDashboard({
   // Search & Filter
   const [searchQuery, setSearchQuery] = React.useState('');
   const [stockFilter, setStockFilter] = React.useState<'ALL' | GiftStockStatus>('ALL');
+  const [vfpFilter, setVfpFilter] = React.useState<'ALL' | 'STANDARD' | 'VFP'>('ALL');
 
   // Modal dialog states
   const [isFormOpen, setIsFormOpen] = React.useState(false);
@@ -138,6 +141,8 @@ export function MerchantGiftsDashboard({
 
   // Metrics
   const totalCount = gifts.length;
+  const vfpCount = gifts.filter((g) => Boolean(g.vfpExclusive)).length;
+  const standardCount = totalCount - vfpCount;
   const inStockCount = gifts.filter((g) => getGiftStockStatus(g.stock) === 'IN_STOCK').length;
   const lowStockCount = gifts.filter((g) => getGiftStockStatus(g.stock) === 'LOW_STOCK').length;
   const outOfStockCount = gifts.filter(
@@ -152,6 +157,9 @@ export function MerchantGiftsDashboard({
       (g.description && g.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
     if (!matchesSearch) return false;
+
+    if (vfpFilter === 'VFP' && !g.vfpExclusive) return false;
+    if (vfpFilter === 'STANDARD' && g.vfpExclusive) return false;
 
     if (stockFilter === 'ALL') return true;
     return getGiftStockStatus(g.stock) === stockFilter;
@@ -340,6 +348,40 @@ export function MerchantGiftsDashboard({
             Rupture ({outOfStockCount})
           </Button>
         </div>
+
+        {/* VFP Exclusivity Filter Pills */}
+        <div className="flex items-center gap-1 bg-card border border-border p-1 rounded-lg">
+          <Button
+            type="button"
+            variant={vfpFilter === 'ALL' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setVfpFilter('ALL')}
+            className="h-8 text-xs px-2.5 rounded-md"
+          >
+            Tous ({totalCount})
+          </Button>
+          <Button
+            type="button"
+            variant={vfpFilter === 'STANDARD' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setVfpFilter('STANDARD')}
+            className="h-8 text-xs px-2.5 rounded-md"
+          >
+            Standards ({standardCount})
+          </Button>
+          <Button
+            type="button"
+            variant={vfpFilter === 'VFP' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setVfpFilter('VFP')}
+            className={`h-8 text-xs px-2.5 rounded-md gap-1 ${
+              vfpFilter === 'VFP' ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''
+            }`}
+          >
+            <Crown className="size-3.5" />
+            Exclusifs VFP ({vfpCount})
+          </Button>
+        </div>
       </div>
 
       {/* Catalog Listing */}
@@ -399,6 +441,7 @@ export function MerchantGiftsDashboard({
             onClick={() => {
               setSearchQuery('');
               setStockFilter('ALL');
+              setVfpFilter('ALL');
             }}
           >
             Réinitialiser les filtres
@@ -413,7 +456,11 @@ export function MerchantGiftsDashboard({
             return (
               <Card
                 key={gift.uid}
-                className="group relative flex flex-col justify-between overflow-hidden border-border hover:shadow-md transition-shadow bg-card"
+                className={`group relative flex flex-col justify-between overflow-hidden hover:shadow-md transition-shadow bg-card ${
+                  gift.vfpExclusive
+                    ? 'border-amber-500/40 ring-1 ring-amber-500/20'
+                    : 'border-border'
+                }`}
               >
                 <div>
                   {/* Gift Image with overlays */}
@@ -427,12 +474,13 @@ export function MerchantGiftsDashboard({
                       fallbackText="Aucun visuel"
                     />
 
-                    {/* Points Overlay Badge (Top Left) */}
-                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                    {/* Points & VFP Overlay Badge (Top Left) */}
+                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 flex-wrap">
                       <span className="bg-background/90 backdrop-blur-xs text-foreground font-mono text-[10px] font-semibold px-2 py-0.5 rounded shadow-xs border border-border flex items-center gap-1">
                         <Coins className="size-3 text-amber-500" />
                         <span>{gift.pointsCost} pts</span>
                       </span>
+                      {gift.vfpExclusive && <VfpBadge isVfp size="sm" label="Exclusif VFP" />}
                     </div>
 
                     {/* Stock Status Badge Overlay (Top Right) */}
