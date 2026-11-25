@@ -19,6 +19,7 @@ export interface RecognizedCustomerCardProps {
   customer: CustomerIdentificationResponse;
   onReset: () => void;
   onStartCheckout?: () => void;
+  onStartGiftRedemption?: () => void;
   className?: string;
 }
 
@@ -30,6 +31,7 @@ export function RecognizedCustomerCard({
   customer,
   onReset,
   onStartCheckout,
+  onStartGiftRedemption,
   className,
 }: RecognizedCustomerCardProps) {
   const displayName = `${customer.firstName} ${customer.lastNameMasked}`.trim();
@@ -122,13 +124,14 @@ export function RecognizedCustomerCard({
 
           <Button
             type="button"
-            variant="outline"
+            variant="default"
             size="sm"
-            disabled
-            className="h-9 text-xs gap-1.5 border-dashed"
-            title="Fonctionnalité disponible dans la prochaine étape"
+            onClick={onStartGiftRedemption}
+            disabled={!onStartGiftRedemption}
+            className="h-9 text-xs gap-1.5 font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition-colors cursor-pointer"
+            title="Remettre un ou plusieurs cadeaux fidélité contre des points"
           >
-            <Gift className="size-3.5 text-purple-500" />
+            <Gift className="size-3.5" />
             <span>Valider un lot</span>
           </Button>
         </div>

@@ -39,3 +39,35 @@ export function getGiftStockStatus(stock: number): GiftStockStatus {
   if (stock <= 5) return 'LOW_STOCK';
   return 'IN_STOCK';
 }
+
+export interface PhysicalGiftRedemptionItemRequest {
+  giftUid: string;
+  quantity: number;
+}
+
+export interface PhysicalGiftRedemptionRequest {
+  customerId?: string;
+  clientCode?: string;
+  items: PhysicalGiftRedemptionItemRequest[];
+  idempotencyKey?: string;
+}
+
+export interface RedeemedGiftItemResponse {
+  giftUid: string;
+  name: string;
+  unitPointsCost: number;
+  quantity: number;
+  totalPointsCost: number;
+}
+
+export interface PhysicalGiftRedemptionResponse {
+  transactionReference: string;
+  storeUid: string;
+  storeName: string;
+  customerId: string;
+  clientCode?: string | null;
+  pointsDeducted: number;
+  remainingBalance: number;
+  redeemedAt: string;
+  items: RedeemedGiftItemResponse[];
+}
