@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { GiftImage } from '@/components/GiftImage';
 import {
@@ -5,9 +6,10 @@ import {
   CatalogItemCardSkeleton,
   CatalogStockBadge,
 } from '@/components/CatalogItemCard';
+import { useCart } from '@/hooks/useCart';
 import { ROUTES } from '@/config/routes';
 import { type LoyaltyGift, getGiftStockStatus } from '@/types/gift';
-import { Coins, Store as StoreIcon, LogIn, Gift, Lock } from 'lucide-react';
+import { Coins, Store as StoreIcon, LogIn, ShoppingBag, Check, Lock } from 'lucide-react';
 
 export interface InteractiveGiftCardProps {
   gift: LoyaltyGift;
@@ -15,6 +17,7 @@ export interface InteractiveGiftCardProps {
   isAuthenticated: boolean;
   isLoadingUserPoints?: boolean;
   isVfp?: boolean;
+  hasPriorPurchase?: boolean;
 }
 
 export function InteractiveGiftCard({
@@ -23,15 +26,38 @@ export function InteractiveGiftCard({
   isAuthenticated,
   isLoadingUserPoints: _isLoadingUserPoints = false,
   isVfp = false,
+  hasPriorPurchase = true,
 }: InteractiveGiftCardProps) {
+  const { addItem, totalPointsCost } = useCart();
+  const [justAdded, setJustAdded] = React.useState(false);
+
   const stockStatus = getGiftStockStatus(gift.stock);
   const isOutOfStock = stockStatus === 'OUT_OF_STOCK';
   const isVfpLocked = Boolean(gift.vfpExclusive) && !isVfp;
 
   const hasUserPoints = isAuthenticated && userPoints !== null;
-  const currentPoints = userPoints ?? 0;
-  const isAffordable = hasUserPoints && currentPoints >= gift.pointsCost;
-  const missingPoints = hasUserPoints ? Math.max(0, gift.pointsCost - currentPoints) : 0;
+  const availableAfterCart = hasUserPoints ? Math.max(0, (userPoints ?? 0) - totalPointsCost) : 0;
+  const isAffordable = hasUserPoints && availableAfterCart >= gift.pointsCost;
+  const missingPoints = hasUserPoints ? Math.max(0, gift.pointsCost - availableAfterCart) : 0;
+
+  const handleAddGiftToCart = () => {
+    const res = addItem({
+      productUid: gift.uid,
+      storeUid: gift.storeUid,
+      storeName: gift.storeName || undefined,
+      name: gift.name,
+      price: 0,
+      imageUrl: gift.imageUrl,
+      quantity: 1,
+      maxStock: gift.stock,
+      itemType: 'GIFT',
+      pointsCost: gift.pointsCost,
+    });
+    if (res.success) {
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 1800);
+    }
+  };
 
   return (
     <CatalogItemCard
@@ -101,16 +127,34 @@ export function InteractiveGiftCard({
             <LogIn className="size-3.5" />
             <span>Se connecter pour débloquer</span>
           </Button>
+        ) : !hasPriorPurchase ? (
+          <Button
+            type="button"
+            variant="outline"
+            disabled
+            className="w-full h-8 text-xs gap-1.5 opacity-80 cursor-not-allowed"
+            title="Un achat antérieur chez ce commerçant est requis pour commander ce cadeau"
+          >
+            <Lock className="size-3.5 shrink-0" />
+            <span>Achat antérieur requis</span>
+          </Button>
         ) : isAffordable ? (
           <Button
             type="button"
             className="w-full h-8 text-xs gap-1.5 font-medium bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs cursor-pointer"
-            onClick={() => {
-              window.location.href = ROUTES.storeDetail(gift.storeUid);
-            }}
+            onClick={handleAddGiftToCart}
           >
-            <Gift className="size-3.5" />
-            <span>Échanger chez le commerçant</span>
+            {justAdded ? (
+              <>
+                <Check className="size-3.5" />
+                <span>Ajouté au panier</span>
+              </>
+            ) : (
+              <>
+                <ShoppingBag className="size-3.5" />
+                <span>Ajouter au panier — {gift.pointsCost} pts</span>
+              </>
+            )}
           </Button>
         ) : (
           <Button

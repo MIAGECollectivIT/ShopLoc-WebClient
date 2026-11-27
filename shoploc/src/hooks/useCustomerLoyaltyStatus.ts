@@ -1,17 +1,20 @@
 import * as React from 'react';
-import { getUserPointsBalance, getUserVfpStatus } from '@/lib/api';
+import { getGiftCartEligibility, getUserPointsBalance, getUserVfpStatus } from '@/lib/api';
 import type { UserVfpStatus } from '@/types/loyalty';
 
 export interface CustomerLoyaltyStatus {
   userPoints: number | null;
+  availablePoints: number | null;
+  heldPoints: number;
+  eligibleStoreUids: string[];
   isLoadingPoints: boolean;
   vfpStatus: UserVfpStatus | null;
   isVfp: boolean;
 }
 
 /**
- * Fetches and manages the authenticated customer's loyalty points balance and VFP status.
- * Resets cleanly when unauthenticated and guards against unmounted state updates.
+ * Fetches and manages the authenticated customer's loyalty points balance, available points,
+ * eligible store UIDs, and VFP status.
  */
 export function useCustomerLoyaltyStatus(
   isAuthenticated: boolean,
@@ -19,6 +22,9 @@ export function useCustomerLoyaltyStatus(
   token?: string | null
 ): CustomerLoyaltyStatus {
   const [userPoints, setUserPoints] = React.useState<number | null>(null);
+  const [availablePoints, setAvailablePoints] = React.useState<number | null>(null);
+  const [heldPoints, setHeldPoints] = React.useState<number>(0);
+  const [eligibleStoreUids, setEligibleStoreUids] = React.useState<string[]>([]);
   const [isLoadingPoints, setIsLoadingPoints] = React.useState(false);
   const [vfpStatus, setVfpStatus] = React.useState<UserVfpStatus | null>(null);
 
@@ -26,6 +32,9 @@ export function useCustomerLoyaltyStatus(
     let isMounted = true;
     if (!isAuthenticated || !userId) {
       setUserPoints(null);
+      setAvailablePoints(null);
+      setHeldPoints(0);
+      setEligibleStoreUids([]);
       setVfpStatus(null);
       setIsLoadingPoints(false);
       return;
@@ -51,6 +60,22 @@ export function useCustomerLoyaltyStatus(
         }
       });
 
+    getGiftCartEligibility(undefined, token || undefined)
+      .then((elig) => {
+        if (isMounted) {
+          setAvailablePoints(elig.availablePoints);
+          setHeldPoints(elig.heldPoints);
+          setEligibleStoreUids(elig.eligibleStoreUids ?? []);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setAvailablePoints(null);
+          setHeldPoints(0);
+          setEligibleStoreUids([]);
+        }
+      });
+
     getUserVfpStatus(userId)
       .then((status) => {
         if (isMounted) {
@@ -70,6 +95,9 @@ export function useCustomerLoyaltyStatus(
 
   return {
     userPoints,
+    availablePoints: availablePoints ?? userPoints,
+    heldPoints,
+    eligibleStoreUids,
     isLoadingPoints,
     vfpStatus,
     isVfp: Boolean(vfpStatus?.isVfp),

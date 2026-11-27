@@ -36,11 +36,8 @@ export function StoreClientGiftsCatalog({
   const [error, setError] = React.useState<string | null>(null);
 
   // User loyalty points & VFP status
-  const { userPoints, isLoadingPoints, vfpStatus, isVfp } = useCustomerLoyaltyStatus(
-    isAuthenticated,
-    user?.id,
-    token
-  );
+  const { userPoints, availablePoints, isLoadingPoints, vfpStatus, isVfp, eligibleStoreUids } =
+    useCustomerLoyaltyStatus(isAuthenticated, user?.id, token);
   const [isVfpDialogOpen, setIsVfpDialogOpen] = React.useState(false);
 
   // Load active gifts for this store
@@ -167,10 +164,11 @@ export function StoreClientGiftsCatalog({
             <InteractiveGiftCard
               key={gift.uid}
               gift={gift}
-              userPoints={userPoints}
+              userPoints={availablePoints}
               isAuthenticated={isAuthenticated}
               isLoadingUserPoints={isLoadingPoints}
               isVfp={isVfp}
+              hasPriorPurchase={eligibleStoreUids.includes(gift.storeUid)}
             />
           ))}
         </div>

@@ -1,3 +1,5 @@
+export type CartItemType = 'PRODUCT' | 'GIFT';
+
 export interface CartItem {
   productUid: string;
   storeUid: string;
@@ -7,6 +9,8 @@ export interface CartItem {
   imageUrl?: string | null;
   quantity: number;
   maxStock?: number;
+  itemType?: CartItemType;
+  pointsCost?: number;
 }
 
 export interface StoreCartGroup {
@@ -14,6 +18,7 @@ export interface StoreCartGroup {
   storeName: string;
   items: CartItem[];
   subtotal: number;
+  pointsSubtotal: number;
   itemCount: number;
 }
 
@@ -22,6 +27,7 @@ export interface CartSummary {
   groupedByStore: StoreCartGroup[];
   totalItemCount: number;
   totalPrice: number;
+  totalPointsCost: number;
   storeCount: number;
 }
 
@@ -34,4 +40,6 @@ export interface AddToCartPayload {
   imageUrl?: string | null;
   quantity?: number;
   maxStock?: number;
+  itemType?: CartItemType;
+  pointsCost?: number;
 }

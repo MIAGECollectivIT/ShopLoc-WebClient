@@ -704,6 +704,36 @@ export async function getVfpDailyEligibility(): Promise<VfpDailyEligibility> {
   return (await res.json()) as VfpDailyEligibility;
 }
 
+export interface GiftCartEligibility {
+  balance: number;
+  heldPoints: number;
+  availablePoints: number;
+  isVfp: boolean;
+  eligibleStoreUids: string[];
+}
+
+export async function getGiftCartEligibility(
+  storeUid?: string,
+  authToken?: string
+): Promise<GiftCartEligibility> {
+  const query = storeUid ? `?storeUid=${encodeURIComponent(storeUid)}` : '';
+  const endpoint = getApiEndpoint(`/v1/loyalty/gifts/eligibility${query}`);
+  const token = authToken ?? getAuthToken();
+  const res = await fetchWithTimeout(endpoint, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Impossible de vérifier l'éligibilité aux cadeaux (HTTP ${res.status}).`);
+  }
+
+  return (await res.json()) as GiftCartEligibility;
+}
+
 /**
  * Retrieves the configured email address for citizen physical card notifications.
  * Restricted to administrators.

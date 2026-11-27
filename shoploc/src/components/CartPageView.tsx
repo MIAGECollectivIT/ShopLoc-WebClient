@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ProductImage } from '@/components/ProductImage';
+import { GiftImage } from '@/components/GiftImage';
 import { useCart } from '@/hooks/useCart';
 import { useAuth } from '@/lib/auth';
 import { getStoreById, getStoreProducts, createOrder } from '@/lib/api';
@@ -31,6 +32,8 @@ import {
   RefreshCw,
   LogIn,
   Lock,
+  Coins,
+  Gift,
 } from 'lucide-react';
 
 interface StoreInfoMap {
@@ -55,6 +58,7 @@ export function CartPageView() {
     groupedByStore,
     totalItemCount,
     totalPrice,
+    totalPointsCost,
     storeCount,
     isEmpty,
     updateQuantity,
@@ -125,11 +129,13 @@ export function CartPageView() {
       const issues: StockIssue[] = [];
 
       for (const group of groupedByStore) {
+        const productItems = group.items.filter((i) => (i.itemType ?? 'PRODUCT') === 'PRODUCT');
+        if (productItems.length === 0) continue;
         try {
           const liveProducts = await getStoreProducts(group.storeUid);
           const liveMap = new Map(liveProducts.map((p) => [p.uid, p]));
 
-          for (const item of group.items) {
+          for (const item of productItems) {
             const liveProduct = liveMap.get(item.productUid);
             if (!liveProduct) {
               issues.push({
@@ -173,8 +179,9 @@ export function CartPageView() {
           storeName: item.storeName || 'Boutique partenaire',
           productUid: item.productUid,
           productName: item.name,
-          unitPrice: item.price,
+          unitPrice: item.itemType === 'GIFT' ? 0 : item.price,
           quantity: item.quantity,
+          itemType: item.itemType ?? 'PRODUCT',
         }))
       );
 
@@ -404,13 +411,14 @@ export function CartPageView() {
                 {/* Items list */}
                 <CardContent className="p-0 divide-y divide-border/60">
                   {group.items.map((item) => {
+                    const isGift = item.itemType === 'GIFT';
                     const isIssue = stockIssues.some(
                       (si) => si.productUid === item.productUid && si.storeUid === item.storeUid
                     );
 
                     return (
                       <div
-                        key={`${item.storeUid}-${item.productUid}`}
+                        key={`${item.storeUid}-${item.productUid}-${item.itemType ?? 'PRODUCT'}`}
                         className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${
                           isIssue ? 'bg-destructive/5' : 'hover:bg-muted/10'
                         }`}
@@ -418,21 +426,45 @@ export function CartPageView() {
                         {/* Thumbnail & Title */}
                         <div className="flex items-center gap-3.5 min-w-0 flex-1">
                           <div className="size-16 rounded-lg bg-muted overflow-hidden shrink-0 border border-border">
-                            <ProductImage
-                              storeUid={item.storeUid}
-                              productUid={item.productUid}
-                              imageUrl={item.imageUrl}
-                              alt={item.name}
-                              className="w-full h-full object-cover"
-                            />
+                            {isGift ? (
+                              <GiftImage
+                                storeUid={item.storeUid}
+                                giftUid={item.productUid}
+                                imageUrl={item.imageUrl}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <ProductImage
+                                storeUid={item.storeUid}
+                                productUid={item.productUid}
+                                imageUrl={item.imageUrl}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
                           </div>
 
                           <div className="space-y-0.5 min-w-0">
-                            <h4 className="font-semibold text-sm text-foreground truncate">
-                              {item.name}
-                            </h4>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-sm text-foreground truncate">
+                                {item.name}
+                              </h4>
+                              {isGift && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px] px-1.5 py-0 h-4 gap-1 bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                                >
+                                  <Gift className="size-2.5" />
+                                  Cadeau fidélité
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-xs text-muted-foreground font-mono">
                               {item.price.toFixed(2)} € / unité
+                              {isGift &&
+                                typeof item.pointsCost === 'number' &&
+                                ` · ${item.pointsCost} pts`}
                             </p>
                             {item.maxStock !== undefined && (
                               <p className="text-[11px] text-muted-foreground">
@@ -452,7 +484,12 @@ export function CartPageView() {
                               size="icon"
                               className="size-7 rounded"
                               onClick={() =>
-                                updateQuantity(item.productUid, item.storeUid, item.quantity - 1)
+                                updateQuantity(
+                                  item.productUid,
+                                  item.storeUid,
+                                  item.quantity - 1,
+                                  item.itemType
+                                )
                               }
                               disabled={item.quantity <= 1}
                               aria-label="Diminuer la quantité"
@@ -468,7 +505,12 @@ export function CartPageView() {
                               size="icon"
                               className="size-7 rounded"
                               onClick={() =>
-                                updateQuantity(item.productUid, item.storeUid, item.quantity + 1)
+                                updateQuantity(
+                                  item.productUid,
+                                  item.storeUid,
+                                  item.quantity + 1,
+                                  item.itemType
+                                )
                               }
                               disabled={
                                 item.maxStock !== undefined && item.quantity >= item.maxStock
@@ -480,10 +522,15 @@ export function CartPageView() {
                           </div>
 
                           {/* Line Subtotal */}
-                          <div className="w-20 text-right">
-                            <span className="font-bold text-sm text-foreground font-mono">
+                          <div className="w-24 text-right">
+                            <span className="font-bold text-sm text-foreground font-mono block">
                               {(item.price * item.quantity).toFixed(2)} €
                             </span>
+                            {isGift && typeof item.pointsCost === 'number' && (
+                              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 font-mono">
+                                {item.pointsCost * item.quantity} pts
+                              </span>
+                            )}
                           </div>
 
                           {/* Delete Item button */}
@@ -492,7 +539,9 @@ export function CartPageView() {
                             variant="ghost"
                             size="icon"
                             className="size-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => removeItem(item.productUid, item.storeUid)}
+                            onClick={() =>
+                              removeItem(item.productUid, item.storeUid, item.itemType)
+                            }
                             title="Supprimer l'article"
                             aria-label={`Supprimer ${item.name}`}
                           >
@@ -544,6 +593,16 @@ export function CartPageView() {
                   {totalPrice.toFixed(2)} €
                 </span>
               </div>
+
+              {totalPointsCost > 0 && (
+                <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <Coins className="size-3.5" />
+                    Points en attente de débit
+                  </span>
+                  <span className="font-bold font-mono">{totalPointsCost} pts</span>
+                </div>
+              )}
 
               {/* Authentication gate warning */}
               {(!isAuthenticated || authRequiredPrompt) && (
