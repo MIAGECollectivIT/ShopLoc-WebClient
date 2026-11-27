@@ -16,11 +16,16 @@ import type { UserResponse } from '@/types/user';
 import type { UserPointsBalanceResponse, UserVfpStatus } from '@/types/loyalty';
 import { ClientQrCodeCard } from './ClientQrCodeCard';
 import { FrenchLicensePlateBadge } from './FrenchLicensePlateBadge';
-import { ManageVehiclesDialog } from './ManageVehiclesDialog';
 import { UserActivityGaugeCard } from './UserActivityGaugeCard';
 import { VfpBadge } from './VfpBadge';
-import { VfpBenefitsDialog } from './VfpBenefitsDialog';
 import { VfpParkingSessionCard } from './VfpParkingSessionCard';
+
+const ManageVehiclesDialog = React.lazy(() =>
+  import('./ManageVehiclesDialog').then((m) => ({ default: m.ManageVehiclesDialog }))
+);
+const VfpBenefitsDialog = React.lazy(() =>
+  import('./VfpBenefitsDialog').then((m) => ({ default: m.VfpBenefitsDialog }))
+);
 import type { VfpRevocationForecast } from '@/lib/vfp';
 import {
   Card,
@@ -584,15 +589,17 @@ export function ClientProfileView({ targetUserId: propTargetUserId }: ClientProf
           )}
 
           {/* License plates management dialog */}
-          {isClient && (
-            <ManageVehiclesDialog
-              open={isManageVehiclesOpen}
-              onOpenChange={setIsManageVehiclesOpen}
-              licensePlates={licensePlates}
-              onAddPlate={handlePlateAdded}
-              onUpdatePlate={handlePlateUpdated}
-              onDeletePlate={handlePlateDeleted}
-            />
+          {isClient && isManageVehiclesOpen && (
+            <React.Suspense fallback={null}>
+              <ManageVehiclesDialog
+                open={isManageVehiclesOpen}
+                onOpenChange={setIsManageVehiclesOpen}
+                licensePlates={licensePlates}
+                onAddPlate={handlePlateAdded}
+                onUpdatePlate={handlePlateUpdated}
+                onDeletePlate={handlePlateDeleted}
+              />
+            </React.Suspense>
           )}
 
           {/* Navigation shortcuts */}
@@ -736,14 +743,18 @@ export function ClientProfileView({ targetUserId: propTargetUserId }: ClientProf
       </div>
 
       {/* Modal d'explication des avantages et privilèges VFP */}
-      <VfpBenefitsDialog
-        isOpen={isBenefitsModalOpen}
-        onClose={() => setIsBenefitsModalOpen(false)}
-        isVfp={Boolean(vfpStatus?.isVfp)}
-        currentTransactionCount={vfpStatus?.currentTransactionCount}
-        threshold={vfpStatus?.threshold ?? 10}
-        revocationForecast={revocationForecast}
-      />
+      {isBenefitsModalOpen && (
+        <React.Suspense fallback={null}>
+          <VfpBenefitsDialog
+            isOpen={isBenefitsModalOpen}
+            onClose={() => setIsBenefitsModalOpen(false)}
+            isVfp={Boolean(vfpStatus?.isVfp)}
+            currentTransactionCount={vfpStatus?.currentTransactionCount}
+            threshold={vfpStatus?.threshold ?? 10}
+            revocationForecast={revocationForecast}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 }

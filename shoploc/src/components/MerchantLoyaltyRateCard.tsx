@@ -108,7 +108,7 @@ export function MerchantLoyaltyRateCard({
   };
 
   // Submit handler
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setSuccessMessage(null);
     setServerError(null);

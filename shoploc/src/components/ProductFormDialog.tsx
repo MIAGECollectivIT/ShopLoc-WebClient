@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { productSchema, ACCEPTED_IMAGE_TYPES, MAX_FILE_SIZE_BYTES } from '@/lib/validation/product';
 import { createProduct, updateProduct } from '@/lib/api';
-import { resolveProductImageUrl } from '@/lib/image';
+import { resolveProductImageUrl, compressImageForUpload } from '@/lib/image';
 import { ProductImage } from '@/components/ProductImage';
 import type { Product } from '@/types/product';
 import type { ProductUpdateRequest } from '@/types/product';
@@ -114,7 +114,7 @@ export function ProductFormDialog({
     };
   }, [previewUrl]);
 
-  const processFile = (file: File) => {
+  const processFile = async (file: File) => {
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
       setErrors((prev) => ({
         ...prev,
@@ -138,13 +138,15 @@ export function ProductFormDialog({
       return copy;
     });
 
+    const optimizedFile = await compressImageForUpload(file, { maxDimension: 1200 });
+
     if (previewUrl?.startsWith('blob:')) {
       URL.revokeObjectURL(previewUrl);
     }
 
-    setSelectedFile(file);
+    setSelectedFile(optimizedFile);
     setIsImageRemoved(false);
-    const objectUrl = URL.createObjectURL(file);
+    const objectUrl = URL.createObjectURL(optimizedFile);
     setPreviewUrl(objectUrl);
     setImageUrl('');
   };
@@ -195,7 +197,7 @@ export function ProductFormDialog({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setErrors({});
     setServerError(null);

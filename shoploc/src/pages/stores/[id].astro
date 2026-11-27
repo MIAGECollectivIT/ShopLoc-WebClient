@@ -66,6 +66,8 @@ const store = initialStore ?? (id ? await getStoreById(id).catch(() => null) : n
               <img
                 src={resolveStoreImageUrl(store.url, store.uid)}
                 alt={store.name}
+                fetchpriority="high"
+                decoding="async"
                 class="h-64 sm:h-72 w-full object-cover"
               />
             ) : (
@@ -120,7 +122,7 @@ const store = initialStore ?? (id ? await getStoreById(id).catch(() => null) : n
         </Card>
 
         {/* Dynamic Catalog Section (Merchant Dashboard or Customer Storefront) */}
-        <StoreProductsView client:only="react" store={store} />
+        <StoreProductsView client:load store={store} />
       </div>
     )}
 

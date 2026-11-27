@@ -1,14 +1,36 @@
 import * as React from 'react';
 import { useAuth } from '@/lib/auth';
 import type { Store } from '@/types/store';
-import { MerchantCatalogDashboard } from '@/components/MerchantCatalogDashboard';
-import { MerchantGiftsDashboard } from '@/components/MerchantGiftsDashboard';
-import { MerchantLoyaltyRateCard } from '@/components/MerchantLoyaltyRateCard';
-import { MerchantLoyaltyScanner } from '@/components/MerchantLoyaltyScanner';
-import { MerchantStoreProfileForm } from '@/components/MerchantStoreProfileForm';
 import { ClientProductCatalog } from '@/components/ClientProductCatalog';
 import { StoreLoyaltyBanner } from '@/components/StoreLoyaltyBanner';
 import { StoreClientGiftsCatalog } from '@/components/StoreClientGiftsCatalog';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const MerchantCatalogDashboard = React.lazy(() =>
+  import('@/components/MerchantCatalogDashboard').then((m) => ({
+    default: m.MerchantCatalogDashboard,
+  }))
+);
+const MerchantGiftsDashboard = React.lazy(() =>
+  import('@/components/MerchantGiftsDashboard').then((m) => ({
+    default: m.MerchantGiftsDashboard,
+  }))
+);
+const MerchantLoyaltyRateCard = React.lazy(() =>
+  import('@/components/MerchantLoyaltyRateCard').then((m) => ({
+    default: m.MerchantLoyaltyRateCard,
+  }))
+);
+const MerchantLoyaltyScanner = React.lazy(() =>
+  import('@/components/MerchantLoyaltyScanner').then((m) => ({
+    default: m.MerchantLoyaltyScanner,
+  }))
+);
+const MerchantStoreProfileForm = React.lazy(() =>
+  import('@/components/MerchantStoreProfileForm').then((m) => ({
+    default: m.MerchantStoreProfileForm,
+  }))
+);
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/config/routes';
@@ -316,28 +338,30 @@ export function StoreProductsView({ store }: StoreProductsViewProps) {
       </div>
 
       {/* Render selected view */}
-      {viewMode === 'merchant' && (
-        <MerchantCatalogDashboard storeUid={storeUid} storeName={store.name} />
-      )}
+      <React.Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
+        {viewMode === 'merchant' && (
+          <MerchantCatalogDashboard storeUid={storeUid} storeName={store.name} />
+        )}
 
-      {viewMode === 'gifts' && (
-        <MerchantGiftsDashboard storeUid={storeUid} storeName={store.name} />
-      )}
+        {viewMode === 'gifts' && (
+          <MerchantGiftsDashboard storeUid={storeUid} storeName={store.name} />
+        )}
 
-      {viewMode === 'loyalty' && (
-        <MerchantLoyaltyRateCard storeUid={storeUid} storeName={currentStore.name} />
-      )}
+        {viewMode === 'loyalty' && (
+          <MerchantLoyaltyRateCard storeUid={storeUid} storeName={currentStore.name} />
+        )}
 
-      {viewMode === 'profile' && (
-        <MerchantStoreProfileForm
-          store={currentStore}
-          onStoreUpdated={(updated) => setCurrentStore((prev) => ({ ...prev, ...updated }))}
-        />
-      )}
+        {viewMode === 'profile' && (
+          <MerchantStoreProfileForm
+            store={currentStore}
+            onStoreUpdated={(updated) => setCurrentStore((prev) => ({ ...prev, ...updated }))}
+          />
+        )}
 
-      {viewMode === 'scan' && (
-        <MerchantLoyaltyScanner storeUid={storeUid} storeName={currentStore.name} />
-      )}
+        {viewMode === 'scan' && (
+          <MerchantLoyaltyScanner storeUid={storeUid} storeName={currentStore.name} />
+        )}
+      </React.Suspense>
 
       {viewMode === 'client' && (
         <div className="space-y-6">

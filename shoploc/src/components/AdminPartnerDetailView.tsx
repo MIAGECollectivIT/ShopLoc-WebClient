@@ -233,7 +233,7 @@ export function AdminPartnerDetailView({
   };
 
   // Submit partner update
-  const handleConfirmEditPartner = async (e: React.FormEvent) => {
+  const handleConfirmEditPartner = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!editFirstName.trim() || !editLastName.trim() || !editBirthDate) {
       setEditError('Tous les champs requis doivent être renseignés.');

@@ -20,6 +20,6 @@ const targetUserId = Astro.url.searchParams.get('userId') || undefined;
     }
     icon={ROUTES.profile.icon}
   >
-    <ClientProfileView targetUserId={targetUserId} client:only="react" />
+    <ClientProfileView targetUserId={targetUserId} client:load />
   </PageContainer>
 </Layout>

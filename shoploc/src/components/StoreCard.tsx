@@ -34,6 +34,7 @@ export function StoreCard({ store }: StoreCardProps) {
             alt={store.name}
             className="h-40 w-full object-cover"
             loading="lazy"
+            decoding="async"
           />
         ) : (
           <div className="h-40 bg-muted flex flex-col items-center justify-center text-muted-foreground">

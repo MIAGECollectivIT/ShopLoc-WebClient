@@ -37,22 +37,36 @@ export function GiftImage({
     });
   }, [storeUid, giftUid, src, imageUrl]);
 
+  const imgRef = React.useRef<HTMLImageElement | null>(null);
   const [currentSrc, setCurrentSrc] = React.useState<string | null>(initialUrl);
   const [hasTriedFallback, setHasTriedFallback] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState<boolean>(Boolean(initialUrl));
   const [hasError, setHasError] = React.useState<boolean>(!initialUrl);
 
   React.useEffect(() => {
-    const nextUrl = resolveGiftImageUrl({
-      storeUid,
-      giftUid,
-      imageUrl: src || imageUrl,
+    setCurrentSrc((prev) => {
+      if (prev === initialUrl) {
+        return prev;
+      }
+      setHasTriedFallback(false);
+      setIsLoading(Boolean(initialUrl));
+      setHasError(!initialUrl);
+      return initialUrl;
     });
-    setCurrentSrc(nextUrl);
-    setHasTriedFallback(false);
-    setIsLoading(Boolean(nextUrl));
-    setHasError(!nextUrl);
-  }, [storeUid, giftUid, src, imageUrl]);
+  }, [initialUrl]);
+
+  // Immediately clear loading state if the browser already served the image from cache
+  React.useEffect(() => {
+    const img = imgRef.current;
+    if (img && img.complete) {
+      if (img.naturalWidth > 0) {
+        setIsLoading(false);
+        setHasError(false);
+      } else {
+        setIsLoading(false);
+      }
+    }
+  }, [currentSrc]);
 
   const handleLoad: React.ReactEventHandler<HTMLImageElement> = (e) => {
     setIsLoading(false);
@@ -97,13 +111,15 @@ export function GiftImage({
       )}
 
       <img
+        ref={imgRef}
         src={currentSrc}
         alt={alt}
         loading={loading}
+        decoding="async"
         onLoad={handleLoad}
         onError={handleError}
         className={cn(
-          'w-full h-full object-cover transition-opacity duration-300',
+          'w-full h-full object-cover',
           isLoading ? 'opacity-0' : 'opacity-100',
           className
         )}

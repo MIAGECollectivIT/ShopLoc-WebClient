@@ -39,6 +39,7 @@ export function AddressAutocompleteInput({
   const [isOpen, setIsOpen] = React.useState<boolean>(false);
   const wrapperRef = React.useRef<HTMLDivElement>(null);
   const debounceTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = React.useRef<AbortController | null>(null);
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -53,6 +54,7 @@ export function AddressAutocompleteInput({
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
+      abortControllerRef.current?.abort();
     };
   }, []);
 
@@ -63,6 +65,7 @@ export function AddressAutocompleteInput({
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
+    abortControllerRef.current?.abort();
 
     if (!val || val.trim().length < 3) {
       setSuggestions([]);
@@ -73,9 +76,13 @@ export function AddressAutocompleteInput({
 
     setIsLoading(true);
     debounceTimerRef.current = setTimeout(async () => {
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
       try {
         const response = await fetch(
-          `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(val)}&limit=5`
+          `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(val)}&limit=5`,
+          { signal: controller.signal }
         );
         if (response.ok) {
           const data = await response.json();
@@ -108,6 +115,7 @@ export function AddressAutocompleteInput({
         // Fallback gracieux en cas d'erreur réseau
         setSuggestions([]);
       } finally {
+        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     }, 300);

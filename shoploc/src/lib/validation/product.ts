@@ -56,7 +56,7 @@ export const productSchema = z.object({
         .int('Le seuil d’alerte doit être un nombre entier')
         .min(0, 'Le seuil d’alerte ne peut pas être négatif')
     ),
-  imageUrl: z.string().trim().url().optional().or(z.literal('')),
+  imageUrl: z.string().trim().pipe(z.url()).optional().or(z.literal('')),
 });
 
 export type ProductFormValues = z.infer<typeof productSchema>;

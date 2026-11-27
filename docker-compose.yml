@@ -11,4 +11,10 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       - NODE_ENV=production
-      - INTERNAL_API_URL=http://host.docker.internal:8080
+      - INTERNAL_API_URL=${INTERNAL_API_URL:-http://host.docker.internal:8080}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
