@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ProductImage } from '@/components/ProductImage';
+import { GiftImage } from '@/components/GiftImage';
 import { useCart } from '@/hooks/useCart';
 import { ROUTES } from '@/config/routes';
 import {
@@ -22,6 +23,8 @@ import {
   Trash2,
   ArrowRight,
   PackageOpen,
+  Coins,
+  Gift,
 } from 'lucide-react';
 
 export function CartDrawer() {
@@ -31,6 +34,7 @@ export function CartDrawer() {
     groupedByStore,
     totalItemCount,
     totalPrice,
+    totalPointsCost,
     storeCount,
     isEmpty,
     updateQuantity,
@@ -139,81 +143,127 @@ export function CartDrawer() {
 
                 {/* Store items list */}
                 <div className="divide-y divide-border/60">
-                  {group.items.map((item) => (
-                    <div
-                      key={`${item.storeUid}-${item.productUid}`}
-                      className="p-3 flex items-center gap-3 hover:bg-muted/20 transition-colors"
-                    >
-                      {/* Product thumbnail */}
-                      <div className="size-12 rounded-lg bg-muted overflow-hidden shrink-0 border border-border/80">
-                        <ProductImage
-                          storeUid={item.storeUid}
-                          productUid={item.productUid}
-                          imageUrl={item.imageUrl}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-
-                      {/* Product details */}
-                      <div className="flex-1 min-w-0">
-                        <h5 className="text-xs font-medium text-foreground truncate">
-                          {item.name}
-                        </h5>
-                        <p className="text-[11px] text-muted-foreground font-mono">
-                          {item.price.toFixed(2)} € / u.
-                        </p>
-                        <div className="text-xs font-semibold text-foreground pt-0.5">
-                          {(item.price * item.quantity).toFixed(2)} €
+                  {group.items.map((item) => {
+                    const isGift = item.itemType === 'GIFT';
+                    return (
+                      <div
+                        key={`${item.storeUid}-${item.productUid}-${item.itemType ?? 'PRODUCT'}`}
+                        className="p-3 flex items-center gap-3 hover:bg-muted/20 transition-colors"
+                      >
+                        {/* Thumbnail */}
+                        <div className="size-12 rounded-lg bg-muted overflow-hidden shrink-0 border border-border/80">
+                          {isGift ? (
+                            <GiftImage
+                              storeUid={item.storeUid}
+                              giftUid={item.productUid}
+                              imageUrl={item.imageUrl}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <ProductImage
+                              storeUid={item.storeUid}
+                              productUid={item.productUid}
+                              imageUrl={item.imageUrl}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                            />
+                          )}
                         </div>
-                      </div>
 
-                      {/* Quantity Controls & Remove */}
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <div className="inline-flex items-center rounded-md border border-border bg-background shadow-2xs">
+                        {/* Product details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <h5 className="text-xs font-medium text-foreground truncate">
+                              {item.name}
+                            </h5>
+                            {isGift && (
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] px-1 py-0 h-4 gap-0.5 bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                              >
+                                <Gift className="size-2.5" />
+                                Cadeau
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground font-mono">
+                            {item.price.toFixed(2)} € / u.
+                            {isGift &&
+                              typeof item.pointsCost === 'number' &&
+                              ` · ${item.pointsCost} pts`}
+                          </p>
+                          <div className="text-xs font-semibold text-foreground pt-0.5 flex items-center gap-2">
+                            <span>{(item.price * item.quantity).toFixed(2)} €</span>
+                            {isGift && typeof item.pointsCost === 'number' && (
+                              <span className="text-amber-600 dark:text-amber-400 font-mono">
+                                ({item.pointsCost * item.quantity} pts)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Quantity Controls & Remove */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="inline-flex items-center rounded-md border border-border bg-background shadow-2xs">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-6 rounded"
+                              onClick={() =>
+                                updateQuantity(
+                                  item.productUid,
+                                  item.storeUid,
+                                  item.quantity - 1,
+                                  item.itemType
+                                )
+                              }
+                              aria-label="Diminuer"
+                            >
+                              <Minus className="size-3" />
+                            </Button>
+                            <span className="w-6 text-center text-xs font-mono font-medium">
+                              {item.quantity}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="size-6 rounded"
+                              onClick={() =>
+                                updateQuantity(
+                                  item.productUid,
+                                  item.storeUid,
+                                  item.quantity + 1,
+                                  item.itemType
+                                )
+                              }
+                              disabled={
+                                item.maxStock !== undefined && item.quantity >= item.maxStock
+                              }
+                              aria-label="Augmenter"
+                            >
+                              <Plus className="size-3" />
+                            </Button>
+                          </div>
+
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="size-6 rounded"
+                            className="size-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                             onClick={() =>
-                              updateQuantity(item.productUid, item.storeUid, item.quantity - 1)
+                              removeItem(item.productUid, item.storeUid, item.itemType)
                             }
-                            aria-label="Diminuer"
+                            aria-label="Supprimer l'article"
                           >
-                            <Minus className="size-3" />
-                          </Button>
-                          <span className="w-6 text-center text-xs font-mono font-medium">
-                            {item.quantity}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="size-6 rounded"
-                            onClick={() =>
-                              updateQuantity(item.productUid, item.storeUid, item.quantity + 1)
-                            }
-                            disabled={item.maxStock !== undefined && item.quantity >= item.maxStock}
-                            aria-label="Augmenter"
-                          >
-                            <Plus className="size-3" />
+                            <Trash2 className="size-3" />
                           </Button>
                         </div>
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => removeItem(item.productUid, item.storeUid)}
-                          aria-label="Supprimer l'article"
-                        >
-                          <Trash2 className="size-3" />
-                        </Button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))
@@ -229,6 +279,15 @@ export function CartDrawer() {
                 {totalPrice.toFixed(2)} €
               </span>
             </div>
+            {totalPointsCost > 0 && (
+              <div className="flex items-center justify-between text-xs pb-1 text-amber-600 dark:text-amber-400">
+                <span className="flex items-center gap-1">
+                  <Coins className="size-3.5" />
+                  Points cadeaux
+                </span>
+                <span className="font-bold font-mono">{totalPointsCost} pts</span>
+              </div>
+            )}
 
             <Button
               className="w-full gap-2 shadow-xs"

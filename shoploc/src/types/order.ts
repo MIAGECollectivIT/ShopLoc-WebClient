@@ -1,6 +1,8 @@
 export type OrderStatus =
   'PENDING_PAYMENT' | 'PAID' | 'CANCELLED' | 'DELIVERED' | 'COMPLETED' | 'EXPIRED';
 
+export type OrderItemType = 'PRODUCT' | 'GIFT';
+
 export interface CreateOrderItemRequest {
   storeUid: string;
   storeName: string;
@@ -8,6 +10,7 @@ export interface CreateOrderItemRequest {
   productName: string;
   unitPrice: number;
   quantity: number;
+  itemType?: OrderItemType;
 }
 
 export interface CreateOrderRequest {
@@ -25,6 +28,8 @@ export interface OrderItemResponse {
   unitPrice: number;
   quantity: number;
   totalPrice: number;
+  itemType?: OrderItemType;
+  pointsCost?: number;
 }
 
 export interface OrderStoreSummaryResponse {
@@ -50,4 +55,5 @@ export interface OrderResponse {
   items: OrderItemResponse[];
   receiptSentAt?: string | null;
   updatedAt?: string | null;
+  totalPointsCost?: number;
 }

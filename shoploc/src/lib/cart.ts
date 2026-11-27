@@ -1,4 +1,10 @@
-import type { CartItem, StoreCartGroup, CartSummary, AddToCartPayload } from '@/types/cart';
+import type {
+  CartItem,
+  CartItemType,
+  StoreCartGroup,
+  CartSummary,
+  AddToCartPayload,
+} from '@/types/cart';
 
 export const CART_STORAGE_KEY = 'shoploc_cart';
 export const CART_UPDATED_EVENT = 'shoploc-cart-updated';
@@ -125,8 +131,12 @@ export function addToCart(payload: AddToCartPayload): {
     return { success: false, message: 'Cet article est en rupture de stock.' };
   }
 
+  const payloadType: CartItemType = payload.itemType ?? 'PRODUCT';
   const existingIndex = current.findIndex(
-    (item) => item.productUid === payload.productUid && item.storeUid === payload.storeUid
+    (item) =>
+      item.productUid === payload.productUid &&
+      item.storeUid === payload.storeUid &&
+      (item.itemType ?? 'PRODUCT') === payloadType
   );
 
   let updatedItem: CartItem;
@@ -157,6 +167,8 @@ export function addToCart(payload: AddToCartPayload): {
       imageUrl: payload.imageUrl !== undefined ? payload.imageUrl : existing.imageUrl,
       storeName: payload.storeName || existing.storeName,
       storeUid: payload.storeUid || existing.storeUid,
+      itemType: payloadType,
+      pointsCost: payload.pointsCost ?? existing.pointsCost,
     };
     current[existingIndex] = updatedItem;
   } else {
@@ -174,6 +186,8 @@ export function addToCart(payload: AddToCartPayload): {
       imageUrl: payload.imageUrl,
       quantity: finalQty,
       maxStock: payload.maxStock,
+      itemType: payloadType,
+      pointsCost: payload.pointsCost,
     };
     current.push(updatedItem);
   }
@@ -186,15 +200,21 @@ export function addToCart(payload: AddToCartPayload): {
  * Met à jour la quantité d'un article existant.
  * Si quantity <= 0, l'article est supprimé.
  */
-export function updateCartQuantity(productUid: string, storeUid: string, quantity: number): void {
+export function updateCartQuantity(
+  productUid: string,
+  storeUid: string,
+  quantity: number,
+  itemType?: CartItemType
+): void {
   const current = getCartItems();
   if (quantity <= 0) {
-    removeFromCart(productUid, storeUid);
+    removeFromCart(productUid, storeUid, itemType);
     return;
   }
 
   const updated = current.map((item) => {
-    if (item.productUid === productUid && item.storeUid === storeUid) {
+    const typeMatch = itemType === undefined || (item.itemType ?? 'PRODUCT') === itemType;
+    if (item.productUid === productUid && item.storeUid === storeUid && typeMatch) {
       const maxStock = item.maxStock;
       const targetQuantity = maxStock !== undefined ? Math.min(quantity, maxStock) : quantity;
       return { ...item, quantity: targetQuantity };
@@ -208,11 +228,16 @@ export function updateCartQuantity(productUid: string, storeUid: string, quantit
 /**
  * Supprime un article du panier.
  */
-export function removeFromCart(productUid: string, storeUid: string): void {
+export function removeFromCart(
+  productUid: string,
+  storeUid: string,
+  itemType?: CartItemType
+): void {
   const current = getCartItems();
-  const next = current.filter(
-    (item) => !(item.productUid === productUid && item.storeUid === storeUid)
-  );
+  const next = current.filter((item) => {
+    const typeMatch = itemType === undefined || (item.itemType ?? 'PRODUCT') === itemType;
+    return !(item.productUid === productUid && item.storeUid === storeUid && typeMatch);
+  });
   setCartItems(next);
 }
 
@@ -246,6 +271,7 @@ export function groupCartByStore(items: CartItem[]): StoreCartGroup[] {
         storeName: item.storeName || 'Boutique partenaire',
         items: [],
         subtotal: 0,
+        pointsSubtotal: 0,
         itemCount: 0,
       };
       map.set(item.storeUid, group);
@@ -253,6 +279,9 @@ export function groupCartByStore(items: CartItem[]): StoreCartGroup[] {
     group.items.push(item);
     group.itemCount += item.quantity;
     group.subtotal = Number((group.subtotal + item.price * item.quantity).toFixed(2));
+    if (item.itemType === 'GIFT' && typeof item.pointsCost === 'number') {
+      group.pointsSubtotal += item.pointsCost * item.quantity;
+    }
   }
 
   return Array.from(map.values());
@@ -265,10 +294,12 @@ export function getCartSummary(items: CartItem[]): CartSummary {
   const grouped = groupCartByStore(items);
   let totalItemCount = 0;
   let totalPrice = 0;
+  let totalPointsCost = 0;
 
   for (const group of grouped) {
     totalItemCount += group.itemCount;
     totalPrice = Number((totalPrice + group.subtotal).toFixed(2));
+    totalPointsCost += group.pointsSubtotal;
   }
 
   return {
@@ -276,6 +307,7 @@ export function getCartSummary(items: CartItem[]): CartSummary {
     groupedByStore: grouped,
     totalItemCount,
     totalPrice,
+    totalPointsCost,
     storeCount: grouped.length,
   };
 }

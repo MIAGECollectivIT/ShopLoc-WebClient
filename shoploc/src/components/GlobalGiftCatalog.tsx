@@ -45,11 +45,8 @@ export function GlobalGiftCatalog() {
   const [error, setError] = React.useState<string | null>(null);
 
   // User loyalty points & VFP state
-  const { userPoints, isLoadingPoints, vfpStatus, isVfp } = useCustomerLoyaltyStatus(
-    isAuthenticated,
-    user?.id,
-    token
-  );
+  const { userPoints, availablePoints, isLoadingPoints, vfpStatus, isVfp, eligibleStoreUids } =
+    useCustomerLoyaltyStatus(isAuthenticated, user?.id, token);
   const [isVfpDialogOpen, setIsVfpDialogOpen] = React.useState(false);
   const [activeCatalogTab, setActiveCatalogTab] = React.useState<'standard' | 'vfp'>('standard');
 
@@ -483,10 +480,11 @@ export function GlobalGiftCatalog() {
             <InteractiveGiftCard
               key={gift.uid}
               gift={gift}
-              userPoints={userPoints}
+              userPoints={availablePoints}
               isAuthenticated={isAuthenticated}
               isLoadingUserPoints={isLoadingPoints}
               isVfp={isVfp}
+              hasPriorPurchase={eligibleStoreUids.includes(gift.storeUid)}
             />
           ))}
         </div>
