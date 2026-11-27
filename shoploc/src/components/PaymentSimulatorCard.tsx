@@ -149,7 +149,7 @@ export function PaymentSimulatorCard({
     setCvc(digitsOnly);
   };
 
-  const handleAuthorizePayment = async (event: React.FormEvent) => {
+  const handleAuthorizePayment = async (event: React.SyntheticEvent) => {
     event.preventDefault();
     setServerError(null);
 

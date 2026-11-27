@@ -39,7 +39,7 @@ import {
   updateStoreImage,
   addStoreToPartner,
 } from '@/lib/api';
-import { resolveStoreImageUrl } from '@/lib/image';
+import { resolveStoreImageUrl, compressImageForUpload } from '@/lib/image';
 import { getAuthUser } from '@/lib/auth';
 import { ROUTES } from '@/config/routes';
 import type { StoreResponse, Store as StoreType, StorePatchRequest } from '@/types/store';
@@ -81,7 +81,7 @@ function useStoreImageUpload(initialImageUrl?: string | null) {
     };
   }, [imagePreview]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -96,12 +96,13 @@ function useStoreImageUpload(initialImageUrl?: string | null) {
     }
 
     setImageError(null);
+    const optimizedFile = await compressImageForUpload(file, { maxDimension: 1600 });
     if (imagePreview?.startsWith('blob:')) {
       URL.revokeObjectURL(imagePreview);
     }
 
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    setImageFile(optimizedFile);
+    setImagePreview(URL.createObjectURL(optimizedFile));
   };
 
   const handleRemoveImage = () => {

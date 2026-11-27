@@ -14,6 +14,25 @@ export default defineConfig({
   }),
   vite: {
     plugins: [tailwindcss()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: (id) => {
+            if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+              return 'react-vendor';
+            }
+            if (
+              id.includes('node_modules/zod/') ||
+              id.includes('node_modules/react-hook-form/') ||
+              id.includes('node_modules/@hookform/')
+            ) {
+              return 'validation-vendor';
+            }
+            return undefined;
+          },
+        },
+      },
+    },
     server: {
       proxy: {
         '/v1': {

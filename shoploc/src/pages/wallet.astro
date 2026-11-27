@@ -14,6 +14,6 @@ import { ROUTES } from '../config/routes';
     description="Gérez votre solde disponible en temps réel, rechargez par carte bancaire de 5 € à 100 € et consultez l'historique complet de vos dépenses locales."
     icon={ROUTES.wallet.icon}
   >
-    <WalletPageView client:only="react" />
+    <WalletPageView client:load />
   </PageContainer>
 </Layout>

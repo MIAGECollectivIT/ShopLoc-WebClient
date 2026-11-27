@@ -2,8 +2,14 @@ import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ClientCameraScanner } from '@/components/ClientCameraScanner';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ManualClientCodeForm } from '@/components/ManualClientCodeForm';
+
+const ClientCameraScanner = React.lazy(() =>
+  import('@/components/ClientCameraScanner').then((m) => ({
+    default: m.ClientCameraScanner,
+  }))
+);
 import { RecognizedCustomerCard } from '@/components/RecognizedCustomerCard';
 import { PhysicalCheckoutForm } from '@/components/PhysicalCheckoutForm';
 import { PhysicalSaleSuccessCard } from '@/components/PhysicalSaleSuccessCard';
@@ -259,11 +265,13 @@ export function MerchantLoyaltyScanner({
 
             {/* Tab Viewport */}
             {activeTab === 'camera' ? (
-              <ClientCameraScanner
-                onScanSuccess={handleIdentifyCode}
-                isProcessing={isLoading}
-                className="w-full"
-              />
+              <React.Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
+                <ClientCameraScanner
+                  onScanSuccess={handleIdentifyCode}
+                  isProcessing={isLoading}
+                  className="w-full"
+                />
+              </React.Suspense>
             ) : (
               <ManualClientCodeForm
                 onSubmitCode={handleIdentifyCode}

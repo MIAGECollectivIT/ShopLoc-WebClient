@@ -14,6 +14,6 @@ import { ROUTES } from '../config/routes';
     description="Retrouvez le suivi de vos commandes Click & Collect, téléchargez vos bons de retrait ou factures officielles."
     icon={ROUTES.orders.icon}
   >
-    <CustomerOrdersSection client:only="react" />
+    <CustomerOrdersSection client:load />
   </PageContainer>
 </Layout>

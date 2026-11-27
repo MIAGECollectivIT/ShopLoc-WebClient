@@ -11,7 +11,7 @@ import {
   updateStoreAbsence,
   getStoreAbsences,
 } from '@/lib/api';
-import { resolveStoreImageUrl } from '@/lib/image';
+import { resolveStoreImageUrl, compressImageForUpload } from '@/lib/image';
 import {
   STORE_CATEGORIES,
   storeAddressPatchSchema,
@@ -212,7 +212,7 @@ export function MerchantStoreProfileForm({
   }, [initialStore]);
 
   // Handle unit update: General Info
-  const handleSaveGeneral = async (e: React.FormEvent) => {
+  const handleSaveGeneral = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setGeneralError(null);
     setGeneralSuccess(false);
@@ -256,7 +256,7 @@ export function MerchantStoreProfileForm({
   };
 
   // Handle unit update: Address
-  const handleSaveAddress = async (e: React.FormEvent) => {
+  const handleSaveAddress = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setAddressError(null);
     setAddressSuccess(false);
@@ -287,7 +287,7 @@ export function MerchantStoreProfileForm({
   };
 
   // Handle unit update: Storefront photo
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhotoError(null);
     setPhotoSuccess(false);
     const file = e.target.files?.[0];
@@ -311,12 +311,13 @@ export function MerchantStoreProfileForm({
       return;
     }
 
-    setSelectedImageFile(file);
-    const previewUrl = URL.createObjectURL(file);
+    const optimizedFile = await compressImageForUpload(file, { maxDimension: 1600 });
+    setSelectedImageFile(optimizedFile);
+    const previewUrl = URL.createObjectURL(optimizedFile);
     setImagePreviewUrl(previewUrl);
   };
 
-  const handleUploadPhoto = async (e: React.FormEvent) => {
+  const handleUploadPhoto = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!selectedImageFile || !storeUid) return;
 
@@ -388,7 +389,7 @@ export function MerchantStoreProfileForm({
   };
 
   // Section 4 Handler: Save opening hours (standalone)
-  const handleSaveHours = async (e: React.FormEvent) => {
+  const handleSaveHours = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setHoursError(null);
     setHoursSuccess(false);
@@ -466,7 +467,7 @@ export function MerchantStoreProfileForm({
   };
 
   // Section 5 Handler: Save absence (Add or Edit)
-  const handleSaveAbsenceForm = async (e: React.FormEvent) => {
+  const handleSaveAbsenceForm = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setAbsenceError(null);
     setAbsenceSuccess(null);

@@ -1,5 +1,4 @@
 import * as React from 'react';
-import QRCode from 'qrcode';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
@@ -38,15 +37,18 @@ export function ClientQrCodeCard({ clientCode, userName, className }: ClientQrCo
     let isMounted = true;
     setIsLoading(true);
 
-    QRCode.toDataURL(clientCode.trim(), {
-      width: 512,
-      margin: 2,
-      errorCorrectionLevel: 'M',
-      color: {
-        dark: '#0f172a',
-        light: '#ffffff',
-      },
-    })
+    import('qrcode')
+      .then((QRCode) =>
+        QRCode.default.toDataURL(clientCode.trim(), {
+          width: 512,
+          margin: 2,
+          errorCorrectionLevel: 'M',
+          color: {
+            dark: '#0f172a',
+            light: '#ffffff',
+          },
+        })
+      )
       .then((url) => {
         if (isMounted) {
           setQrDataUrl(url);

@@ -28,7 +28,7 @@ export const storeOwnerSelectionSchema = z.object({
     .string()
     .trim()
     .min(1, 'Veuillez sélectionner un utilisateur')
-    .uuid('Identifiant utilisateur invalide'),
+    .pipe(z.uuid('Identifiant utilisateur invalide')),
 });
 
 export type StoreOwnerSelectionValues = z.infer<typeof storeOwnerSelectionSchema>;

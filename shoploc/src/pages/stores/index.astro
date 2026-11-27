@@ -32,7 +32,7 @@ try {
   >
     <div class="flex items-center justify-end pb-2">
       <ButtonWithAuthorization
-        client:only="react"
+        client:idle
         allowedRoles={['ADMIN']}
         fallbackMode="remove"
         href={ROUTES.createStore.path}

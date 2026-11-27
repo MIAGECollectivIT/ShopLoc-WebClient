@@ -1,8 +1,11 @@
 import * as React from 'react';
 import { MainNav } from './MainNav';
 import { ModeToggle } from './ModeToggle';
-import { CartDrawer } from './CartDrawer';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+
+const CartDrawer = React.lazy(() =>
+  import('./CartDrawer').then((m) => ({ default: m.CartDrawer }))
+);
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/config/routes';
@@ -153,7 +156,9 @@ export function Header({ currentPath }: HeaderProps) {
             </>
           )}
 
-          <CartDrawer />
+          <React.Suspense fallback={null}>
+            <CartDrawer />
+          </React.Suspense>
           <ModeToggle />
         </div>
       </div>

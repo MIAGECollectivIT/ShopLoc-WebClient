@@ -230,3 +230,83 @@ export function resolveStoreImageUrl(
 
   return trimmed;
 }
+
+export interface CompressImageOptions {
+  maxDimension?: number;
+  quality?: number;
+}
+
+const SKIP_COMPRESSION_MAX_BYTES = 150 * 1024;
+
+/**
+ * Resizes and compresses raster images client-side to WebP before S3 upload,
+ * dramatically reducing bucket object size and frontend load latency.
+ * Falls back gracefully to the original File if compression is not beneficial or unsupported.
+ */
+export async function compressImageForUpload(
+  file: File,
+  options: CompressImageOptions = {}
+): Promise<File> {
+  const { maxDimension = 1200, quality = 0.82 } = options;
+
+  if (
+    typeof window === 'undefined' ||
+    typeof document === 'undefined' ||
+    file.type === 'image/gif' ||
+    file.type === 'image/svg+xml' ||
+    file.size <= SKIP_COMPRESSION_MAX_BYTES
+  ) {
+    return file;
+  }
+
+  let objectUrl: string | null = null;
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      objectUrl = URL.createObjectURL(file);
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('Image decode failed'));
+      image.src = objectUrl;
+    });
+
+    const srcWidth = img.naturalWidth || img.width;
+    const srcHeight = img.naturalHeight || img.height;
+    if (!srcWidth || !srcHeight) {
+      return file;
+    }
+
+    const scale = Math.min(1, maxDimension / Math.max(srcWidth, srcHeight));
+    const targetWidth = Math.max(1, Math.round(srcWidth * scale));
+    const targetHeight = Math.max(1, Math.round(srcHeight * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return file;
+    }
+
+    ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+    const compressedBlob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), 'image/webp', quality);
+    });
+
+    if (!compressedBlob || compressedBlob.size >= file.size) {
+      return file;
+    }
+
+    const baseName = file.name.replace(/\.[^.]+$/, '') || 'image';
+    return new File([compressedBlob], `${baseName}.webp`, {
+      type: 'image/webp',
+      lastModified: Date.now(),
+    });
+  } catch {
+    return file;
+  } finally {
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+}

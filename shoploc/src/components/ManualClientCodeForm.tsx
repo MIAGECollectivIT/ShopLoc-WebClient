@@ -38,7 +38,7 @@ export function ManualClientCodeForm({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const parseResult = clientCodeSchema.safeParse(code);
